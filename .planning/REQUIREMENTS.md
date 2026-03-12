@@ -9,7 +9,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Xenia Lifecycle
 
-- [ ] **XEN-01**: User can choose where the manager stores Xenia, related data, and library metadata.
+- [x] **XEN-01**: User can choose where the manager stores Xenia, related data, and library metadata.
 - [ ] **XEN-02**: User can download and extract the Linux Xenia Canary release through a guided one-click setup flow.
 - [ ] **XEN-03**: User can see the installed Xenia version and update it to a newer Linux release from inside the app.
 - [ ] **XEN-04**: User can retry a failed or interrupted Xenia install/update without the app being left in a broken state.
@@ -88,7 +88,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| XEN-01 | Phase 1 | Pending |
+| XEN-01 | Phase 1 | Complete |
 | APP-01 | Phase 1 | Pending |
 | XEN-02 | Phase 2 | Pending |
 | XEN-03 | Phase 2 | Pending |
