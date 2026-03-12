@@ -1,0 +1,67 @@
+.status-bar {
+  padding: 12px 16px 16px;
+  border-top: 1px solid var(--color-border);
+  margin-top: auto;
+}
+
+.status-bar__header {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+}
+
+.status-bar__items {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.status-bar__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--font-size-xs);
+}
+
+.status-bar__indicator {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status-bar__indicator--idle {
+  background-color: var(--color-text-muted);
+}
+
+.status-bar__indicator--active {
+  background-color: var(--color-accent);
+}
+
+.status-bar__indicator--success {
+  background-color: var(--color-success);
+}
+
+.status-bar__indicator--warning {
+  background-color: var(--color-warning);
+}
+
+.status-bar__indicator--error {
+  background-color: var(--color-error);
+}
+
+.status-bar__label {
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.status-bar__value {
+  color: var(--color-text-muted);
+  margin-left: auto;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

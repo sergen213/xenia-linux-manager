@@ -31,6 +31,39 @@ export function DashboardHome() {
       </div>
 
       <section className="dashboard__section">
+        <h3 className="dashboard__section-title">Getting Started</h3>
+        <div className="dashboard__steps">
+          <div className="dashboard__step">
+            <span className="dashboard__step-number">1</span>
+            <div>
+              <p className="dashboard__step-title">Configure paths</p>
+              <p className="dashboard__step-desc">
+                Set where Xenia and your game library live on disk.
+              </p>
+            </div>
+          </div>
+          <div className="dashboard__step">
+            <span className="dashboard__step-number">2</span>
+            <div>
+              <p className="dashboard__step-title">Install Xenia</p>
+              <p className="dashboard__step-desc">
+                Download and extract the Linux Canary build.
+              </p>
+            </div>
+          </div>
+          <div className="dashboard__step">
+            <span className="dashboard__step-number">3</span>
+            <div>
+              <p className="dashboard__step-title">Add your games</p>
+              <p className="dashboard__step-desc">
+                Point the manager at your game folders to build your library.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="dashboard__section">
         <h3 className="dashboard__section-title">Recent Activity</h3>
         <div className="dashboard__empty-state">
           <p>No activity yet. Set up your paths in Settings to get started.</p>

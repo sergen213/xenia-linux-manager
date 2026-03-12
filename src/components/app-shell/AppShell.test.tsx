@@ -50,9 +50,25 @@ describe("AppShell", () => {
       </AppShell>,
     );
 
-    expect(screen.getByText("Dashboard")).toBeInTheDocument();
-    expect(screen.getByText("Library")).toBeInTheDocument();
-    expect(screen.getByText("Tasks")).toBeInTheDocument();
-    expect(screen.getByText("Settings")).toBeInTheDocument();
+    const nav = screen.getByRole("navigation", { name: /main navigation/i });
+    const labels = Array.from(
+      nav.querySelectorAll(".sidebar__label"),
+    ).map((el) => el.textContent);
+    expect(labels).toContain("Dashboard");
+    expect(labels).toContain("Library");
+    expect(labels).toContain("Tasks");
+    expect(labels).toContain("Settings");
+  });
+
+  it("renders the system status surface", () => {
+    renderWithRouter(
+      <AppShell>
+        <div>Content</div>
+      </AppShell>,
+    );
+
+    expect(
+      screen.getByRole("status", { name: /system status/i }),
+    ).toBeInTheDocument();
   });
 });

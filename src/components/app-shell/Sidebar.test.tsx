@@ -15,14 +15,18 @@ describe("Sidebar", () => {
   it("renders navigation links for all sections", () => {
     renderSidebar();
 
-    const links = screen.getAllByRole("link");
+    const nav = screen.getByRole("navigation", { name: /main navigation/i });
+    const links = nav.querySelectorAll("a");
     expect(links.length).toBeGreaterThanOrEqual(4);
 
-    // Link textContent includes icon characters, so check labels via getByText
-    expect(screen.getByText("Dashboard")).toBeInTheDocument();
-    expect(screen.getByText("Library")).toBeInTheDocument();
-    expect(screen.getByText("Tasks")).toBeInTheDocument();
-    expect(screen.getByText("Settings")).toBeInTheDocument();
+    // Check nav link labels within the navigation region
+    const labels = Array.from(
+      nav.querySelectorAll(".sidebar__label"),
+    ).map((el) => el.textContent);
+    expect(labels).toContain("Dashboard");
+    expect(labels).toContain("Library");
+    expect(labels).toContain("Tasks");
+    expect(labels).toContain("Settings");
   });
 
   it("marks Dashboard link as active on root route", () => {

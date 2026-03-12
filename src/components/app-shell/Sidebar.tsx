@@ -1,5 +1,6 @@
 import { NavLink } from "react-router-dom";
 import { getSidebarRoutes } from "../../app/router";
+import { StatusBar } from "./StatusBar";
 import "./Sidebar.css";
 
 const iconMap: Record<string, string> = {
@@ -33,6 +34,8 @@ export function Sidebar() {
           </NavLink>
         ))}
       </nav>
+
+      <StatusBar />
     </aside>
   );
 }
