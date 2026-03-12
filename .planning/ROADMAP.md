@@ -34,7 +34,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 3 plans
 
 Plans:
-- [ ] 01-01: Create Tauri/React workspace and Linux desktop shell
+- [x] 01-01: Create Tauri/React workspace and Linux desktop shell
 - [ ] 01-02: Implement settings persistence and filesystem path model
 - [ ] 01-03: Add backend job/progress infrastructure and baseline logging
 
@@ -149,7 +149,7 @@ Phases execute in numeric order: 2 → 2.1 → 2.2 → 3 → 3.1 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. App Foundation and Settings | 0/3 | Not started | - |
+| 1. App Foundation and Settings | 1/3 | In progress | - |
 | 2. Xenia Installation Lifecycle | 0/3 | Not started | - |
 | 3. Library Source Management and Scanning | 0/2 | Not started | - |
 | 4. Library Review and Launch Core | 0/3 | Not started | - |
