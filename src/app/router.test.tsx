@@ -1,18 +1,34 @@
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Routes, Route, Navigate } from "react-router-dom";
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { routes, getSidebarRoutes } from "./router";
+import {
+  SettingsContext,
+  INITIAL_STATE,
+} from "../features/settings/state/settingsStore";
+
+// Mock Tauri invoke
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: vi.fn().mockRejectedValue(new Error("not in tauri")),
+}));
+
+const mockSettingsCtx = {
+  state: { ...INITIAL_STATE, initialized: true },
+  dispatch: vi.fn(),
+};
 
 function renderApp(initialRoute = "/") {
   return render(
-    <MemoryRouter initialEntries={[initialRoute]}>
-      <Routes>
-        {routes.map((route) => (
-          <Route key={route.path} path={route.path} element={route.element} />
-        ))}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </MemoryRouter>,
+    <SettingsContext value={mockSettingsCtx}>
+      <MemoryRouter initialEntries={[initialRoute]}>
+        <Routes>
+          {routes.map((route) => (
+            <Route key={route.path} path={route.path} element={route.element} />
+          ))}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </MemoryRouter>
+    </SettingsContext>,
   );
 }
 
@@ -54,8 +70,12 @@ describe("router", () => {
   it("renders Settings page at /settings", () => {
     renderApp("/settings");
     expect(screen.getByText("Settings")).toBeInTheDocument();
+    // Settings page renders subtitle and shows empty state when no settings loaded
     expect(
       screen.getByText("Configure paths, preferences, and app behavior"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Settings have not been loaded yet."),
     ).toBeInTheDocument();
   });
 

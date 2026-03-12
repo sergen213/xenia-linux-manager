@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useSettings } from "./state/settingsStore";
 import { EditPathsDialog } from "./components/EditPathsDialog";
-import { PATH_FIELDS } from "./model/settingsSchema";
+import { PATH_FIELDS, getPathValue } from "./model/settingsSchema";
 import "./SettingsPage.css";
 
 export function SettingsPage() {
@@ -37,7 +37,7 @@ export function SettingsPage() {
                   {field.label}
                 </span>
                 <span className="settings-page__path-value">
-                  {(settings as Record<string, unknown>)[field.key] as string}
+                  {getPathValue(settings, field.key)}
                 </span>
               </div>
             ))}

@@ -4,6 +4,7 @@ import { routes } from "./app/router";
 import { SettingsProvider } from "./features/settings/state/SettingsProvider";
 import { FirstRunSetup } from "./features/settings/components/FirstRunSetup";
 import { useSettings } from "./features/settings/state/settingsStore";
+import { useRouteRestore } from "./features/settings/state/useRouteRestore";
 
 function AppContent() {
   const { state } = useSettings();
@@ -17,6 +18,13 @@ function AppContent() {
   if (!state.settings?.setup_complete) {
     return <FirstRunSetup />;
   }
+
+  return <MainShell />;
+}
+
+/** Separated so useRouteRestore only runs when setup is complete. */
+function MainShell() {
+  useRouteRestore();
 
   return (
     <AppShell>

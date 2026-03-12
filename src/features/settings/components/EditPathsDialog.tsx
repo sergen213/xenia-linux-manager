@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSettings } from "../state/settingsStore";
 import { saveSettings, validatePaths } from "../api/settingsClient";
-import { PATH_FIELDS } from "../model/settingsSchema";
+import { PATH_FIELDS, getPathValue } from "../model/settingsSchema";
 import type { AppSettings, SettingsValidation } from "../model/settingsSchema";
 import "./EditPathsDialog.css";
 
@@ -57,9 +57,7 @@ export function EditPathsDialog({ open, onClose }: EditPathsDialogProps) {
 
   const changedFields = draft && settings
     ? PATH_FIELDS.filter(
-        (f) =>
-          (draft as Record<string, unknown>)[f.key] !==
-          (settings as Record<string, unknown>)[f.key],
+        (f) => getPathValue(draft, f.key) !== getPathValue(settings, f.key),
       )
     : [];
 
@@ -132,7 +130,7 @@ export function EditPathsDialog({ open, onClose }: EditPathsDialogProps) {
                   id={`edit-${field.key}`}
                   className="edit-paths__input"
                   type="text"
-                  value={(draft as Record<string, unknown>)[field.key] as string}
+                  value={getPathValue(draft, field.key)}
                   onChange={(e) => handleChange(field.key, e.target.value)}
                   aria-invalid={isInvalid ? "true" : undefined}
                 />
@@ -155,9 +153,9 @@ export function EditPathsDialog({ open, onClose }: EditPathsDialogProps) {
               {changedFields.map((f) => (
                 <li key={f.key}>
                   <strong>{f.label}:</strong>{" "}
-                  {(settings as Record<string, unknown>)[f.key] as string}
+                  {settings ? getPathValue(settings, f.key) : ""}
                   {" -> "}
-                  {(draft as Record<string, unknown>)[f.key] as string}
+                  {getPathValue(draft, f.key)}
                 </li>
               ))}
             </ul>

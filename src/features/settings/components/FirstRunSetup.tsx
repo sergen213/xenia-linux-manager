@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { useSettings } from "../state/settingsStore";
 import { saveSettings, validatePaths } from "../api/settingsClient";
-import { PATH_FIELDS } from "../model/settingsSchema";
+import { PATH_FIELDS, getPathValue } from "../model/settingsSchema";
 import type { AppSettings } from "../model/settingsSchema";
 import "./FirstRunSetup.css";
 
@@ -95,7 +95,7 @@ export function FirstRunSetup() {
                   id={`path-${field.key}`}
                   className="first-run__path-input"
                   type="text"
-                  value={(settings as Record<string, unknown>)[field.key] as string}
+                  value={getPathValue(settings, field.key)}
                   onChange={(e) => handlePathChange(field.key, e.target.value)}
                   aria-invalid={isInvalid ? "true" : undefined}
                   aria-describedby={

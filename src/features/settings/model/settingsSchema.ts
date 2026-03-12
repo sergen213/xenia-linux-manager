@@ -47,3 +47,8 @@ export const PATH_FIELDS = [
 
 export type PathFieldKey = (typeof PATH_FIELDS)[number]["key"];
 export type ValidationKey = (typeof PATH_FIELDS)[number]["validationKey"];
+
+/** Type-safe accessor for path fields on AppSettings. */
+export function getPathValue(settings: AppSettings, key: PathFieldKey): string {
+  return settings[key];
+}
