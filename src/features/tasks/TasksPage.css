@@ -1,0 +1,28 @@
+.tasks-page {
+  max-width: 960px;
+}
+
+.tasks-page__header {
+  margin-bottom: 24px;
+}
+
+.tasks-page__title {
+  font-size: var(--font-size-xl);
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.tasks-page__subtitle {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.tasks-page__empty-state {
+  background-color: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 32px;
+  text-align: center;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
