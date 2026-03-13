@@ -49,7 +49,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Application
 
-- [ ] **APP-01**: User can see progress for downloads, scans, and save operations without the UI freezing.
+- [x] **APP-01**: User can see progress for downloads, scans, and save operations without the UI freezing.
 - [ ] **APP-02**: User can run the released manager as an AppImage on supported Linux desktop systems.
 
 ## v2 Requirements
@@ -89,7 +89,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | XEN-01 | Phase 1 | Complete |
-| APP-01 | Phase 1 | Pending |
+| APP-01 | Phase 1 | Complete |
 | XEN-02 | Phase 2 | Pending |
 | XEN-03 | Phase 2 | Pending |
 | XEN-04 | Phase 2 | Pending |
