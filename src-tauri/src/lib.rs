@@ -23,8 +23,15 @@ pub fn run() {
             jobs_commands::get_task_history,
             jobs_commands::clear_task_history,
             xenia_commands::fetch_latest_release,
+            xenia_commands::get_install_status,
             xenia_commands::check_for_update,
+            xenia_commands::check_for_update_auto,
             xenia_commands::start_install,
+            xenia_commands::start_update,
+            xenia_commands::retry_last_operation,
+            xenia_commands::clear_install_failure,
+            xenia_commands::cleanup_install_artifacts,
+            xenia_commands::remove_xenia_install,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
