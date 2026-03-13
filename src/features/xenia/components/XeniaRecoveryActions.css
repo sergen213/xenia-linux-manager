@@ -1,0 +1,106 @@
+.xenia-recovery {
+  background-color: var(--color-bg-card);
+  border: 1px solid var(--color-danger, #ef4444);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.xenia-recovery__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.xenia-recovery__title {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-danger, #ef4444);
+}
+
+.xenia-recovery__details-toggle {
+  background: none;
+  border: none;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+}
+
+.xenia-recovery__details-toggle:hover {
+  color: var(--color-text-primary);
+}
+
+.xenia-recovery__summary {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  margin-bottom: 12px;
+  word-break: break-word;
+}
+
+.xenia-recovery__details {
+  background-color: var(--color-bg-hover);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.xenia-recovery__detail-list {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  font-size: var(--font-size-xs);
+}
+
+.xenia-recovery__detail-list dt {
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.xenia-recovery__detail-list dd {
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.xenia-recovery__actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.xenia-recovery__action-btn {
+  padding: 6px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.xenia-recovery__action-btn:hover:not(:disabled) {
+  background-color: var(--color-bg-hover);
+}
+
+.xenia-recovery__action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.xenia-recovery__action-btn--remove {
+  border-color: var(--color-danger, #ef4444);
+  color: var(--color-danger, #ef4444);
+}
+
+.xenia-recovery__action-btn--remove:hover:not(:disabled) {
+  background-color: rgba(239, 68, 68, 0.1);
+}
+
+.xenia-recovery__hint {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  font-style: italic;
+}
