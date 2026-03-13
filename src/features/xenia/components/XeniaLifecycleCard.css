@@ -1,0 +1,106 @@
+.xenia-card {
+  background-color: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+}
+
+.xenia-card--failed {
+  border-color: var(--color-danger, #ef4444);
+}
+
+.xenia-card__title {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+}
+
+.xenia-card__value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin-bottom: 4px;
+}
+
+.xenia-card__status {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  margin-bottom: 8px;
+}
+
+.xenia-card__details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 8px;
+}
+
+.xenia-card__detail {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.xenia-card__update-notice {
+  font-size: var(--font-size-sm);
+  color: var(--color-accent);
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.xenia-card__failure-summary {
+  font-size: var(--font-size-xs);
+  color: var(--color-danger, #ef4444);
+  margin-bottom: 8px;
+  word-break: break-word;
+}
+
+.xenia-card__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.xenia-card__primary-btn {
+  padding: 6px 16px;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--color-text-primary);
+  background-color: var(--color-accent);
+  transition: opacity 0.15s;
+}
+
+.xenia-card__primary-btn:hover {
+  opacity: 0.85;
+}
+
+.xenia-card__primary-btn--retry {
+  background-color: var(--color-warning, #f59e0b);
+}
+
+.xenia-card__secondary-btn {
+  padding: 6px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.xenia-card__secondary-btn:hover {
+  background-color: var(--color-bg-hover);
+}
+
+.xenia-card__checking {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  font-style: italic;
+}

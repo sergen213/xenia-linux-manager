@@ -1,5 +1,6 @@
 import { useTasks } from "../tasks/state/tasksStore";
 import { TaskStatusStrip } from "../tasks/components/TaskStatusStrip";
+import { XeniaLifecycleCard } from "../xenia/components/XeniaLifecycleCard";
 import "./DashboardHome.css";
 
 export function DashboardHome() {
@@ -21,11 +22,7 @@ export function DashboardHome() {
           <p className="dashboard__card-label">Games detected</p>
         </div>
 
-        <div className="dashboard__card">
-          <h3 className="dashboard__card-title">Xenia</h3>
-          <p className="dashboard__card-value">--</p>
-          <p className="dashboard__card-label">Not installed</p>
-        </div>
+        <XeniaLifecycleCard />
 
         <div className="dashboard__card">
           <h3 className="dashboard__card-title">Tasks</h3>
@@ -33,39 +30,6 @@ export function DashboardHome() {
           <p className="dashboard__card-label">Active tasks</p>
         </div>
       </div>
-
-      <section className="dashboard__section">
-        <h3 className="dashboard__section-title">Getting Started</h3>
-        <div className="dashboard__steps">
-          <div className="dashboard__step">
-            <span className="dashboard__step-number">1</span>
-            <div>
-              <p className="dashboard__step-title">Configure paths</p>
-              <p className="dashboard__step-desc">
-                Set where Xenia and your game library live on disk.
-              </p>
-            </div>
-          </div>
-          <div className="dashboard__step">
-            <span className="dashboard__step-number">2</span>
-            <div>
-              <p className="dashboard__step-title">Install Xenia</p>
-              <p className="dashboard__step-desc">
-                Download and extract the Linux Canary build.
-              </p>
-            </div>
-          </div>
-          <div className="dashboard__step">
-            <span className="dashboard__step-number">3</span>
-            <div>
-              <p className="dashboard__step-title">Add your games</p>
-              <p className="dashboard__step-desc">
-                Point the manager at your game folders to build your library.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
 
       <section className="dashboard__section">
         <h3 className="dashboard__section-title">Task Activity</h3>

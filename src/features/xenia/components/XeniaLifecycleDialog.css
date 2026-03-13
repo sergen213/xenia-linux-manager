@@ -1,0 +1,208 @@
+.xenia-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.xenia-dialog {
+  background-color: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  max-width: 480px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.xenia-dialog__title {
+  font-size: var(--font-size-lg, 1.125rem);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin-bottom: 16px;
+}
+
+.xenia-dialog__title--error {
+  color: var(--color-danger, #ef4444);
+}
+
+.xenia-dialog__release-info {
+  background-color: var(--color-bg-hover);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  margin-bottom: 16px;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.xenia-dialog__release-info p {
+  margin-bottom: 4px;
+}
+
+.xenia-dialog__release-info p:last-child {
+  margin-bottom: 0;
+}
+
+.xenia-dialog__release-info strong {
+  color: var(--color-text-primary);
+}
+
+.xenia-dialog__failure-context {
+  background-color: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  margin-bottom: 16px;
+}
+
+.xenia-dialog__failure-label {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--color-danger, #ef4444);
+  margin-bottom: 4px;
+}
+
+.xenia-dialog__failure-error {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  margin-bottom: 4px;
+  word-break: break-word;
+}
+
+.xenia-dialog__failure-step {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.xenia-dialog__confirm-text {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+
+.xenia-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.xenia-dialog__cancel-btn {
+  padding: 8px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.xenia-dialog__cancel-btn:hover {
+  background-color: var(--color-bg-hover);
+}
+
+.xenia-dialog__confirm-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: var(--radius-md);
+  background-color: var(--color-accent);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.xenia-dialog__confirm-btn:hover {
+  opacity: 0.85;
+}
+
+.xenia-dialog__progress-text {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin-bottom: 16px;
+}
+
+.xenia-dialog__spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid var(--color-border);
+  border-top-color: var(--color-accent);
+  border-radius: 50%;
+  animation: xenia-spin 0.8s linear infinite;
+  margin: 0 auto;
+}
+
+@keyframes xenia-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.xenia-dialog__success-text {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+
+.xenia-dialog__next-steps {
+  background-color: var(--color-bg-hover);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  margin-bottom: 16px;
+}
+
+.xenia-dialog__next-title {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin-bottom: 8px;
+}
+
+.xenia-dialog__next-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.xenia-dialog__next-list li {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  padding: 4px 0;
+  padding-left: 16px;
+  position: relative;
+}
+
+.xenia-dialog__next-list li::before {
+  content: "\2022";
+  position: absolute;
+  left: 4px;
+  color: var(--color-accent);
+}
+
+.xenia-dialog__job-id {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  margin-bottom: 16px;
+}
+
+.xenia-dialog__job-id code {
+  font-family: monospace;
+  background-color: var(--color-bg-hover);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm, 4px);
+}
+
+.xenia-dialog__error-text {
+  font-size: var(--font-size-sm);
+  color: var(--color-danger, #ef4444);
+  margin-bottom: 16px;
+  word-break: break-word;
+  line-height: 1.5;
+}
