@@ -49,7 +49,7 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 02-01: Build release metadata fetch, download, and archive extraction pipeline
+- [x] 02-01: Build release metadata fetch, download, and archive extraction pipeline
 - [ ] 02-02: Implement installed-build tracking, update checks, and retry-safe promotion
 - [ ] 02-03: Add install/update UI, progress reporting, and recovery handling
 
@@ -150,7 +150,7 @@ Phases execute in numeric order: 2 → 2.1 → 2.2 → 3 → 3.1 → 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. App Foundation and Settings | 3/3 | Complete   | 2026-03-13 |
-| 2. Xenia Installation Lifecycle | 0/3 | Not started | - |
+| 2. Xenia Installation Lifecycle | 1/3 | In progress | - |
 | 3. Library Source Management and Scanning | 0/2 | Not started | - |
 | 4. Library Review and Launch Core | 0/3 | Not started | - |
 | 5. Patch Management | 0/2 | Not started | - |
