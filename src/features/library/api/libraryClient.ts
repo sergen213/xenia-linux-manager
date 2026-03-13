@@ -10,6 +10,7 @@ import type {
   AddSourceResult,
   LibrarySource,
   LibraryStatus,
+  SourceCatalog,
 } from "../model/libraryTypes";
 
 /** Add a new library source folder. */
@@ -79,6 +80,26 @@ export async function getLibraryStatus(
   libraryMetadataPath: string,
 ): Promise<LibraryStatus> {
   return invoke<LibraryStatus>("get_library_status", {
+    libraryMetadataPath,
+  });
+}
+
+/** Get scan results catalog for a single source. */
+export async function getSourceCatalog(
+  libraryMetadataPath: string,
+  sourceId: string,
+): Promise<SourceCatalog> {
+  return invoke<SourceCatalog>("get_source_catalog", {
+    libraryMetadataPath,
+    sourceId,
+  });
+}
+
+/** Get scan results catalogs for all registered sources. */
+export async function getAllCatalogs(
+  libraryMetadataPath: string,
+): Promise<SourceCatalog[]> {
+  return invoke<SourceCatalog[]>("get_all_catalogs", {
     libraryMetadataPath,
   });
 }

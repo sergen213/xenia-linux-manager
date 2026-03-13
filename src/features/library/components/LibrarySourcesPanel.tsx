@@ -6,7 +6,6 @@ import {
   removeLibrarySource,
   startSourceScan,
   scanAllSources,
-  cancelScan,
   getLibraryStatus,
 } from "../api/libraryClient";
 import type { LibrarySource } from "../model/libraryTypes";
@@ -19,7 +18,6 @@ export function LibrarySourcesPanel() {
   const [adding, setAdding] = useState(false);
 
   const libPath = settingsState.settings?.library_metadata_path ?? "";
-  const appDataPath = settingsState.settings?.app_data_path ?? "";
 
   const refreshStatus = useCallback(async () => {
     if (!libPath) return;

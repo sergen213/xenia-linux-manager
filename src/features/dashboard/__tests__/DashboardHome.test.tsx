@@ -16,13 +16,18 @@ import {
   INITIAL_STATE as INITIAL_SETTINGS_STATE,
   type SettingsContextValue,
 } from "../../settings/state/settingsStore";
+import {
+  LibraryContext,
+  INITIAL_LIBRARY_STATE,
+  type LibraryContextValue,
+} from "../../library/state/libraryStore";
 
 // Mock the Tauri invoke calls
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(),
 }));
 
-function renderDashboard() {
+function renderDashboard(libraryOverrides: Partial<typeof INITIAL_LIBRARY_STATE> = {}) {
   const settingsCtx: SettingsContextValue = {
     state: {
       ...INITIAL_SETTINGS_STATE,
@@ -45,12 +50,18 @@ function renderDashboard() {
     state: INITIAL_XENIA_STATE,
     dispatch: vi.fn(),
   };
+  const libraryCtx: LibraryContextValue = {
+    state: { ...INITIAL_LIBRARY_STATE, initialized: true, ...libraryOverrides },
+    dispatch: vi.fn(),
+  };
 
   render(
     <SettingsContext value={settingsCtx}>
       <TasksContext value={tasksCtx}>
         <XeniaContext value={xeniaCtx}>
-          <DashboardHome />
+          <LibraryContext value={libraryCtx}>
+            <DashboardHome />
+          </LibraryContext>
         </XeniaContext>
       </TasksContext>
     </SettingsContext>,
@@ -81,5 +92,47 @@ describe("DashboardHome", () => {
   it("shows task activity section", () => {
     renderDashboard();
     expect(screen.getByText("Task Activity")).toBeInTheDocument();
+  });
+
+  it("shows zero games when no catalogs", () => {
+    renderDashboard();
+    expect(screen.getByText("Games detected")).toBeInTheDocument();
+    // Both Library and Tasks cards show "0", so use getAllByText
+    const zeros = screen.getAllByText("0");
+    expect(zeros.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("shows game count from catalogs", () => {
+    renderDashboard({
+      sources: [
+        {
+          id: "src-1",
+          root_path: "/games",
+          label: "Games",
+          created_at: 1000,
+          updated_at: 1000,
+          last_scan_summary: null,
+        },
+      ],
+      catalogs: [
+        {
+          source_id: "src-1",
+          candidates: [],
+          last_scan_summary: {
+            found: 15,
+            duplicates: 2,
+            warnings: 0,
+            skipped: 0,
+            errors: 0,
+            status: "completed",
+            completed_at: 2000,
+            was_cancelled: false,
+          },
+        },
+      ],
+    });
+    expect(screen.getByText("15")).toBeInTheDocument();
+    expect(screen.getByText(/1 source/)).toBeInTheDocument();
+    expect(screen.getByText(/Last scan: completed/)).toBeInTheDocument();
   });
 });

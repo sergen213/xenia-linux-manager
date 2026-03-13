@@ -8,6 +8,7 @@ import { createContext, useContext } from "react";
 import type {
   LibrarySource,
   NestedSourceWarning,
+  SourceCatalog,
 } from "../model/libraryTypes";
 
 // ---------------------------------------------------------------------------
@@ -29,6 +30,8 @@ export interface LibraryState {
   initialized: boolean;
   /** Nested-source warnings from the most recent add operation. */
   lastWarnings: NestedSourceWarning[];
+  /** Persisted scan catalogs for all sources. */
+  catalogs: SourceCatalog[];
 }
 
 export const INITIAL_LIBRARY_STATE: LibraryState = {
@@ -39,6 +42,7 @@ export const INITIAL_LIBRARY_STATE: LibraryState = {
   error: null,
   initialized: false,
   lastWarnings: [],
+  catalogs: [],
 };
 
 // ---------------------------------------------------------------------------
@@ -60,7 +64,8 @@ export type LibraryAction =
   | { type: "SCAN_FINISHED"; sources: LibrarySource[]; activeScans: number; queuedScans: number }
   | { type: "SET_ERROR"; error: string }
   | { type: "CLEAR_ERROR" }
-  | { type: "CLEAR_WARNINGS" };
+  | { type: "CLEAR_WARNINGS" }
+  | { type: "CATALOGS_LOADED"; catalogs: SourceCatalog[] };
 
 // ---------------------------------------------------------------------------
 // Reducer
@@ -126,6 +131,9 @@ export function libraryReducer(
 
     case "CLEAR_WARNINGS":
       return { ...state, lastWarnings: [] };
+
+    case "CATALOGS_LOADED":
+      return { ...state, catalogs: action.catalogs };
 
     default:
       return state;

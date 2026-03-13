@@ -17,6 +17,10 @@
   font-size: var(--font-size-sm);
 }
 
+.library-page__section {
+  margin-top: 20px;
+}
+
 .library-page__empty-state {
   background-color: var(--color-bg-card);
   border: 1px solid var(--color-border);

@@ -52,6 +52,12 @@
   color: var(--color-text-secondary);
 }
 
+.dashboard__card-meta {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  margin-top: 4px;
+}
+
 .dashboard__section {
   margin-bottom: 24px;
 }

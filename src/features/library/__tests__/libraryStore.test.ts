@@ -157,6 +157,31 @@ describe("libraryReducer", () => {
     expect(next.lastWarnings).toEqual([]);
   });
 
+  it("CATALOGS_LOADED stores catalogs", () => {
+    const catalogs = [
+      {
+        source_id: "src-1",
+        candidates: [],
+        last_scan_summary: {
+          found: 5,
+          duplicates: 1,
+          warnings: 0,
+          skipped: 0,
+          errors: 0,
+          status: "completed",
+          completed_at: 3000,
+          was_cancelled: false,
+        },
+      },
+    ];
+    const next = libraryReducer(INITIAL_LIBRARY_STATE, {
+      type: "CATALOGS_LOADED",
+      catalogs,
+    });
+    expect(next.catalogs).toEqual(catalogs);
+    expect(next.catalogs).toHaveLength(1);
+  });
+
   it("unknown action returns state unchanged", () => {
     const state = { ...INITIAL_LIBRARY_STATE, initialized: true };
     const next = libraryReducer(state, { type: "UNKNOWN" } as any);

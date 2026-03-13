@@ -14,7 +14,7 @@ import "./TasksPage.css";
 
 export function TasksPage() {
   const { state, dispatch } = useTasks();
-  const { state: xeniaState } = useXenia();
+  const { state: _xeniaState } = useXenia();
   const { state: settingsState } = useSettings();
   const running = selectRunningJobs(state);
   const history = selectHistoryJobs(state);

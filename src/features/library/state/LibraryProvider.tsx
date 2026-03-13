@@ -5,7 +5,7 @@ import {
   INITIAL_LIBRARY_STATE,
 } from "./libraryStore";
 import { useSettings } from "../../settings/state/settingsStore";
-import { getLibraryStatus } from "../api/libraryClient";
+import { getLibraryStatus, getAllCatalogs } from "../api/libraryClient";
 
 interface LibraryProviderProps {
   children: ReactNode;
@@ -26,9 +26,8 @@ export function LibraryProvider({ children }: LibraryProviderProps) {
     async function init() {
       dispatch({ type: "LOAD_START" });
       try {
-        const status = await getLibraryStatus(
-          settingsState.settings!.library_metadata_path,
-        );
+        const libPath = settingsState.settings!.library_metadata_path;
+        const status = await getLibraryStatus(libPath);
         if (cancelled) return;
         dispatch({
           type: "LOAD_SUCCESS",
@@ -36,6 +35,15 @@ export function LibraryProvider({ children }: LibraryProviderProps) {
           activeScans: status.active_scans,
           queuedScans: status.queued_scans,
         });
+        // Load catalogs after status
+        try {
+          const catalogs = await getAllCatalogs(libPath);
+          if (!cancelled) {
+            dispatch({ type: "CATALOGS_LOADED", catalogs });
+          }
+        } catch {
+          // Catalogs are best-effort; status already loaded
+        }
       } catch (err) {
         if (cancelled) return;
         // Outside Tauri (dev mode), initialize with empty state
