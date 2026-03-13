@@ -1,6 +1,10 @@
+import { useTasks } from "../tasks/state/tasksStore";
+import { TaskStatusStrip } from "../tasks/components/TaskStatusStrip";
 import "./DashboardHome.css";
 
 export function DashboardHome() {
+  const { state: tasksState } = useTasks();
+
   return (
     <div className="dashboard">
       <header className="dashboard__header">
@@ -61,6 +65,11 @@ export function DashboardHome() {
             </div>
           </div>
         </div>
+      </section>
+
+      <section className="dashboard__section">
+        <h3 className="dashboard__section-title">Task Activity</h3>
+        <TaskStatusStrip state={tasksState} />
       </section>
 
       <section className="dashboard__section">
