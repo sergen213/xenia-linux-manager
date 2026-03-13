@@ -11,7 +11,7 @@
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 
 use crate::jobs::events;
 use crate::jobs::store;
@@ -219,7 +219,19 @@ async fn run_scan_job(
         return;
     }
 
-    update_progress(app, registry, job_id, 50, "Scanning files...");
+    update_progress(app, registry, job_id, 10, "Collecting existing catalog paths...");
+
+    // Collect existing candidate paths across all sources for duplicate detection.
+    let all_sources = sources::list_sources(library_metadata_path);
+    let other_source_ids: Vec<String> = all_sources
+        .iter()
+        .filter(|s| s.id != source_id)
+        .map(|s| s.id.clone())
+        .collect();
+    let existing_paths =
+        crate::library::catalog::collect_existing_paths(library_metadata_path, &other_source_ids);
+
+    update_progress(app, registry, job_id, 20, "Scanning files...");
     log_and_emit(
         app,
         registry,
@@ -228,21 +240,79 @@ async fn run_scan_job(
         LogLevel::Info,
     );
 
-    // Placeholder: actual discovery will be added in plan 03-02.
-    // For now, complete the scan successfully with zero results.
-    let summary = sources::ScanSummarySnapshot {
-        found: 0,
-        duplicates: 0,
-        warnings: 0,
-        skipped: 0,
-        status: "completed".into(),
-        completed_at: crate::jobs::Job::new(String::new(), String::new(), String::new()).created_at,
-    };
-    let _ = sources::update_scan_summary(library_metadata_path, source_id, summary);
+    // Run the discovery engine with cancellation support.
+    let job_id_owned = job_id.to_string();
+    let coordinator_ref = app.try_state::<std::sync::Arc<ScanCoordinator>>();
+    let results = crate::library::discovery::discover_candidates(
+        &source.root_path,
+        source_id,
+        &existing_paths,
+        || {
+            coordinator_ref
+                .as_ref()
+                .map(|c| c.is_cancelled(&job_id_owned))
+                .unwrap_or(false)
+        },
+    );
 
-    update_progress(app, registry, job_id, 100, "Scan complete");
-    log_and_emit(app, registry, job_id, "Scan completed (discovery pending plan 03-02)", LogLevel::Info);
-    complete_job(app, registry, job_id);
+    update_progress(app, registry, job_id, 80, "Persisting results...");
+
+    // Log discovery statistics.
+    log_and_emit(
+        app,
+        registry,
+        job_id,
+        &format!(
+            "Discovery: {} found, {} duplicates, {} warnings, {} skipped, {} errors{}",
+            results.found_count,
+            results.duplicate_count,
+            results.warning_count,
+            results.skipped_count,
+            results.errors.len(),
+            if results.was_cancelled { " (cancelled)" } else { "" },
+        ),
+        LogLevel::Info,
+    );
+
+    // Log individual errors as warnings.
+    for err_msg in &results.errors {
+        log_and_emit(app, registry, job_id, &format!("Scan error: {err_msg}"), LogLevel::Warn);
+    }
+
+    // Persist results to catalog.
+    match crate::library::catalog::persist_discovery_results(library_metadata_path, &results) {
+        Ok(catalog_summary) => {
+            // Update the lightweight snapshot on the source entry.
+            let snapshot = crate::library::catalog::to_source_snapshot(&catalog_summary);
+            let _ = sources::update_scan_summary(library_metadata_path, source_id, snapshot);
+
+            update_progress(app, registry, job_id, 100, "Scan complete");
+            log_and_emit(
+                app,
+                registry,
+                job_id,
+                &format!("Scan finished: {}", catalog_summary.status),
+                LogLevel::Info,
+            );
+
+            if results.was_cancelled {
+                // Mark as failed with cancellation reason but keep persisted results.
+                fail_job(app, registry, job_id, "Cancelled by user (partial results preserved)");
+            } else {
+                complete_job(app, registry, job_id);
+            }
+        }
+        Err(persist_err) => {
+            log_and_emit(
+                app,
+                registry,
+                job_id,
+                &format!("Failed to persist scan results: {persist_err}"),
+                LogLevel::Error,
+            );
+            fail_job(app, registry, job_id, &format!("Catalog persistence error: {persist_err}"));
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------

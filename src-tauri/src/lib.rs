@@ -42,6 +42,8 @@ pub fn run() {
             library_commands::scan_all_sources,
             library_commands::cancel_scan,
             library_commands::get_library_status,
+            library_commands::get_source_catalog,
+            library_commands::get_all_catalogs,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

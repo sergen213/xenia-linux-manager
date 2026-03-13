@@ -10,6 +10,7 @@ use tauri::{AppHandle, State};
 use crate::jobs::events;
 use crate::jobs::store;
 use crate::jobs::{JobRegistry, LogLevel};
+use crate::library::catalog;
 use crate::library::scan_jobs::{self, ScanCoordinator};
 use crate::library::sources;
 
@@ -183,6 +184,33 @@ pub struct LibraryStatus {
     pub sources: Vec<sources::LibrarySource>,
     pub active_scans: usize,
     pub queued_scans: usize,
+}
+
+// ---------------------------------------------------------------------------
+// Catalog commands
+// ---------------------------------------------------------------------------
+
+/// Get scan results catalog for a single source.
+///
+/// Returns persisted candidates and scan summary for the specified source.
+#[tauri::command]
+pub fn get_source_catalog(
+    library_metadata_path: String,
+    source_id: String,
+) -> catalog::SourceCatalog {
+    catalog::load_catalog(&library_metadata_path, &source_id)
+}
+
+/// Get scan results catalogs for all registered sources.
+///
+/// Returns a list of catalogs, one per source, for the Library UI to render.
+#[tauri::command]
+pub fn get_all_catalogs(
+    library_metadata_path: String,
+) -> Vec<catalog::SourceCatalog> {
+    let source_list = sources::list_sources(&library_metadata_path);
+    let source_ids: Vec<String> = source_list.iter().map(|s| s.id.clone()).collect();
+    catalog::load_all_catalogs(&library_metadata_path, &source_ids)
 }
 
 // ---------------------------------------------------------------------------
