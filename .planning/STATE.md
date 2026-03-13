@@ -5,33 +5,33 @@
 See: .planning/PROJECT.md (updated 2026-03-12)
 
 **Core value:** Linux desktop users can get Xenia running and manage their Xbox 360 game library with minimal setup friction from a single native app.
-**Current focus:** Phase 2 - Xenia Installation Lifecycle
+**Current focus:** Phase 3 - Library Source Management and Scanning
 
 ## Current Position
 
-Phase: 2 of 8 (Xenia Installation Lifecycle)
-Plan: 1 of 3 in current phase (complete)
+Phase: 3 of 8 (Library Source Management and Scanning)
+Plan: 1 of ? in current phase
 Status: In Progress
-Last activity: 2026-03-13 — Completed 02-01-PLAN.md (release metadata, download, and extraction)
+Last activity: 2026-03-13 — Completed 02-03-PLAN.md (install/update UI, progress, recovery)
 
-Progress: [####░░░░░░] 17%
+Progress: [######░░░░] 29%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 4
-- Average duration: 18min
-- Total execution time: 1.25 hours
+- Total plans completed: 6
+- Average duration: 17min
+- Total execution time: 1.72 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 1 | 3 | 63min | 21min |
-| 2 | 1 | 9min | 9min |
+| 2 | 3 | 37min | 12min |
 
 **Recent Trend:**
-- Last 5 plans: 8min, 11min, 44min, 9min
+- Last 5 plans: 8min, 11min, 44min, 9min, 23min
 - Trend: Stable
 
 ## Accumulated Context
@@ -58,6 +58,15 @@ Recent decisions affecting current work:
 - 02-01: System tar/unzip for extraction instead of Rust crate dependencies
 - 02-01: Arc<JobRegistry> as Tauri managed state for thread-safe background job sharing
 - 02-01: Three-step install pipeline (download 70%, extract 20%, validate 10%) for granular progress
+- 02-02: Atomic JSON persistence with write-to-temp-then-rename for install state
+- 02-02: Backup directory for rollback-safe promotion before placing new build
+- 02-02: Unified install/update pipeline with is_update flag for failure categorization
+- 02-02: Progress rebalanced to 5 steps (download 60%, extract 20%, validate 5%, promote 10%, state 5%)
+- 02-03: Context+reducer pattern for Xenia state consistent with settings and tasks stores
+- 02-03: Adaptive primary action derived from lifecycle status + update availability
+- 02-03: Dialog phases (confirm/progress/success/error) prevent silent operations
+- 02-03: Recovery panel shows friendly summary + expandable technical details
+- 02-03: TasksPage separates Xenia lifecycle jobs from generic tasks for clearer recovery
 
 ### Pending Todos
 
@@ -70,6 +79,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-13 01:27
-Stopped at: Completed 02-01-PLAN.md
+Last session: 2026-03-13
+Stopped at: Completed 02-03-PLAN.md
 Resume file: None

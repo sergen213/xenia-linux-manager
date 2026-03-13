@@ -13,7 +13,7 @@ This roadmap moves from a stable Linux-native foundation to the full day-to-day 
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: App Foundation and Settings** - Create the desktop shell, persistent settings, and responsive task infrastructure. (completed 2026-03-13)
-- [ ] **Phase 2: Xenia Installation Lifecycle** - Deliver reliable Xenia download, extraction, update, and retry flows.
+- [x] **Phase 2: Xenia Installation Lifecycle** - Deliver reliable Xenia download, extraction, update, and retry flows. (completed 2026-03-13)
 - [ ] **Phase 3: Library Source Management and Scanning** - Let users register folders and discover `.xex` and ISO-backed games.
 - [ ] **Phase 4: Library Review and Launch Core** - Turn detected titles into a browsable library with safe launch preflights.
 - [ ] **Phase 5: Patch Management** - Add local and remote Canary patch workflows with per-patch toggles.
@@ -150,7 +150,7 @@ Phases execute in numeric order: 2 → 2.1 → 2.2 → 3 → 3.1 → 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. App Foundation and Settings | 3/3 | Complete   | 2026-03-13 |
-| 2. Xenia Installation Lifecycle | 1/3 | In progress | - |
+| 2. Xenia Installation Lifecycle | 3/3 | Complete   | 2026-03-13 |
 | 3. Library Source Management and Scanning | 0/2 | Not started | - |
 | 4. Library Review and Launch Core | 0/3 | Not started | - |
 | 5. Patch Management | 0/2 | Not started | - |
