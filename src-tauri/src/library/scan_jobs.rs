@@ -5,8 +5,9 @@
 //! cancellation, and a `Scan All Now` mode that drains the queue and launches
 //! all configured sources concurrently.
 //!
-//! Actual file discovery logic (`.xex`/ISO detection) will be added in plan 03-02.
-//! This module provides the orchestration shell that plan 03-02 will hook into.
+//! The runtime scan pipeline performs discovery, catalog persistence, job-event
+//! emission, and coordinator handoff so queued follow-up scans can begin as
+//! soon as the active scan reaches any terminal state.
 
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
@@ -27,6 +28,10 @@ pub struct ScanRequest {
     pub job_id: String,
     pub source_id: String,
     pub library_metadata_path: String,
+}
+
+#[derive(Clone)]
+struct ScanRuntimeContext {
     pub app_handle: AppHandle,
     pub registry: Arc<JobRegistry>,
 }
@@ -44,6 +49,8 @@ struct CoordinatorState {
     active: Vec<String>,
     /// Job IDs that have been cancelled.
     cancelled: Vec<String>,
+    /// Runtime context used to spawn queued follow-up scans.
+    runtime: Option<ScanRuntimeContext>,
 }
 
 /// Thread-safe scan coordinator for managing background scan lifecycles.
@@ -72,12 +79,14 @@ impl ScanCoordinator {
             job_id: job_id.clone(),
             source_id,
             library_metadata_path,
-            app_handle,
-            registry,
         };
 
         let should_start = {
             let mut state = self.state.lock().unwrap();
+            state.runtime = Some(ScanRuntimeContext {
+                app_handle: app_handle.clone(),
+                registry: Arc::clone(&registry),
+            });
             if state.active.is_empty() {
                 state.active.push(job_id.clone());
                 true
@@ -88,7 +97,7 @@ impl ScanCoordinator {
         };
 
         if should_start {
-            self.spawn_scan(request);
+            self.spawn_scan(request, app_handle, registry);
         }
     }
 
@@ -136,35 +145,28 @@ impl ScanCoordinator {
             if state.active.is_empty() {
                 state.queue.pop_front().map(|req| {
                     state.active.push(req.job_id.clone());
-                    req
+                    (req, state.runtime.clone())
                 })
             } else {
                 None
             }
         };
 
-        if let Some(request) = next {
-            self.spawn_scan(request);
+        if let Some((request, Some(runtime))) = next {
+            self.spawn_scan(request, runtime.app_handle, runtime.registry);
         }
     }
 
-    /// Spawn a scan job on the async runtime.
-    fn spawn_scan(&self, request: ScanRequest) {
+    /// Spawn a scan job on the async runtime and release the active slot when
+    /// the runtime exits so queued scans can advance immediately.
+    fn spawn_scan(&self, request: ScanRequest, app: AppHandle, registry: Arc<JobRegistry>) {
         let job_id = request.job_id.clone();
         let source_id = request.source_id.clone();
         let lib_path = request.library_metadata_path.clone();
-        let app = request.app_handle.clone();
-        let registry = request.registry.clone();
 
-        // We need a reference to self for finish_scan, but ScanCoordinator
-        // is managed as Arc<ScanCoordinator> in Tauri state. We'll use a
-        // pattern where the scan task completes the job and the coordinator
-        // is notified via a separate mechanism.
-        //
-        // For now, the scan task runs a placeholder that logs and completes.
-        // Plan 03-02 will add real file discovery here.
         tauri::async_runtime::spawn(async move {
             run_scan_job(&app, &registry, &job_id, &source_id, &lib_path).await;
+            finish_scan_runtime_slot(&app, &job_id);
         });
     }
 }
@@ -187,8 +189,9 @@ impl std::fmt::Debug for ScanCoordinator {
 
 /// Execute a scan job for a single source.
 ///
-/// This is the placeholder scan implementation. Plan 03-02 will replace the
-/// body with actual `.xex` and ISO candidate discovery logic.
+/// The runtime handles discovery, result persistence, and terminal job events.
+/// Coordinator cleanup is handled by the caller so every exit path releases the
+/// active slot exactly once.
 async fn run_scan_job(
     app: &AppHandle,
     registry: &JobRegistry,
@@ -198,7 +201,13 @@ async fn run_scan_job(
 ) {
     use crate::library::sources;
 
-    log_and_emit(app, registry, job_id, &format!("Starting scan for source {source_id}"), LogLevel::Info);
+    log_and_emit(
+        app,
+        registry,
+        job_id,
+        &format!("Starting scan for source {source_id}"),
+        LogLevel::Info,
+    );
     update_progress(app, registry, job_id, 5, "Preparing scan...");
 
     // Load source to get the root path.
@@ -206,7 +215,12 @@ async fn run_scan_job(
     let source = match source_list.iter().find(|s| s.id == source_id) {
         Some(s) => s.clone(),
         None => {
-            fail_job(app, registry, job_id, &format!("Source {source_id} not found"));
+            fail_job(
+                app,
+                registry,
+                job_id,
+                &format!("Source {source_id} not found"),
+            );
             return;
         }
     };
@@ -219,7 +233,13 @@ async fn run_scan_job(
         return;
     }
 
-    update_progress(app, registry, job_id, 10, "Collecting existing catalog paths...");
+    update_progress(
+        app,
+        registry,
+        job_id,
+        10,
+        "Collecting existing catalog paths...",
+    );
 
     // Collect existing candidate paths across all sources for duplicate detection.
     let all_sources = sources::list_sources(library_metadata_path);
@@ -269,14 +289,24 @@ async fn run_scan_job(
             results.warning_count,
             results.skipped_count,
             results.errors.len(),
-            if results.was_cancelled { " (cancelled)" } else { "" },
+            if results.was_cancelled {
+                " (cancelled)"
+            } else {
+                ""
+            },
         ),
         LogLevel::Info,
     );
 
     // Log individual errors as warnings.
     for err_msg in &results.errors {
-        log_and_emit(app, registry, job_id, &format!("Scan error: {err_msg}"), LogLevel::Warn);
+        log_and_emit(
+            app,
+            registry,
+            job_id,
+            &format!("Scan error: {err_msg}"),
+            LogLevel::Warn,
+        );
     }
 
     // Persist results to catalog.
@@ -297,7 +327,12 @@ async fn run_scan_job(
 
             if results.was_cancelled {
                 // Mark as failed with cancellation reason but keep persisted results.
-                fail_job(app, registry, job_id, "Cancelled by user (partial results preserved)");
+                fail_job(
+                    app,
+                    registry,
+                    job_id,
+                    "Cancelled by user (partial results preserved)",
+                );
             } else {
                 complete_job(app, registry, job_id);
             }
@@ -310,8 +345,19 @@ async fn run_scan_job(
                 &format!("Failed to persist scan results: {persist_err}"),
                 LogLevel::Error,
             );
-            fail_job(app, registry, job_id, &format!("Catalog persistence error: {persist_err}"));
+            fail_job(
+                app,
+                registry,
+                job_id,
+                &format!("Catalog persistence error: {persist_err}"),
+            );
         }
+    }
+}
+
+fn finish_scan_runtime_slot(app: &AppHandle, job_id: &str) {
+    if let Some(coordinator) = app.try_state::<Arc<ScanCoordinator>>() {
+        coordinator.finish_scan(job_id);
     }
 }
 
@@ -340,33 +386,18 @@ fn log_and_emit(
     events::emit_job_log(app, job_id, message, level_str, timestamp);
 }
 
-fn update_progress(
-    app: &AppHandle,
-    registry: &JobRegistry,
-    job_id: &str,
-    pct: u8,
-    label: &str,
-) {
+fn update_progress(app: &AppHandle, registry: &JobRegistry, job_id: &str, pct: u8, label: &str) {
     registry.update(job_id, |j| j.set_progress(pct));
     events::emit_job_progress(app, job_id, pct, label);
 }
 
-fn complete_job(
-    app: &AppHandle,
-    registry: &JobRegistry,
-    job_id: &str,
-) {
+fn complete_job(app: &AppHandle, registry: &JobRegistry, job_id: &str) {
     if let Some(job) = registry.update(job_id, |j| j.complete()) {
         events::emit_job_completed(app, &job);
     }
 }
 
-fn fail_job(
-    app: &AppHandle,
-    registry: &JobRegistry,
-    job_id: &str,
-    error: &str,
-) {
+fn fail_job(app: &AppHandle, registry: &JobRegistry, job_id: &str, error: &str) {
     log_and_emit(app, registry, job_id, error, LogLevel::Error);
     if let Some(job) = registry.update(job_id, |j| j.fail(error)) {
         events::emit_job_failed(app, &job);
@@ -447,5 +478,47 @@ mod tests {
         // drain on empty is a no-op
         coord.drain_queue();
         assert_eq!(coord.queued_scan_count(), 0);
+    }
+
+    #[test]
+    fn finish_scan_promotes_next_queued_request() {
+        let coord = ScanCoordinator::new();
+        {
+            let mut state = coord.state.lock().unwrap();
+            state.active.push("scan-1".into());
+            state.queue.push_back(ScanRequest {
+                job_id: "scan-2".into(),
+                source_id: "source-2".into(),
+                library_metadata_path: "/tmp/metadata".into(),
+            });
+        }
+
+        coord.finish_scan("scan-1");
+
+        let state = coord.state.lock().unwrap();
+        assert_eq!(state.active, vec!["scan-2"]);
+        assert!(state.queue.is_empty());
+    }
+
+    #[test]
+    fn finish_scan_clears_cancelled_flag_and_promotes_next_request() {
+        let coord = ScanCoordinator::new();
+        {
+            let mut state = coord.state.lock().unwrap();
+            state.active.push("scan-1".into());
+            state.cancelled.push("scan-1".into());
+            state.queue.push_back(ScanRequest {
+                job_id: "scan-2".into(),
+                source_id: "source-2".into(),
+                library_metadata_path: "/tmp/metadata".into(),
+            });
+        }
+
+        coord.finish_scan("scan-1");
+
+        let state = coord.state.lock().unwrap();
+        assert!(!state.cancelled.contains(&"scan-1".to_string()));
+        assert_eq!(state.active, vec!["scan-2"]);
+        assert!(state.queue.is_empty());
     }
 }
