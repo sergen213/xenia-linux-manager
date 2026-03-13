@@ -64,7 +64,7 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 03-01: Implement folder source management and scan job orchestration
+- [x] 03-01: Implement folder source management and scan job orchestration
 - [ ] 03-02: Build `.xex` and ISO candidate discovery with persisted scan results
 
 ### Phase 4: Library Review and Launch Core
@@ -151,7 +151,7 @@ Phases execute in numeric order: 2 → 2.1 → 2.2 → 3 → 3.1 → 4
 |-------|----------------|--------|-----------|
 | 1. App Foundation and Settings | 3/3 | Complete   | 2026-03-13 |
 | 2. Xenia Installation Lifecycle | 3/3 | Complete   | 2026-03-13 |
-| 3. Library Source Management and Scanning | 0/2 | Not started | - |
+| 3. Library Source Management and Scanning | 1/2 | In progress | - |
 | 4. Library Review and Launch Core | 0/3 | Not started | - |
 | 5. Patch Management | 0/2 | Not started | - |
 | 6. Profiles and Community Settings | 0/3 | Not started | - |
