@@ -9,4 +9,5 @@ pub mod archive;
 pub mod download;
 pub mod install;
 pub mod install_state;
+pub mod lifecycle;
 pub mod releases;
