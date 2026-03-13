@@ -6,6 +6,10 @@ import {
   SettingsContext,
   INITIAL_STATE,
 } from "../features/settings/state/settingsStore";
+import {
+  TasksContext,
+  INITIAL_TASKS_STATE,
+} from "../features/tasks/state/tasksStore";
 
 // Mock Tauri invoke
 vi.mock("@tauri-apps/api/core", () => ({
@@ -17,17 +21,24 @@ const mockSettingsCtx = {
   dispatch: vi.fn(),
 };
 
+const mockTasksCtx = {
+  state: { ...INITIAL_TASKS_STATE, initialized: true },
+  dispatch: vi.fn(),
+};
+
 function renderApp(initialRoute = "/") {
   return render(
     <SettingsContext value={mockSettingsCtx}>
-      <MemoryRouter initialEntries={[initialRoute]}>
-        <Routes>
-          {routes.map((route) => (
-            <Route key={route.path} path={route.path} element={route.element} />
-          ))}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </MemoryRouter>
+      <TasksContext value={mockTasksCtx}>
+        <MemoryRouter initialEntries={[initialRoute]}>
+          <Routes>
+            {routes.map((route) => (
+              <Route key={route.path} path={route.path} element={route.element} />
+            ))}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </MemoryRouter>
+      </TasksContext>
     </SettingsContext>,
   );
 }
