@@ -1,3 +1,4 @@
+import { LibrarySourcesPanel } from "./components/LibrarySourcesPanel";
 import "./LibraryPage.css";
 
 export function LibraryPage() {
@@ -10,11 +11,7 @@ export function LibraryPage() {
         </p>
       </header>
 
-      <div className="library-page__empty-state">
-        <p>
-          No games detected yet. Add game folders in Settings to start scanning.
-        </p>
-      </div>
+      <LibrarySourcesPanel />
     </div>
   );
 }

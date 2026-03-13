@@ -4,6 +4,7 @@ import { routes } from "./app/router";
 import { SettingsProvider } from "./features/settings/state/SettingsProvider";
 import { TasksProvider } from "./features/tasks/state/TasksProvider";
 import { XeniaProvider } from "./features/xenia/state/XeniaProvider";
+import { LibraryProvider } from "./features/library/state/LibraryProvider";
 import { FirstRunSetup } from "./features/settings/components/FirstRunSetup";
 import { useSettings } from "./features/settings/state/settingsStore";
 import { useRouteRestore } from "./features/settings/state/useRouteRestore";
@@ -45,7 +46,9 @@ function App() {
     <SettingsProvider>
       <TasksProvider>
         <XeniaProvider>
-          <AppContent />
+          <LibraryProvider>
+            <AppContent />
+          </LibraryProvider>
         </XeniaProvider>
       </TasksProvider>
     </SettingsProvider>
