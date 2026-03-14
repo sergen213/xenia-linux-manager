@@ -36,10 +36,10 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Profiles
 
-- [ ] **PROF-01**: User can apply a local per-game configuration profile for a title.
+- [x] **PROF-01**: User can apply a local per-game configuration profile for a title.
 - [ ] **PROF-02**: User can fetch and apply a community-optimized settings profile for a detected game.
-- [ ] **PROF-03**: User can review and edit the effective per-game settings before launch.
-- [ ] **PROF-04**: User’s local overrides take precedence over bundled or remote default profiles.
+- [x] **PROF-03**: User can review and edit the effective per-game settings before launch.
+- [x] **PROF-04**: User’s local overrides take precedence over bundled or remote default profiles.
 
 ### Saves
 
@@ -103,10 +103,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PATC-01 | Phase 5 | Pending |
 | PATC-02 | Phase 5 | Pending |
 | PATC-03 | Phase 5 | Pending |
-| PROF-01 | Phase 6 | Pending |
+| PROF-01 | Phase 6 | Complete |
 | PROF-02 | Phase 6 | Pending |
-| PROF-03 | Phase 6 | Pending |
-| PROF-04 | Phase 6 | Pending |
+| PROF-03 | Phase 6 | Complete |
+| PROF-04 | Phase 6 | Complete |
 | LAUN-02 | Phase 6 | Pending |
 | SAVE-01 | Phase 7 | Pending |
 | SAVE-02 | Phase 7 | Pending |

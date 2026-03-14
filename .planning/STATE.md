@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-03-12)
 
 **Core value:** Linux desktop users can get Xenia running and manage their Xbox 360 game library with minimal setup friction from a single native app.
-**Current focus:** Phase 3 - Library Source Management and Scanning
+**Current focus:** Phase 6 - Profiles and Community Settings
 
 ## Current Position
 
-Phase: 3 of 8 (Library Source Management and Scanning)
-Plan: 2 of 2 in current phase
+Phase: 6 of 8 (Profiles and Community Settings)
+Plan: 1 of 3 in current phase
 Status: In Progress
-Last activity: 2026-03-13 — Completed 03-01-PLAN.md (source management, scan orchestration)
+Last activity: 2026-03-14 — Completed profile storage, merge engine, and renderer contracts
 
-Progress: [#######░░░] 35%
+Progress: [#############░] 67%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 7
-- Average duration: 17min
-- Total execution time: 2.05 hours
+- Total plans completed: 15
+- Average duration: 14min
+- Total execution time: 3.20 hours
 
 **By Phase:**
 
@@ -29,11 +29,14 @@ Progress: [#######░░░] 35%
 |-------|-------|-------|----------|
 | 1 | 3 | 63min | 21min |
 | 2 | 3 | 37min | 12min |
-| 3 | 1 | 20min | 20min |
+| 3 | 3 | 31min | 10min |
+| 4 | 3 | 85min | 28min |
+| 5 | 2 | 90min | 45min |
+| 6 | 1 | 7min | 7min |
 
 **Recent Trend:**
-- Last 5 plans: 11min, 44min, 9min, 23min, 20min
-- Trend: Stable
+- Last 5 plans: 38min, 9min, 55min, 35min, 7min
+- Trend: Variable complexity, consistently shipping
 
 ## Accumulated Context
 
@@ -68,6 +71,17 @@ Recent decisions affecting current work:
 - 02-03: Dialog phases (confirm/progress/success/error) prevent silent operations
 - 02-03: Recovery panel shows friendly summary + expandable technical details
 - 02-03: TasksPage separates Xenia lifecycle jobs from generic tasks for clearer recovery
+- 03-03: Scan coordinator retains runtime context separately from queued request data so terminal cleanup can advance the next queued scan
+- 03-03: Async scan runtime always calls `finish_scan` after `run_scan_job` exits, preserving queue progression across success, failure, and cancellation
+- 04-01: Library browse, review inbox, and detail payloads are backend-owned read models derived from scan catalogs plus identity overlays
+- 04-02: Manual titles, corrections, duplicate review outcomes, and launch-session metadata persist in `library-identity.json` instead of mutating raw scan catalogs
+- 04-03: Launch preflight is backend-owned and blocks missing Xenia state, missing files, unresolved review work, and unsupported low-confidence source shapes
+- 05-01: Patch files, manifests, and per-entry overrides persist under `library_metadata_path/patches/{game_id}` instead of inside the Xenia install directory
+- 05-01: Imported and community-fetched patch files stay immutable while enable or disable state persists separately per patch file
+- 05-02: Patch controls stay detail-scoped behind a `Manage patches` affordance and prompt for active-file selection immediately after import or fetch
+- 06-01: Profiles stored under library_metadata_path/profiles/{game_id} with sparse-override documents and backend-computed effective config
+- 06-01: Null values in profile overrides are filtered on save to restore default inheritance instead of persisting empty values
+- 06-01: First profile created for a game is auto-selected as the active profile
 
 ### Pending Todos
 
@@ -75,11 +89,11 @@ None yet.
 
 ### Blockers/Concerns
 
-- Game identity extraction for `.xex` and ISO inputs needs validation during phase planning.
 - Packaged AppImage update/release flow must be verified before promising in-app manager updates later.
+- Launch currently uses local process spawning against the installed Xenia executable path; packaged validation should confirm this behaves correctly under the final AppImage environment.
 
 ## Session Continuity
 
-Last session: 2026-03-13
-Stopped at: Completed 03-01-PLAN.md, starting 03-02
+Last session: 2026-03-14
+Stopped at: Completed 06-01-PLAN.md (profile storage and merge)
 Resume file: None

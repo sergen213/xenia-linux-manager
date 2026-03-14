@@ -14,9 +14,9 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: App Foundation and Settings** - Create the desktop shell, persistent settings, and responsive task infrastructure. (completed 2026-03-13)
 - [x] **Phase 2: Xenia Installation Lifecycle** - Deliver reliable Xenia download, extraction, update, and retry flows. (completed 2026-03-13)
-- [ ] **Phase 3: Library Source Management and Scanning** - Let users register folders and discover `.xex` and ISO-backed games.
-- [ ] **Phase 4: Library Review and Launch Core** - Turn detected titles into a browsable library with safe launch preflights.
-- [ ] **Phase 5: Patch Management** - Add local and remote Canary patch workflows with per-patch toggles.
+- [x] **Phase 3: Library Source Management and Scanning** - Let users register folders and discover `.xex` and ISO-backed games. (completed 2026-03-13)
+- [x] **Phase 4: Library Review and Launch Core** - Turn detected titles into a browsable library with safe launch preflights. (completed 2026-03-13)
+- [x] **Phase 5: Patch Management** - Add local and remote Canary patch workflows with per-patch toggles. (completed 2026-03-13)
 - [ ] **Phase 6: Profiles and Community Settings** - Deliver effective per-game config profiles and community-optimized settings.
 - [ ] **Phase 7: Save Portability and Safety** - Add import/export workflows with overwrite protection.
 - [ ] **Phase 8: Packaging and Release Hardening** - Ship the manager as an AppImage and validate release readiness.
@@ -61,11 +61,12 @@ Plans:
   1. User can add one or more game root folders for management.
   2. The app recursively discovers `.xex` titles in configured folders.
   3. The app detects supported ISO-based game candidates during scans.
-**Plans**: 2 plans
+**Plans**: 3 plans
 
 Plans:
 - [x] 03-01: Implement folder source management and scan job orchestration
-- [ ] 03-02: Build `.xex` and ISO candidate discovery with persisted scan results
+- [x] 03-02: Build `.xex` and ISO candidate discovery with persisted scan results
+- [x] 03-03: Wire scan coordinator completion and queued scan progression
 
 ### Phase 4: Library Review and Launch Core
 **Goal**: Turn scan output into a usable library with manual correction and safe game launching.
@@ -79,9 +80,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 04-01: Build library UI, game detail views, and search/browse interactions
-- [ ] 04-02: Implement manual add/correction and identity resolution persistence
-- [ ] 04-03: Add launch preflight validation and Xenia process spawning
+- [x] 04-01: Build library UI, game detail views, and search/browse interactions
+- [x] 04-02: Implement manual add/correction and identity resolution persistence
+- [x] 04-03: Add launch preflight validation and Xenia process spawning
 
 ### Phase 5: Patch Management
 **Goal**: Add patch installation and per-patch enablement workflows for Canary-compatible titles.
@@ -94,8 +95,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 05-01: Implement patch source adapters and local patch storage model
-- [ ] 05-02: Build patch editor UI with per-entry enable/disable persistence
+- [x] 05-01: Implement patch source adapters and local patch storage model
+- [x] 05-02: Build patch editor UI with per-entry enable/disable persistence
 
 ### Phase 6: Profiles and Community Settings
 **Goal**: Deliver effective per-game configuration profiles, including community-optimized settings and local overrides.
@@ -151,9 +152,9 @@ Phases execute in numeric order: 2 → 2.1 → 2.2 → 3 → 3.1 → 4
 |-------|----------------|--------|-----------|
 | 1. App Foundation and Settings | 3/3 | Complete   | 2026-03-13 |
 | 2. Xenia Installation Lifecycle | 3/3 | Complete   | 2026-03-13 |
-| 3. Library Source Management and Scanning | 1/2 | In progress | - |
-| 4. Library Review and Launch Core | 0/3 | Not started | - |
-| 5. Patch Management | 0/2 | Not started | - |
-| 6. Profiles and Community Settings | 0/3 | Not started | - |
+| 3. Library Source Management and Scanning | 3/3 | Complete | 2026-03-13 |
+| 4. Library Review and Launch Core | 3/3 | Complete | 2026-03-13 |
+| 5. Patch Management | 2/2 | Complete | 2026-03-13 |
+| 6. Profiles and Community Settings | 1/3 | In Progress|  |
 | 7. Save Portability and Safety | 0/2 | Not started | - |
 | 8. Packaging and Release Hardening | 0/2 | Not started | - |
