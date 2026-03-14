@@ -1,37 +1,59 @@
-/**
- * Renderer state for library source management and scan tracking.
- *
- * Uses React context + reducer pattern matching settings and tasks stores.
- */
-
-import { createContext, useContext } from "react";
+import { createContext, useContext, type Dispatch } from "react";
 import type {
+  BrowseLibraryPayload,
+  LaunchPreflight,
+  LibraryBrowseCard,
+  LibraryGameDetails,
   LibrarySource,
   NestedSourceWarning,
+  ReviewInboxPayload,
   SourceCatalog,
 } from "../model/libraryTypes";
+import type {
+  GamePatchInventory,
+  PatchChooserReason,
+  PatchOperationKind,
+} from "../model/patchTypes";
+import type {
+  EffectiveConfig,
+  ProfileInventory,
+} from "../model/profileTypes";
 
-// ---------------------------------------------------------------------------
-// State shape
-// ---------------------------------------------------------------------------
+export type LibraryViewMode = "library" | "review";
+export type LibrarySortMode = "recent" | "title" | "source";
+export type LibraryFilterMode = "all" | "manual" | "needs_review";
 
 export interface LibraryState {
-  /** Registered library source folders. */
   sources: LibrarySource[];
-  /** Number of currently active scans. */
   activeScans: number;
-  /** Number of queued scans. */
   queuedScans: number;
-  /** Whether a backend operation is in progress. */
   loading: boolean;
-  /** Error message from the last failed operation. */
   error: string | null;
-  /** Whether the initial load has completed. */
   initialized: boolean;
-  /** Nested-source warnings from the most recent add operation. */
   lastWarnings: NestedSourceWarning[];
-  /** Persisted scan catalogs for all sources. */
   catalogs: SourceCatalog[];
+  browse: BrowseLibraryPayload | null;
+  reviewInbox: ReviewInboxPayload | null;
+  selectedGameId: string | null;
+  selectedGame: LibraryGameDetails | null;
+  selectedView: LibraryViewMode;
+  search: string;
+  sortMode: LibrarySortMode;
+  filterMode: LibraryFilterMode;
+  launchPreflight: LaunchPreflight | null;
+  launchPending: boolean;
+  patchInventory: GamePatchInventory | null;
+  patchInventoryLoading: boolean;
+  managePatchesOpen: boolean;
+  patchOperation: PatchOperationKind;
+  patchOperationPending: boolean;
+  activePatchChooserOpen: boolean;
+  chooserReason: PatchChooserReason;
+  patchUnsupportedMessage: string | null;
+  profileInventory: ProfileInventory | null;
+  profileInventoryLoading: boolean;
+  profileEffectiveConfig: EffectiveConfig | null;
+  profileEffectiveLoading: boolean;
 }
 
 export const INITIAL_LIBRARY_STATE: LibraryState = {
@@ -43,11 +65,29 @@ export const INITIAL_LIBRARY_STATE: LibraryState = {
   initialized: false,
   lastWarnings: [],
   catalogs: [],
+  browse: null,
+  reviewInbox: null,
+  selectedGameId: null,
+  selectedGame: null,
+  selectedView: "library",
+  search: "",
+  sortMode: "recent",
+  filterMode: "all",
+  launchPreflight: null,
+  launchPending: false,
+  patchInventory: null,
+  patchInventoryLoading: false,
+  managePatchesOpen: false,
+  patchOperation: null,
+  patchOperationPending: false,
+  activePatchChooserOpen: false,
+  chooserReason: null,
+  patchUnsupportedMessage: null,
+  profileInventory: null,
+  profileInventoryLoading: false,
+  profileEffectiveConfig: null,
+  profileEffectiveLoading: false,
 };
-
-// ---------------------------------------------------------------------------
-// Actions
-// ---------------------------------------------------------------------------
 
 export type LibraryAction =
   | { type: "LOAD_START" }
@@ -65,11 +105,30 @@ export type LibraryAction =
   | { type: "SET_ERROR"; error: string }
   | { type: "CLEAR_ERROR" }
   | { type: "CLEAR_WARNINGS" }
-  | { type: "CATALOGS_LOADED"; catalogs: SourceCatalog[] };
-
-// ---------------------------------------------------------------------------
-// Reducer
-// ---------------------------------------------------------------------------
+  | { type: "CATALOGS_LOADED"; catalogs: SourceCatalog[] }
+  | { type: "BROWSE_LOADED"; browse: BrowseLibraryPayload }
+  | { type: "REVIEW_INBOX_LOADED"; reviewInbox: ReviewInboxPayload }
+  | { type: "SELECT_GAME"; gameId: string | null }
+  | { type: "GAME_DETAILS_LOADED"; details: LibraryGameDetails | null }
+  | { type: "SET_VIEW"; view: LibraryViewMode }
+  | { type: "SET_SEARCH"; search: string }
+  | { type: "SET_SORT"; sortMode: LibrarySortMode }
+  | { type: "SET_FILTER"; filterMode: LibraryFilterMode }
+  | { type: "SET_LAUNCH_PREFLIGHT"; preflight: LaunchPreflight | null }
+  | { type: "SET_LAUNCH_PENDING"; pending: boolean }
+  | { type: "PATCHES_LOADING" }
+  | { type: "PATCHES_LOADED"; inventory: GamePatchInventory }
+  | { type: "PATCHES_ERROR"; error: string }
+  | { type: "SET_MANAGE_PATCHES_OPEN"; open: boolean }
+  | { type: "SET_PATCH_OPERATION"; kind: PatchOperationKind; pending: boolean }
+  | { type: "SET_PATCH_CHOOSER"; open: boolean; reason: PatchChooserReason }
+  | { type: "SET_PATCH_UNSUPPORTED_MESSAGE"; message: string | null }
+  | { type: "PROFILES_LOADING" }
+  | { type: "PROFILES_LOADED"; inventory: ProfileInventory }
+  | { type: "PROFILES_ERROR"; error: string }
+  | { type: "PROFILE_EFFECTIVE_LOADING" }
+  | { type: "PROFILE_EFFECTIVE_LOADED"; config: EffectiveConfig }
+  | { type: "PROFILE_EFFECTIVE_ERROR"; error: string };
 
 export function libraryReducer(
   state: LibraryState,
@@ -78,7 +137,6 @@ export function libraryReducer(
   switch (action.type) {
     case "LOAD_START":
       return { ...state, loading: true, error: null };
-
     case "LOAD_SUCCESS":
       return {
         ...state,
@@ -89,10 +147,8 @@ export function libraryReducer(
         error: null,
         initialized: true,
       };
-
     case "LOAD_ERROR":
       return { ...state, loading: false, error: action.error, initialized: true };
-
     case "ADD_SOURCE":
       return {
         ...state,
@@ -100,21 +156,13 @@ export function libraryReducer(
         lastWarnings: action.warnings,
         error: null,
       };
-
     case "REMOVE_SOURCE":
       return {
         ...state,
-        sources: state.sources.filter((s) => s.id !== action.sourceId),
-        error: null,
+        sources: state.sources.filter((source) => source.id !== action.sourceId),
       };
-
     case "SCAN_STARTED":
-      return {
-        ...state,
-        activeScans: action.activeScans,
-        queuedScans: action.queuedScans,
-      };
-
+      return { ...state, activeScans: action.activeScans, queuedScans: action.queuedScans };
     case "SCAN_FINISHED":
       return {
         ...state,
@@ -122,39 +170,169 @@ export function libraryReducer(
         activeScans: action.activeScans,
         queuedScans: action.queuedScans,
       };
-
     case "SET_ERROR":
       return { ...state, error: action.error };
-
     case "CLEAR_ERROR":
       return { ...state, error: null };
-
     case "CLEAR_WARNINGS":
       return { ...state, lastWarnings: [] };
-
     case "CATALOGS_LOADED":
       return { ...state, catalogs: action.catalogs };
-
+    case "BROWSE_LOADED":
+      return {
+        ...state,
+        browse: action.browse,
+        selectedGameId:
+          state.selectedGameId ??
+          action.browse.cards[0]?.game_id ??
+          null,
+      };
+    case "REVIEW_INBOX_LOADED":
+      return { ...state, reviewInbox: action.reviewInbox };
+    case "SELECT_GAME":
+      return {
+        ...state,
+        selectedGameId: action.gameId,
+        selectedGame: action.gameId === state.selectedGameId ? state.selectedGame : null,
+        launchPreflight: action.gameId === state.selectedGameId ? state.launchPreflight : null,
+        patchInventory: action.gameId === state.selectedGameId ? state.patchInventory : null,
+        patchUnsupportedMessage:
+          action.gameId === state.selectedGameId ? state.patchUnsupportedMessage : null,
+        managePatchesOpen: action.gameId === state.selectedGameId ? state.managePatchesOpen : false,
+        activePatchChooserOpen:
+          action.gameId === state.selectedGameId ? state.activePatchChooserOpen : false,
+        profileInventory:
+          action.gameId === state.selectedGameId ? state.profileInventory : null,
+        profileEffectiveConfig:
+          action.gameId === state.selectedGameId ? state.profileEffectiveConfig : null,
+      };
+    case "GAME_DETAILS_LOADED":
+      return { ...state, selectedGame: action.details };
+    case "SET_VIEW":
+      return { ...state, selectedView: action.view };
+    case "SET_SEARCH":
+      return { ...state, search: action.search };
+    case "SET_SORT":
+      return { ...state, sortMode: action.sortMode };
+    case "SET_FILTER":
+      return { ...state, filterMode: action.filterMode };
+    case "SET_LAUNCH_PREFLIGHT":
+      return { ...state, launchPreflight: action.preflight };
+    case "SET_LAUNCH_PENDING":
+      return { ...state, launchPending: action.pending };
+    case "PATCHES_LOADING":
+      return {
+        ...state,
+        patchInventoryLoading: true,
+        patchUnsupportedMessage: null,
+      };
+    case "PATCHES_LOADED":
+      return {
+        ...state,
+        patchInventoryLoading: false,
+        patchInventory: action.inventory,
+        selectedGame: state.selectedGame
+          ? { ...state.selectedGame, patches: action.inventory }
+          : state.selectedGame,
+      };
+    case "PATCHES_ERROR":
+      return {
+        ...state,
+        patchInventoryLoading: false,
+        error: action.error,
+      };
+    case "SET_MANAGE_PATCHES_OPEN":
+      return { ...state, managePatchesOpen: action.open };
+    case "SET_PATCH_OPERATION":
+      return {
+        ...state,
+        patchOperation: action.kind,
+        patchOperationPending: action.pending,
+      };
+    case "SET_PATCH_CHOOSER":
+      return {
+        ...state,
+        activePatchChooserOpen: action.open,
+        chooserReason: action.reason,
+      };
+    case "SET_PATCH_UNSUPPORTED_MESSAGE":
+      return { ...state, patchUnsupportedMessage: action.message };
+    case "PROFILES_LOADING":
+      return { ...state, profileInventoryLoading: true };
+    case "PROFILES_LOADED":
+      return {
+        ...state,
+        profileInventoryLoading: false,
+        profileInventory: action.inventory,
+      };
+    case "PROFILES_ERROR":
+      return {
+        ...state,
+        profileInventoryLoading: false,
+        error: action.error,
+      };
+    case "PROFILE_EFFECTIVE_LOADING":
+      return { ...state, profileEffectiveLoading: true };
+    case "PROFILE_EFFECTIVE_LOADED":
+      return {
+        ...state,
+        profileEffectiveLoading: false,
+        profileEffectiveConfig: action.config,
+      };
+    case "PROFILE_EFFECTIVE_ERROR":
+      return {
+        ...state,
+        profileEffectiveLoading: false,
+        error: action.error,
+      };
     default:
       return state;
   }
 }
 
-// ---------------------------------------------------------------------------
-// Context
-// ---------------------------------------------------------------------------
+export function selectVisibleLibraryCards(state: LibraryState): LibraryBrowseCard[] {
+  const cards = state.browse?.cards ?? [];
+  const search = state.search.trim().toLowerCase();
+
+  const filtered = cards.filter((card) => {
+    if (state.filterMode === "manual" && !card.manual) {
+      return false;
+    }
+    if (state.filterMode === "needs_review" && !card.review_flag) {
+      return false;
+    }
+    if (!search) {
+      return true;
+    }
+    return (
+      card.title.toLowerCase().includes(search) ||
+      card.source_label.toLowerCase().includes(search) ||
+      card.executable_path.toLowerCase().includes(search)
+    );
+  });
+
+  return filtered.sort((left, right) => {
+    if (state.sortMode === "title") {
+      return left.title.localeCompare(right.title);
+    }
+    if (state.sortMode === "source") {
+      return left.source_label.localeCompare(right.source_label);
+    }
+    return (right.last_played_at ?? 0) - (left.last_played_at ?? 0) || left.title.localeCompare(right.title);
+  });
+}
 
 export interface LibraryContextValue {
   state: LibraryState;
-  dispatch: React.Dispatch<LibraryAction>;
+  dispatch: Dispatch<LibraryAction>;
 }
 
 export const LibraryContext = createContext<LibraryContextValue | null>(null);
 
 export function useLibrary(): LibraryContextValue {
-  const ctx = useContext(LibraryContext);
-  if (!ctx) {
+  const context = useContext(LibraryContext);
+  if (!context) {
     throw new Error("useLibrary must be used within a LibraryProvider");
   }
-  return ctx;
+  return context;
 }

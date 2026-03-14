@@ -6,6 +6,8 @@ import {
   type LibraryAction,
 } from "../state/libraryStore";
 import type { LibrarySource, NestedSourceWarning } from "../model/libraryTypes";
+import type { GamePatchInventory } from "../model/patchTypes";
+import type { ProfileInventory, EffectiveConfig } from "../model/profileTypes";
 
 const mockSource: LibrarySource = {
   id: "src-1",
@@ -23,6 +25,12 @@ const mockSource2: LibrarySource = {
   created_at: 2000,
   updated_at: 2000,
   last_scan_summary: null,
+};
+
+const mockInventory: GamePatchInventory = {
+  game_id: "game-1",
+  active_patch_id: null,
+  files: [],
 };
 
 describe("libraryReducer", () => {
@@ -186,5 +194,132 @@ describe("libraryReducer", () => {
     const state = { ...INITIAL_LIBRARY_STATE, initialized: true };
     const next = libraryReducer(state, { type: "UNKNOWN" } as any);
     expect(next).toEqual(state);
+  });
+
+  it("PATCHES_LOADED stores patch inventory", () => {
+    const next = libraryReducer(INITIAL_LIBRARY_STATE, {
+      type: "PATCHES_LOADED",
+      inventory: mockInventory,
+    });
+    expect(next.patchInventory).toEqual(mockInventory);
+    expect(next.patchInventoryLoading).toBe(false);
+  });
+
+  it("SET_PATCH_CHOOSER toggles chooser state", () => {
+    const next = libraryReducer(INITIAL_LIBRARY_STATE, {
+      type: "SET_PATCH_CHOOSER",
+      open: true,
+      reason: "after-import",
+    });
+    expect(next.activePatchChooserOpen).toBe(true);
+    expect(next.chooserReason).toBe("after-import");
+  });
+
+  it("PROFILES_LOADED stores profile inventory", () => {
+    const inventory: ProfileInventory = {
+      game_id: "game-1",
+      active_profile_id: "prof-abc",
+      profiles: [
+        {
+          id: "prof-abc",
+          name: "Default",
+          source: "local",
+          active: true,
+          override_count: 3,
+          created_at: 1000,
+          updated_at: 2000,
+        },
+      ],
+    };
+    const next = libraryReducer(INITIAL_LIBRARY_STATE, {
+      type: "PROFILES_LOADED",
+      inventory,
+    });
+    expect(next.profileInventory).toEqual(inventory);
+    expect(next.profileInventoryLoading).toBe(false);
+  });
+
+  it("PROFILES_LOADING sets loading flag", () => {
+    const next = libraryReducer(INITIAL_LIBRARY_STATE, {
+      type: "PROFILES_LOADING",
+    });
+    expect(next.profileInventoryLoading).toBe(true);
+  });
+
+  it("PROFILES_ERROR stores error and clears loading", () => {
+    const loading: LibraryState = {
+      ...INITIAL_LIBRARY_STATE,
+      profileInventoryLoading: true,
+    };
+    const next = libraryReducer(loading, {
+      type: "PROFILES_ERROR",
+      error: "failed to load",
+    });
+    expect(next.profileInventoryLoading).toBe(false);
+    expect(next.error).toBe("failed to load");
+  });
+
+  it("PROFILE_EFFECTIVE_LOADED stores effective config", () => {
+    const config: EffectiveConfig = {
+      profile_id: "prof-abc",
+      game_id: "game-1",
+      fields: [
+        { key: "gpu.vsync", value: false, changed: true },
+        { key: "gpu.backend", value: "vulkan", changed: false },
+      ],
+      explicit_overrides: { "gpu.vsync": false },
+      changed_count: 1,
+      total_count: 2,
+    };
+    const next = libraryReducer(INITIAL_LIBRARY_STATE, {
+      type: "PROFILE_EFFECTIVE_LOADED",
+      config,
+    });
+    expect(next.profileEffectiveConfig).toEqual(config);
+    expect(next.profileEffectiveLoading).toBe(false);
+  });
+
+  it("SELECT_GAME clears profile state for different game", () => {
+    const state: LibraryState = {
+      ...INITIAL_LIBRARY_STATE,
+      selectedGameId: "game-1",
+      profileInventory: {
+        game_id: "game-1",
+        active_profile_id: null,
+        profiles: [],
+      },
+      profileEffectiveConfig: {
+        profile_id: "p",
+        game_id: "game-1",
+        fields: [],
+        explicit_overrides: {},
+        changed_count: 0,
+        total_count: 0,
+      },
+    };
+    const next = libraryReducer(state, {
+      type: "SELECT_GAME",
+      gameId: "game-2",
+    });
+    expect(next.profileInventory).toBeNull();
+    expect(next.profileEffectiveConfig).toBeNull();
+  });
+
+  it("SELECT_GAME preserves profile state for same game", () => {
+    const inventory: ProfileInventory = {
+      game_id: "game-1",
+      active_profile_id: null,
+      profiles: [],
+    };
+    const state: LibraryState = {
+      ...INITIAL_LIBRARY_STATE,
+      selectedGameId: "game-1",
+      profileInventory: inventory,
+    };
+    const next = libraryReducer(state, {
+      type: "SELECT_GAME",
+      gameId: "game-1",
+    });
+    expect(next.profileInventory).toEqual(inventory);
   });
 });
