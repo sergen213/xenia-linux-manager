@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useSettings } from "./state/settingsStore";
 import { EditPathsDialog } from "./components/EditPathsDialog";
+import { ReleaseChannelCard } from "./components/ReleaseChannelCard";
 import { PATH_FIELDS, getPathValue } from "./model/settingsSchema";
 import "./SettingsPage.css";
 
@@ -48,6 +49,8 @@ export function SettingsPage() {
           </p>
         )}
       </section>
+
+      <ReleaseChannelCard />
 
       <EditPathsDialog open={editOpen} onClose={() => setEditOpen(false)} />
     </div>

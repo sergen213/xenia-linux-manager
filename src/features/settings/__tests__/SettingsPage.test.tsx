@@ -59,4 +59,9 @@ describe("SettingsPage", () => {
       screen.getByText("Settings have not been loaded yet."),
     ).toBeInTheDocument();
   });
+
+  it("renders the release information section", () => {
+    renderWithContext({ settings: mockSettings });
+    expect(screen.getByText("Release Information")).toBeInTheDocument();
+  });
 });

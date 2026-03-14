@@ -1,13 +1,24 @@
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { Sidebar } from "./Sidebar";
+import {
+  SettingsContext,
+  INITIAL_STATE,
+} from "../../features/settings/state/settingsStore";
+
+// Mock Tauri invoke so StatusBar's releaseClient call doesn't throw
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: vi.fn().mockRejectedValue(new Error("not in tauri")),
+}));
 
 function renderSidebar(initialRoute = "/") {
   return render(
-    <MemoryRouter initialEntries={[initialRoute]}>
-      <Sidebar />
-    </MemoryRouter>,
+    <SettingsContext value={{ state: INITIAL_STATE, dispatch: vi.fn() }}>
+      <MemoryRouter initialEntries={[initialRoute]}>
+        <Sidebar />
+      </MemoryRouter>
+    </SettingsContext>,
   );
 }
 
