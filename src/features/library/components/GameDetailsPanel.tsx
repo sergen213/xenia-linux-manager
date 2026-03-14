@@ -1,5 +1,6 @@
 import type { LaunchPreflight, LibraryGameDetails } from "../model/libraryTypes";
 import type {
+  EffectiveConfig,
   ProfileInventory,
   RecommendationAvailability,
 } from "../model/profileTypes";
@@ -7,6 +8,9 @@ import { GameIdentityEditor } from "./GameIdentityEditor";
 import { LaunchPreflightPanel } from "./LaunchPreflightPanel";
 import { LaunchWarningDialog } from "./LaunchWarningDialog";
 import { ManagePatchesPanel } from "./ManagePatchesPanel";
+import { ProfileEditorPanel } from "./ProfileEditorPanel";
+import { ProfileSummaryCard } from "./ProfileSummaryCard";
+import { UnsavedProfileChangesDialog } from "./UnsavedProfileChangesDialog";
 
 interface GameDetailsPanelProps {
   details: LibraryGameDetails | null;
@@ -34,9 +38,28 @@ interface GameDetailsPanelProps {
   onOpenPatchChooser: () => void;
   onClosePatchChooser: () => void;
   profileInventory: ProfileInventory | null;
+  profileEffectiveConfig: EffectiveConfig | null;
+  profileEffectiveLoading: boolean;
+  profileEditorOpen: boolean;
+  profileDraft: Record<string, unknown>;
+  profileDirty: boolean;
+  profileSavePending: boolean;
+  unsavedDialogVisible: boolean;
   recommendationAvailability: RecommendationAvailability | null;
   applyRecommendationPending: boolean;
   onApplyRecommendation: () => Promise<void>;
+  onProfileEditorToggle: () => void;
+  onProfileDraftChange: (draft: Record<string, unknown>) => void;
+  onProfileSave: (profileId: string, overrides: Record<string, unknown>) => Promise<void>;
+  onProfileDiscard: () => void;
+  onProfileCreate: (name: string) => Promise<void>;
+  onProfileDelete: (profileId: string) => Promise<void>;
+  onProfileRename: (profileId: string, newName: string) => Promise<void>;
+  onProfileSelect: (profileId: string | null) => Promise<void>;
+  onLoadEffective: (profileId: string) => void;
+  onUnsavedDialogSave: () => Promise<void>;
+  onUnsavedDialogDiscard: () => void;
+  onUnsavedDialogCancel: () => void;
 }
 
 function formatTimestamp(timestamp: number | null): string {
@@ -67,9 +90,28 @@ export function GameDetailsPanel({
   onOpenPatchChooser,
   onClosePatchChooser,
   profileInventory,
+  profileEffectiveConfig,
+  profileEffectiveLoading,
+  profileEditorOpen,
+  profileDraft,
+  profileDirty,
+  profileSavePending,
+  unsavedDialogVisible,
   recommendationAvailability,
   applyRecommendationPending,
   onApplyRecommendation,
+  onProfileEditorToggle,
+  onProfileDraftChange,
+  onProfileSave,
+  onProfileDiscard,
+  onProfileCreate,
+  onProfileDelete,
+  onProfileRename,
+  onProfileSelect,
+  onLoadEffective,
+  onUnsavedDialogSave,
+  onUnsavedDialogDiscard,
+  onUnsavedDialogCancel,
 }: GameDetailsPanelProps) {
   if (!details) {
     return (
@@ -115,6 +157,9 @@ export function GameDetailsPanel({
         preflight={preflight}
         launchPending={launchPending}
         onLaunch={onLaunch}
+        profileInventory={profileInventory}
+        profileEffectiveConfig={profileEffectiveConfig}
+        profileEffectiveLoading={profileEffectiveLoading}
       />
       <LaunchWarningDialog preflight={preflight} onConfirm={onConfirmWarningLaunch} />
 
@@ -148,38 +193,51 @@ export function GameDetailsPanel({
       </section>
 
       <section className="game-details__section">
-        <h3>Profiles</h3>
-        {profileInventory && profileInventory.profiles.length > 0 ? (
-          <ul className="game-details__list">
-            {profileInventory.profiles.map((profile) => (
-              <li key={profile.id}>
-                <strong>{profile.name}</strong>
-                <span>
-                  {profile.source === "recommended" ? "Recommended" : "Local"}
-                  {profile.active ? " (active)" : ""}
-                </span>
-                {profile.recommendation_linkage && (
-                  <span className="game-details__muted">
-                    via {profile.recommendation_linkage.source_label}
-                  </span>
-                )}
-                <span>{profile.override_count} overrides</span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="game-details__muted">No profiles configured.</p>
-        )}
-        {recommendationAvailability?.status === "available" && (
-          <button
-            type="button"
-            disabled={applyRecommendationPending}
-            onClick={onApplyRecommendation}
-          >
-            {applyRecommendationPending
-              ? "Applying..."
-              : `Apply recommended settings from ${recommendationAvailability.source_label}`}
+        <div className="game-details__section-header">
+          <h3>Profiles</h3>
+          <button type="button" onClick={onProfileEditorToggle}>
+            {profileEditorOpen ? "Hide profile editor" : "Edit profiles"}
           </button>
+        </div>
+
+        {!profileEditorOpen && (
+          <>
+            <ProfileSummaryCard
+              inventory={profileInventory}
+              effectiveConfig={profileEffectiveConfig}
+              loading={profileEffectiveLoading}
+            />
+            {recommendationAvailability?.status === "available" && (
+              <button
+                type="button"
+                disabled={applyRecommendationPending}
+                onClick={onApplyRecommendation}
+              >
+                {applyRecommendationPending
+                  ? "Applying..."
+                  : `Apply recommended settings from ${recommendationAvailability.source_label}`}
+              </button>
+            )}
+          </>
+        )}
+
+        {profileEditorOpen && profileInventory && (
+          <ProfileEditorPanel
+            inventory={profileInventory}
+            effectiveConfig={profileEffectiveConfig}
+            effectiveLoading={profileEffectiveLoading}
+            draft={profileDraft}
+            dirty={profileDirty}
+            onDraftChange={onProfileDraftChange}
+            onSave={onProfileSave}
+            onDiscard={onProfileDiscard}
+            onCreateProfile={onProfileCreate}
+            onDeleteProfile={onProfileDelete}
+            onRenameProfile={onProfileRename}
+            onSelectProfile={onProfileSelect}
+            onLoadEffective={onLoadEffective}
+            savePending={profileSavePending}
+          />
         )}
       </section>
 
@@ -217,6 +275,14 @@ export function GameDetailsPanel({
         <h3>Identity corrections</h3>
         <GameIdentityEditor details={details} onSave={onSaveIdentity} />
       </section>
+
+      <UnsavedProfileChangesDialog
+        visible={unsavedDialogVisible}
+        onSave={onUnsavedDialogSave}
+        onDiscard={onUnsavedDialogDiscard}
+        onCancel={onUnsavedDialogCancel}
+        savePending={profileSavePending}
+      />
     </aside>
   );
 }

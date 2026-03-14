@@ -10,6 +10,7 @@ import type { GamePatchInventory } from "../model/patchTypes";
 import type {
   ProfileInventory,
   EffectiveConfig,
+  MaterializedLaunchConfig,
   RecommendationAvailability,
 } from "../model/profileTypes";
 
@@ -407,5 +408,138 @@ describe("libraryReducer", () => {
     if (next.recommendationAvailability?.status === "available") {
       expect(next.recommendationAvailability.source_label).toBe("Bundled Baselines");
     }
+  });
+
+  // --- Profile draft and editor state tests ---
+
+  it("SET_PROFILE_DRAFT updates draft and marks dirty", () => {
+    const draft = { "gpu.vsync": false, "gpu.framerate_limit": 60 };
+    const next = libraryReducer(INITIAL_LIBRARY_STATE, {
+      type: "SET_PROFILE_DRAFT",
+      draft,
+    });
+    expect(next.profileDraft).toEqual(draft);
+    expect(next.profileDirty).toBe(true);
+  });
+
+  it("RESET_PROFILE_DRAFT clears draft and dirty state", () => {
+    const state: LibraryState = {
+      ...INITIAL_LIBRARY_STATE,
+      profileDraft: { "gpu.vsync": false },
+      profileDirty: true,
+      profileSavePending: true,
+    };
+    const next = libraryReducer(state, { type: "RESET_PROFILE_DRAFT" });
+    expect(next.profileDraft).toEqual({});
+    expect(next.profileDirty).toBe(false);
+    expect(next.profileSavePending).toBe(false);
+  });
+
+  it("SET_PROFILE_EDITOR_OPEN toggles editor visibility", () => {
+    const next = libraryReducer(INITIAL_LIBRARY_STATE, {
+      type: "SET_PROFILE_EDITOR_OPEN",
+      open: true,
+    });
+    expect(next.profileEditorOpen).toBe(true);
+
+    const closed = libraryReducer(next, {
+      type: "SET_PROFILE_EDITOR_OPEN",
+      open: false,
+    });
+    expect(closed.profileEditorOpen).toBe(false);
+  });
+
+  it("SHOW_UNSAVED_DIALOG and HIDE_UNSAVED_DIALOG manage dialog state", () => {
+    const next = libraryReducer(INITIAL_LIBRARY_STATE, {
+      type: "SHOW_UNSAVED_DIALOG",
+      target: "game-2",
+    });
+    expect(next.unsavedDialogVisible).toBe(true);
+    expect(next.unsavedDialogTarget).toBe("game-2");
+
+    const hidden = libraryReducer(next, { type: "HIDE_UNSAVED_DIALOG" });
+    expect(hidden.unsavedDialogVisible).toBe(false);
+    expect(hidden.unsavedDialogTarget).toBeNull();
+  });
+
+  it("SET_PROFILE_SAVE_PENDING toggles save pending", () => {
+    const next = libraryReducer(INITIAL_LIBRARY_STATE, {
+      type: "SET_PROFILE_SAVE_PENDING",
+      pending: true,
+    });
+    expect(next.profileSavePending).toBe(true);
+  });
+
+  it("SELECT_GAME clears profile draft for different game", () => {
+    const state: LibraryState = {
+      ...INITIAL_LIBRARY_STATE,
+      selectedGameId: "game-1",
+      profileDraft: { "gpu.vsync": false },
+      profileDirty: true,
+      profileEditorOpen: true,
+    };
+    const next = libraryReducer(state, {
+      type: "SELECT_GAME",
+      gameId: "game-2",
+    });
+    expect(next.profileDraft).toEqual({});
+    expect(next.profileDirty).toBe(false);
+    expect(next.profileEditorOpen).toBe(false);
+  });
+
+  it("SELECT_GAME preserves profile draft for same game", () => {
+    const draft = { "gpu.vsync": false };
+    const state: LibraryState = {
+      ...INITIAL_LIBRARY_STATE,
+      selectedGameId: "game-1",
+      profileDraft: draft,
+      profileDirty: true,
+      profileEditorOpen: true,
+    };
+    const next = libraryReducer(state, {
+      type: "SELECT_GAME",
+      gameId: "game-1",
+    });
+    expect(next.profileDraft).toEqual(draft);
+    expect(next.profileDirty).toBe(true);
+    expect(next.profileEditorOpen).toBe(true);
+  });
+
+  it("MATERIALIZED_LOADED stores materialized launch config", () => {
+    const config: MaterializedLaunchConfig = {
+      game_id: "game-1",
+      profile_id: "prof-1",
+      profile_name: "Performance",
+      effective_fields: [{ key: "gpu.vsync", value: false, changed: true }],
+      explicit_overrides: { "gpu.vsync": false },
+      changed_setting_count: 1,
+      key_changes: [{ key: "gpu.vsync", value: false, label: "Gpu Vsync" }],
+      patch_summary: null,
+      materialized_at: 1700000000000,
+    };
+    const next = libraryReducer(INITIAL_LIBRARY_STATE, {
+      type: "MATERIALIZED_LOADED",
+      config,
+    });
+    expect(next.materializedLaunchConfig).toEqual(config);
+    expect(next.materializedLoading).toBe(false);
+  });
+
+  it("MATERIALIZED_LOADING sets loading flag", () => {
+    const next = libraryReducer(INITIAL_LIBRARY_STATE, {
+      type: "MATERIALIZED_LOADING",
+    });
+    expect(next.materializedLoading).toBe(true);
+  });
+
+  it("initial state includes profile editor defaults", () => {
+    expect(INITIAL_LIBRARY_STATE.profileDraft).toEqual({});
+    expect(INITIAL_LIBRARY_STATE.profileDirty).toBe(false);
+    expect(INITIAL_LIBRARY_STATE.profileSavePending).toBe(false);
+    expect(INITIAL_LIBRARY_STATE.profileEditorOpen).toBe(false);
+    expect(INITIAL_LIBRARY_STATE.unsavedDialogVisible).toBe(false);
+    expect(INITIAL_LIBRARY_STATE.unsavedDialogTarget).toBeNull();
+    expect(INITIAL_LIBRARY_STATE.materializedLaunchConfig).toBeNull();
+    expect(INITIAL_LIBRARY_STATE.materializedLoading).toBe(false);
   });
 });

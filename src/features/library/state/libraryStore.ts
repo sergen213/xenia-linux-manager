@@ -16,6 +16,7 @@ import type {
 } from "../model/patchTypes";
 import type {
   EffectiveConfig,
+  MaterializedLaunchConfig,
   ProfileInventory,
   RecommendationAvailability,
 } from "../model/profileTypes";
@@ -58,6 +59,14 @@ export interface LibraryState {
   recommendationAvailability: RecommendationAvailability | null;
   recommendationLoading: boolean;
   applyRecommendationPending: boolean;
+  profileDraft: Record<string, unknown>;
+  profileDirty: boolean;
+  profileSavePending: boolean;
+  profileEditorOpen: boolean;
+  unsavedDialogVisible: boolean;
+  unsavedDialogTarget: string | null;
+  materializedLaunchConfig: MaterializedLaunchConfig | null;
+  materializedLoading: boolean;
 }
 
 export const INITIAL_LIBRARY_STATE: LibraryState = {
@@ -94,6 +103,14 @@ export const INITIAL_LIBRARY_STATE: LibraryState = {
   recommendationAvailability: null,
   recommendationLoading: false,
   applyRecommendationPending: false,
+  profileDraft: {},
+  profileDirty: false,
+  profileSavePending: false,
+  profileEditorOpen: false,
+  unsavedDialogVisible: false,
+  unsavedDialogTarget: null,
+  materializedLaunchConfig: null,
+  materializedLoading: false,
 };
 
 export type LibraryAction =
@@ -139,7 +156,17 @@ export type LibraryAction =
   | { type: "RECOMMENDATION_LOADING" }
   | { type: "RECOMMENDATION_LOADED"; availability: RecommendationAvailability }
   | { type: "RECOMMENDATION_ERROR"; error: string }
-  | { type: "APPLY_RECOMMENDATION_PENDING"; pending: boolean };
+  | { type: "APPLY_RECOMMENDATION_PENDING"; pending: boolean }
+  | { type: "SET_PROFILE_DRAFT"; draft: Record<string, unknown> }
+  | { type: "SET_PROFILE_DIRTY"; dirty: boolean }
+  | { type: "SET_PROFILE_SAVE_PENDING"; pending: boolean }
+  | { type: "SET_PROFILE_EDITOR_OPEN"; open: boolean }
+  | { type: "SHOW_UNSAVED_DIALOG"; target: string | null }
+  | { type: "HIDE_UNSAVED_DIALOG" }
+  | { type: "RESET_PROFILE_DRAFT" }
+  | { type: "MATERIALIZED_LOADING" }
+  | { type: "MATERIALIZED_LOADED"; config: MaterializedLaunchConfig }
+  | { type: "MATERIALIZED_ERROR"; error: string };
 
 export function libraryReducer(
   state: LibraryState,
@@ -218,6 +245,11 @@ export function libraryReducer(
           action.gameId === state.selectedGameId ? state.profileEffectiveConfig : null,
         recommendationAvailability:
           action.gameId === state.selectedGameId ? state.recommendationAvailability : null,
+        profileDraft: action.gameId === state.selectedGameId ? state.profileDraft : {},
+        profileDirty: action.gameId === state.selectedGameId ? state.profileDirty : false,
+        profileEditorOpen: action.gameId === state.selectedGameId ? state.profileEditorOpen : false,
+        materializedLaunchConfig:
+          action.gameId === state.selectedGameId ? state.materializedLaunchConfig : null,
       };
     case "GAME_DETAILS_LOADED":
       return { ...state, selectedGame: action.details };
@@ -314,6 +346,26 @@ export function libraryReducer(
       };
     case "APPLY_RECOMMENDATION_PENDING":
       return { ...state, applyRecommendationPending: action.pending };
+    case "SET_PROFILE_DRAFT":
+      return { ...state, profileDraft: action.draft, profileDirty: true };
+    case "SET_PROFILE_DIRTY":
+      return { ...state, profileDirty: action.dirty };
+    case "SET_PROFILE_SAVE_PENDING":
+      return { ...state, profileSavePending: action.pending };
+    case "SET_PROFILE_EDITOR_OPEN":
+      return { ...state, profileEditorOpen: action.open };
+    case "SHOW_UNSAVED_DIALOG":
+      return { ...state, unsavedDialogVisible: true, unsavedDialogTarget: action.target };
+    case "HIDE_UNSAVED_DIALOG":
+      return { ...state, unsavedDialogVisible: false, unsavedDialogTarget: null };
+    case "RESET_PROFILE_DRAFT":
+      return { ...state, profileDraft: {}, profileDirty: false, profileSavePending: false };
+    case "MATERIALIZED_LOADING":
+      return { ...state, materializedLoading: true };
+    case "MATERIALIZED_LOADED":
+      return { ...state, materializedLoading: false, materializedLaunchConfig: action.config };
+    case "MATERIALIZED_ERROR":
+      return { ...state, materializedLoading: false, error: action.error };
     default:
       return state;
   }

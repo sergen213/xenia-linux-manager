@@ -26,6 +26,7 @@ import type {
 } from "../model/patchTypes";
 import type {
   EffectiveConfig,
+  MaterializedLaunchConfig,
   ProfileDocument,
   ProfileInventory,
   RecommendationAvailability,
@@ -344,6 +345,20 @@ export async function saveProfileOverrides(
     gameId,
     profileId,
     overrides,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Materialization commands
+// ---------------------------------------------------------------------------
+
+export async function getMaterializedLaunchConfig(
+  libraryMetadataPath: string,
+  gameId: string,
+): Promise<MaterializedLaunchConfig> {
+  return invoke<MaterializedLaunchConfig>("get_materialized_launch_config", {
+    libraryMetadataPath,
+    gameId,
   });
 }
 

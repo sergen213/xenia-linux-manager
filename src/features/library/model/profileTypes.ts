@@ -72,3 +72,39 @@ export interface ProfileDocument {
   game_id: string;
   overrides: Record<string, unknown>;
 }
+
+// ---------------------------------------------------------------------------
+// Materialized launch config types
+// ---------------------------------------------------------------------------
+
+/** A single key-changed setting for summary display. */
+export interface KeyChangeSummary {
+  key: string;
+  value: unknown;
+  label: string;
+}
+
+/** Summary of the active patch file applied at launch. */
+export interface MaterializedPatchSummary {
+  patch_file_id: string;
+  file_name: string;
+  active_entry_count: number;
+  entries: Array<{
+    entry_id: string;
+    title: string;
+    enabled: boolean;
+  }>;
+}
+
+/** Full launch-time materialized config combining profile and patch state. */
+export interface MaterializedLaunchConfig {
+  game_id: string;
+  profile_id: string | null;
+  profile_name: string | null;
+  effective_fields: EffectiveField[];
+  explicit_overrides: Record<string, unknown>;
+  changed_setting_count: number;
+  key_changes: KeyChangeSummary[];
+  patch_summary: MaterializedPatchSummary | null;
+  materialized_at: number;
+}
