@@ -1,3 +1,4 @@
+use crate::profiles::sources;
 use crate::profiles::storage;
 
 #[tauri::command]
@@ -74,5 +75,33 @@ pub fn save_profile_overrides(
         &game_id,
         &profile_id,
         overrides,
+    )
+}
+
+// ---------------------------------------------------------------------------
+// Recommendation commands
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+pub fn check_recommendation_availability(
+    game_id: String,
+) -> sources::RecommendationAvailability {
+    let source = sources::default_recommendation_source();
+    sources::check_recommendation(&source, &game_id)
+}
+
+#[tauri::command]
+pub fn apply_recommended_profile(
+    library_metadata_path: String,
+    game_id: String,
+    profile_name: Option<String>,
+) -> Result<storage::ProfileInventory, String> {
+    let source = sources::default_recommendation_source();
+    let availability = sources::check_recommendation(&source, &game_id);
+    sources::apply_recommendation(
+        &library_metadata_path,
+        &game_id,
+        &availability,
+        profile_name.as_deref(),
     )
 }

@@ -4,4 +4,5 @@
 //! and effective-settings computation for Xenia game profiles.
 
 pub mod merge;
+pub mod sources;
 pub mod storage;

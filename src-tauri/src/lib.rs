@@ -68,6 +68,8 @@ pub fn run() {
             profiles_commands::select_active_game_profile,
             profiles_commands::get_profile_effective_config,
             profiles_commands::save_profile_overrides,
+            profiles_commands::check_recommendation_availability,
+            profiles_commands::apply_recommended_profile,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

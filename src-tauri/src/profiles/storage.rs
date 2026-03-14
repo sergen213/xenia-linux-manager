@@ -18,11 +18,14 @@ const STORE_VERSION: u32 = 1;
 // Data types
 // ---------------------------------------------------------------------------
 
-/// Provenance tracking for future-compatibility with recommended profiles.
+/// Provenance tracking for profiles.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum ProfileSource {
+    /// Created locally by the user.
     Local,
+    /// Applied from a recommendation source (community, bundled, etc.).
+    Recommended,
 }
 
 /// Metadata for a single named profile within a game.
@@ -33,6 +36,10 @@ pub struct ProfileRecord {
     pub source: ProfileSource,
     pub created_at: u64,
     pub updated_at: u64,
+    /// If this profile was applied from a recommendation source, tracks
+    /// the source identity and application timestamp.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub recommendation_linkage: Option<super::sources::RecommendationLinkage>,
 }
 
 /// Per-game profile manifest storing all profiles and the active selection.
@@ -65,6 +72,9 @@ pub struct ProfileSummary {
     pub override_count: usize,
     pub created_at: u64,
     pub updated_at: u64,
+    /// Provenance linkage for recommended profiles; absent for local profiles.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub recommendation_linkage: Option<super::sources::RecommendationLinkage>,
 }
 
 /// Full inventory of profiles for a game.
@@ -97,6 +107,7 @@ pub fn load_inventory(
             override_count: doc.overrides.len(),
             created_at: record.created_at,
             updated_at: record.updated_at,
+            recommendation_linkage: record.recommendation_linkage.clone(),
         });
     }
 
@@ -138,6 +149,7 @@ pub fn create_profile(
         source: ProfileSource::Local,
         created_at: now,
         updated_at: now,
+        recommendation_linkage: None,
     };
 
     let doc = ProfileDocument {
@@ -296,6 +308,69 @@ pub fn load_profile_document(
         }),
         Err(e) => Err(format!("Failed to read profile document: {}", e)),
     }
+}
+
+/// Create a profile from a recommendation source with provenance tracking.
+///
+/// The profile is stored as a normal profile with `ProfileSource::Recommended`
+/// and its overrides pre-populated from the recommendation baseline.
+pub fn create_recommended_profile(
+    library_metadata_path: &str,
+    game_id: &str,
+    name: &str,
+    baseline: HashMap<String, serde_json::Value>,
+    linkage: super::sources::RecommendationLinkage,
+) -> Result<ProfileInventory, String> {
+    let trimmed = name.trim();
+    if trimmed.is_empty() {
+        return Err("Profile name cannot be empty".to_string());
+    }
+
+    let mut manifest = load_manifest(library_metadata_path, game_id)?;
+    if manifest.profiles.iter().any(|p| p.name == trimmed) {
+        return Err(format!(
+            "A profile named \"{}\" already exists for this game",
+            trimmed
+        ));
+    }
+
+    ensure_profile_dirs(library_metadata_path, game_id)?;
+
+    let now = now_millis();
+    let profile_id = generate_profile_id(trimmed, now);
+
+    let record = ProfileRecord {
+        id: profile_id.clone(),
+        name: trimmed.to_string(),
+        source: ProfileSource::Recommended,
+        created_at: now,
+        updated_at: now,
+        recommendation_linkage: Some(linkage),
+    };
+
+    // Filter null values from baseline, same as save_profile_overrides.
+    let clean_overrides: HashMap<String, serde_json::Value> = baseline
+        .into_iter()
+        .filter(|(_, v)| !v.is_null())
+        .collect();
+
+    let doc = ProfileDocument {
+        version: STORE_VERSION,
+        profile_id: profile_id.clone(),
+        game_id: game_id.to_string(),
+        overrides: clean_overrides,
+    };
+
+    save_profile_document(library_metadata_path, game_id, &doc)?;
+    manifest.profiles.push(record);
+
+    // Auto-select the first profile created for a game.
+    if manifest.active_profile_id.is_none() {
+        manifest.active_profile_id = Some(profile_id);
+    }
+
+    save_manifest(library_metadata_path, game_id, &manifest)?;
+    load_inventory(library_metadata_path, game_id)
 }
 
 /// Load the raw manifest for a game (used by merge and commands modules).
