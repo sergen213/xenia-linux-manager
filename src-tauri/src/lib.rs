@@ -3,6 +3,7 @@ pub mod jobs;
 pub mod library;
 pub mod patches;
 pub mod profiles;
+pub mod release;
 pub mod saves;
 pub mod settings;
 pub mod xenia;
@@ -15,6 +16,7 @@ use commands::patches as patches_commands;
 use commands::profiles as profiles_commands;
 use commands::saves as saves_commands;
 use commands::settings as settings_commands;
+use commands::release as release_commands;
 use commands::xenia as xenia_commands;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -83,6 +85,9 @@ pub fn run() {
             saves_commands::apply_save_import,
             saves_commands::cleanup_save_import_staging,
             saves_commands::list_save_backups,
+            release_commands::get_release_metadata,
+            release_commands::get_updater_readiness,
+            release_commands::get_environment_diagnostics,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -520,6 +520,7 @@ mod tests {
     use super::*;
     use crate::saves::paths::ExportCategory;
     use std::env;
+    use std::fs;
 
     fn temp_dir(suffix: &str) -> String {
         let path = env::temp_dir().join("xlm-save-import").join(suffix);

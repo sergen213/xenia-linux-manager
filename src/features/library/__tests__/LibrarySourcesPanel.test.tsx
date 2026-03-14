@@ -29,6 +29,7 @@ const settingsState: SettingsState = {
   loading: false,
   error: null,
   initialized: true,
+  releaseMetadata: null,
 };
 
 const mockSource: LibrarySource = {

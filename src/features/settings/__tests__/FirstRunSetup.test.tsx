@@ -37,6 +37,7 @@ function renderWithContext(state: Partial<SettingsState>) {
     loading: false,
     error: null,
     initialized: false,
+    releaseMetadata: null,
     ...state,
   };
   const dispatch = vi.fn();

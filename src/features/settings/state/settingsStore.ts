@@ -10,6 +10,7 @@ import type {
   AppSettings,
   SettingsValidation,
 } from "../model/settingsSchema";
+import type { ReleaseMetadata } from "../model/releaseTypes";
 
 // ---------------------------------------------------------------------------
 // State shape
@@ -26,6 +27,8 @@ export interface SettingsState {
   error: string | null;
   /** Whether the initial load has completed at least once. */
   initialized: boolean;
+  /** Release metadata from the backend (version, build kind, updater). */
+  releaseMetadata: ReleaseMetadata | null;
 }
 
 export const INITIAL_STATE: SettingsState = {
@@ -34,6 +37,7 @@ export const INITIAL_STATE: SettingsState = {
   loading: false,
   error: null,
   initialized: false,
+  releaseMetadata: null,
 };
 
 // ---------------------------------------------------------------------------
@@ -54,7 +58,8 @@ export type SettingsAction =
   | { type: "UPDATE_FIELD"; field: string; value: string }
   | { type: "SET_VALIDATION"; validation: SettingsValidation }
   | { type: "SET_SETTINGS"; settings: AppSettings }
-  | { type: "SET_LAST_ROUTE"; route: string };
+  | { type: "SET_LAST_ROUTE"; route: string }
+  | { type: "SET_RELEASE_METADATA"; metadata: ReleaseMetadata };
 
 // ---------------------------------------------------------------------------
 // Reducer
@@ -117,6 +122,9 @@ export function settingsReducer(
         ...state,
         settings: { ...state.settings, last_active_route: action.route },
       };
+
+    case "SET_RELEASE_METADATA":
+      return { ...state, releaseMetadata: action.metadata };
 
     default:
       return state;

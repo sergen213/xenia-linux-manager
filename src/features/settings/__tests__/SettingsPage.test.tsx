@@ -25,6 +25,7 @@ function renderWithContext(state: Partial<SettingsState>) {
     loading: false,
     error: null,
     initialized: true,
+    releaseMetadata: null,
     ...state,
   };
   return render(
