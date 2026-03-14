@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useSettings } from "../state/settingsStore";
 import { getReleaseMetadata } from "../api/releaseClient";
-import type { ReleaseMetadata } from "../model/releaseTypes";
 import "./ReleaseChannelCard.css";
 
 /**
