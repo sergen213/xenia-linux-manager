@@ -13,6 +13,7 @@ use commands::jobs as jobs_commands;
 use commands::library as library_commands;
 use commands::patches as patches_commands;
 use commands::profiles as profiles_commands;
+use commands::saves as saves_commands;
 use commands::settings as settings_commands;
 use commands::xenia as xenia_commands;
 
@@ -73,6 +74,13 @@ pub fn run() {
             profiles_commands::get_materialized_launch_config,
             profiles_commands::check_recommendation_availability,
             profiles_commands::apply_recommended_profile,
+            saves_commands::get_export_preflight,
+            saves_commands::export_save_archive,
+            saves_commands::inspect_save_archive,
+            saves_commands::get_import_conflict_plan,
+            saves_commands::apply_save_import,
+            saves_commands::cleanup_save_import_staging,
+            saves_commands::list_save_backups,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

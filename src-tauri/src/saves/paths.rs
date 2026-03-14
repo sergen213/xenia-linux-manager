@@ -10,7 +10,6 @@ use std::path::{Path, PathBuf};
 
 use crate::library::identity::{self, GameIdentityRecord};
 use crate::patches::storage as patch_storage;
-use crate::profiles::storage as profile_storage;
 
 // ---------------------------------------------------------------------------
 // Types
@@ -110,7 +109,7 @@ fn build_save_roots(
 /// We scan the content directory for folders that look like title IDs.
 /// If the game has patches with a known title_id, we use that.
 /// Otherwise we look for any content subfolder.
-fn resolve_xenia_save_root(xenia_path: &str, game: &GameIdentityRecord) -> Option<PathBuf> {
+fn resolve_xenia_save_root(xenia_path: &str, _game: &GameIdentityRecord) -> Option<PathBuf> {
     let content_dir = PathBuf::from(xenia_path).join("content");
     if !content_dir.is_dir() {
         return None;

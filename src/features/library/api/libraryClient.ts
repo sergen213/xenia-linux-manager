@@ -31,6 +31,15 @@ import type {
   ProfileInventory,
   RecommendationAvailability,
 } from "../model/profileTypes";
+import type {
+  BackupEntry,
+  ConflictPlan,
+  ConflictPolicy,
+  ExportPreflight,
+  ExportResult,
+  ImportApplyResult,
+  ImportInspection,
+} from "../model/saveTypes";
 
 export async function addLibrarySource(
   libraryMetadataPath: string,
@@ -384,5 +393,105 @@ export async function applyRecommendedProfile(
     libraryMetadataPath,
     gameId,
     profileName: profileName ?? null,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Save commands
+// ---------------------------------------------------------------------------
+
+export async function getExportPreflight(
+  libraryMetadataPath: string,
+  xeniaPath: string,
+  gameId: string,
+): Promise<ExportPreflight> {
+  return invoke<ExportPreflight>("get_export_preflight", {
+    libraryMetadataPath,
+    xeniaPath,
+    gameId,
+  });
+}
+
+export async function exportSaveArchive(
+  appDataPath: string,
+  libraryMetadataPath: string,
+  xeniaPath: string,
+  gameId: string,
+  outputDir: string,
+  selectedLabels?: string[],
+): Promise<ExportResult> {
+  return invoke<ExportResult>("export_save_archive", {
+    appDataPath,
+    libraryMetadataPath,
+    xeniaPath,
+    gameId,
+    outputDir,
+    selectedLabels: selectedLabels ?? null,
+  });
+}
+
+export async function inspectSaveArchive(
+  appDataPath: string,
+  libraryMetadataPath: string,
+  archivePath: string,
+): Promise<ImportInspection> {
+  return invoke<ImportInspection>("inspect_save_archive", {
+    appDataPath,
+    libraryMetadataPath,
+    archivePath,
+  });
+}
+
+export async function getImportConflictPlan(
+  libraryMetadataPath: string,
+  xeniaPath: string,
+  stagingPath: string,
+  targetGameId: string,
+  sourceGameId: string,
+  sourceGameTitle: string,
+  policy: ConflictPolicy,
+): Promise<ConflictPlan> {
+  return invoke<ConflictPlan>("get_import_conflict_plan", {
+    libraryMetadataPath,
+    xeniaPath,
+    stagingPath,
+    targetGameId,
+    sourceGameId,
+    sourceGameTitle,
+    policy,
+  });
+}
+
+export async function applySaveImport(
+  appDataPath: string,
+  libraryMetadataPath: string,
+  xeniaPath: string,
+  plan: ConflictPlan,
+  stagingPath: string,
+  forceWithoutBackup = false,
+): Promise<ImportApplyResult> {
+  return invoke<ImportApplyResult>("apply_save_import", {
+    appDataPath,
+    libraryMetadataPath,
+    xeniaPath,
+    plan,
+    stagingPath,
+    forceWithoutBackup,
+  });
+}
+
+export async function cleanupSaveImportStaging(
+  appDataPath: string,
+): Promise<void> {
+  return invoke<void>("cleanup_save_import_staging", {
+    appDataPath,
+  });
+}
+
+export async function listSaveBackups(
+  appDataPath: string,
+): Promise<BackupEntry[]> {
+  return invoke<BackupEntry[]>("list_save_backups", {
+    appDataPath,
   });
 }

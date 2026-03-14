@@ -5,7 +5,6 @@
 //! a backup before any destructive write, and apply with per-item results.
 
 use serde::{Deserialize, Serialize};
-use std::fs;
 use std::path::{Path, PathBuf};
 
 use super::archive::{self, ArchiveManifest, ManifestItem};

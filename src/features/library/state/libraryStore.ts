@@ -20,6 +20,14 @@ import type {
   ProfileInventory,
   RecommendationAvailability,
 } from "../model/profileTypes";
+import type {
+  BackupEntry,
+  ConflictPlan,
+  ExportPreflight,
+  ExportResult,
+  ImportApplyResult,
+  ImportInspection,
+} from "../model/saveTypes";
 
 export type LibraryViewMode = "library" | "review";
 export type LibrarySortMode = "recent" | "title" | "source";
@@ -67,6 +75,17 @@ export interface LibraryState {
   unsavedDialogTarget: string | null;
   materializedLaunchConfig: MaterializedLaunchConfig | null;
   materializedLoading: boolean;
+  // Save portability state
+  exportPreflight: ExportPreflight | null;
+  exportPreflightLoading: boolean;
+  exportPending: boolean;
+  lastExportResult: ExportResult | null;
+  importInspection: ImportInspection | null;
+  importInspectionLoading: boolean;
+  importConflictPlan: ConflictPlan | null;
+  importApplyPending: boolean;
+  lastImportResult: ImportApplyResult | null;
+  saveBackups: BackupEntry[];
 }
 
 export const INITIAL_LIBRARY_STATE: LibraryState = {
@@ -111,6 +130,17 @@ export const INITIAL_LIBRARY_STATE: LibraryState = {
   unsavedDialogTarget: null,
   materializedLaunchConfig: null,
   materializedLoading: false,
+  // Save portability state
+  exportPreflight: null,
+  exportPreflightLoading: false,
+  exportPending: false,
+  lastExportResult: null,
+  importInspection: null,
+  importInspectionLoading: false,
+  importConflictPlan: null,
+  importApplyPending: false,
+  lastImportResult: null,
+  saveBackups: [],
 };
 
 export type LibraryAction =
@@ -166,7 +196,21 @@ export type LibraryAction =
   | { type: "RESET_PROFILE_DRAFT" }
   | { type: "MATERIALIZED_LOADING" }
   | { type: "MATERIALIZED_LOADED"; config: MaterializedLaunchConfig }
-  | { type: "MATERIALIZED_ERROR"; error: string };
+  | { type: "MATERIALIZED_ERROR"; error: string }
+  // Save portability actions
+  | { type: "EXPORT_PREFLIGHT_LOADING" }
+  | { type: "EXPORT_PREFLIGHT_LOADED"; preflight: ExportPreflight }
+  | { type: "EXPORT_PREFLIGHT_ERROR"; error: string }
+  | { type: "EXPORT_PENDING"; pending: boolean }
+  | { type: "EXPORT_COMPLETE"; result: ExportResult }
+  | { type: "IMPORT_INSPECTION_LOADING" }
+  | { type: "IMPORT_INSPECTION_LOADED"; inspection: ImportInspection }
+  | { type: "IMPORT_INSPECTION_ERROR"; error: string }
+  | { type: "SET_IMPORT_CONFLICT_PLAN"; plan: ConflictPlan | null }
+  | { type: "IMPORT_APPLY_PENDING"; pending: boolean }
+  | { type: "IMPORT_APPLY_COMPLETE"; result: ImportApplyResult }
+  | { type: "SAVE_BACKUPS_LOADED"; backups: BackupEntry[] }
+  | { type: "CLEAR_SAVE_STATE" };
 
 export function libraryReducer(
   state: LibraryState,
@@ -366,6 +410,44 @@ export function libraryReducer(
       return { ...state, materializedLoading: false, materializedLaunchConfig: action.config };
     case "MATERIALIZED_ERROR":
       return { ...state, materializedLoading: false, error: action.error };
+    // Save portability reducers
+    case "EXPORT_PREFLIGHT_LOADING":
+      return { ...state, exportPreflightLoading: true };
+    case "EXPORT_PREFLIGHT_LOADED":
+      return { ...state, exportPreflightLoading: false, exportPreflight: action.preflight };
+    case "EXPORT_PREFLIGHT_ERROR":
+      return { ...state, exportPreflightLoading: false, error: action.error };
+    case "EXPORT_PENDING":
+      return { ...state, exportPending: action.pending };
+    case "EXPORT_COMPLETE":
+      return { ...state, exportPending: false, lastExportResult: action.result };
+    case "IMPORT_INSPECTION_LOADING":
+      return { ...state, importInspectionLoading: true };
+    case "IMPORT_INSPECTION_LOADED":
+      return { ...state, importInspectionLoading: false, importInspection: action.inspection };
+    case "IMPORT_INSPECTION_ERROR":
+      return { ...state, importInspectionLoading: false, error: action.error };
+    case "SET_IMPORT_CONFLICT_PLAN":
+      return { ...state, importConflictPlan: action.plan };
+    case "IMPORT_APPLY_PENDING":
+      return { ...state, importApplyPending: action.pending };
+    case "IMPORT_APPLY_COMPLETE":
+      return { ...state, importApplyPending: false, lastImportResult: action.result };
+    case "SAVE_BACKUPS_LOADED":
+      return { ...state, saveBackups: action.backups };
+    case "CLEAR_SAVE_STATE":
+      return {
+        ...state,
+        exportPreflight: null,
+        exportPreflightLoading: false,
+        exportPending: false,
+        lastExportResult: null,
+        importInspection: null,
+        importInspectionLoading: false,
+        importConflictPlan: null,
+        importApplyPending: false,
+        lastImportResult: null,
+      };
     default:
       return state;
   }
