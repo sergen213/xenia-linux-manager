@@ -1,5 +1,12 @@
 /** Source provenance for a profile. */
-export type ProfileSourceKind = "local";
+export type ProfileSourceKind = "local" | "recommended";
+
+/** Linkage metadata for profiles applied from a recommendation source. */
+export interface RecommendationLinkage {
+  source_id: string;
+  source_label: string;
+  applied_at: number;
+}
 
 /** Summary of a single profile in the inventory. */
 export interface ProfileSummary {
@@ -10,6 +17,7 @@ export interface ProfileSummary {
   override_count: number;
   created_at: number;
   updated_at: number;
+  recommendation_linkage?: RecommendationLinkage | null;
 }
 
 /** Full profile inventory for a game. */
@@ -34,7 +42,28 @@ export interface EffectiveConfig {
   explicit_overrides: Record<string, unknown>;
   changed_count: number;
   total_count: number;
+  source: ProfileSourceKind;
+  recommendation_linkage?: RecommendationLinkage | null;
 }
+
+/** Why a recommendation is not available. */
+export type UnsupportedReason =
+  | "no_source_configured"
+  | "title_not_covered"
+  | { source_error: string };
+
+/** Outcome of a recommendation availability check. */
+export type RecommendationAvailability =
+  | {
+      status: "available";
+      source_id: string;
+      source_label: string;
+      baseline: Record<string, unknown>;
+    }
+  | {
+      status: "unsupported";
+      reason: UnsupportedReason;
+    };
 
 /** Explicit profile document with sparse overrides. */
 export interface ProfileDocument {

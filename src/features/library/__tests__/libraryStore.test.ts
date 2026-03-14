@@ -7,7 +7,11 @@ import {
 } from "../state/libraryStore";
 import type { LibrarySource, NestedSourceWarning } from "../model/libraryTypes";
 import type { GamePatchInventory } from "../model/patchTypes";
-import type { ProfileInventory, EffectiveConfig } from "../model/profileTypes";
+import type {
+  ProfileInventory,
+  EffectiveConfig,
+  RecommendationAvailability,
+} from "../model/profileTypes";
 
 const mockSource: LibrarySource = {
   id: "src-1",
@@ -321,5 +325,85 @@ describe("libraryReducer", () => {
       gameId: "game-1",
     });
     expect(next.profileInventory).toEqual(inventory);
+  });
+
+  it("RECOMMENDATION_LOADED stores availability", () => {
+    const availability: RecommendationAvailability = {
+      status: "unsupported",
+      reason: "no_source_configured",
+    };
+    const next = libraryReducer(INITIAL_LIBRARY_STATE, {
+      type: "RECOMMENDATION_LOADED",
+      availability,
+    });
+    expect(next.recommendationAvailability).toEqual(availability);
+    expect(next.recommendationLoading).toBe(false);
+  });
+
+  it("RECOMMENDATION_LOADING sets loading flag", () => {
+    const next = libraryReducer(INITIAL_LIBRARY_STATE, {
+      type: "RECOMMENDATION_LOADING",
+    });
+    expect(next.recommendationLoading).toBe(true);
+  });
+
+  it("RECOMMENDATION_ERROR stores error and clears loading", () => {
+    const loading: LibraryState = {
+      ...INITIAL_LIBRARY_STATE,
+      recommendationLoading: true,
+    };
+    const next = libraryReducer(loading, {
+      type: "RECOMMENDATION_ERROR",
+      error: "source unreachable",
+    });
+    expect(next.recommendationLoading).toBe(false);
+    expect(next.error).toBe("source unreachable");
+  });
+
+  it("APPLY_RECOMMENDATION_PENDING toggles pending state", () => {
+    const next = libraryReducer(INITIAL_LIBRARY_STATE, {
+      type: "APPLY_RECOMMENDATION_PENDING",
+      pending: true,
+    });
+    expect(next.applyRecommendationPending).toBe(true);
+
+    const done = libraryReducer(next, {
+      type: "APPLY_RECOMMENDATION_PENDING",
+      pending: false,
+    });
+    expect(done.applyRecommendationPending).toBe(false);
+  });
+
+  it("SELECT_GAME clears recommendation state for different game", () => {
+    const state: LibraryState = {
+      ...INITIAL_LIBRARY_STATE,
+      selectedGameId: "game-1",
+      recommendationAvailability: {
+        status: "unsupported",
+        reason: "no_source_configured",
+      },
+    };
+    const next = libraryReducer(state, {
+      type: "SELECT_GAME",
+      gameId: "game-2",
+    });
+    expect(next.recommendationAvailability).toBeNull();
+  });
+
+  it("RECOMMENDATION_LOADED with available status stores source info", () => {
+    const availability: RecommendationAvailability = {
+      status: "available",
+      source_id: "bundled",
+      source_label: "Bundled Baselines",
+      baseline: { "gpu.vsync": false },
+    };
+    const next = libraryReducer(INITIAL_LIBRARY_STATE, {
+      type: "RECOMMENDATION_LOADED",
+      availability,
+    });
+    expect(next.recommendationAvailability).toEqual(availability);
+    if (next.recommendationAvailability?.status === "available") {
+      expect(next.recommendationAvailability.source_label).toBe("Bundled Baselines");
+    }
   });
 });

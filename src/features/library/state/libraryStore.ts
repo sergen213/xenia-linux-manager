@@ -17,6 +17,7 @@ import type {
 import type {
   EffectiveConfig,
   ProfileInventory,
+  RecommendationAvailability,
 } from "../model/profileTypes";
 
 export type LibraryViewMode = "library" | "review";
@@ -54,6 +55,9 @@ export interface LibraryState {
   profileInventoryLoading: boolean;
   profileEffectiveConfig: EffectiveConfig | null;
   profileEffectiveLoading: boolean;
+  recommendationAvailability: RecommendationAvailability | null;
+  recommendationLoading: boolean;
+  applyRecommendationPending: boolean;
 }
 
 export const INITIAL_LIBRARY_STATE: LibraryState = {
@@ -87,6 +91,9 @@ export const INITIAL_LIBRARY_STATE: LibraryState = {
   profileInventoryLoading: false,
   profileEffectiveConfig: null,
   profileEffectiveLoading: false,
+  recommendationAvailability: null,
+  recommendationLoading: false,
+  applyRecommendationPending: false,
 };
 
 export type LibraryAction =
@@ -128,7 +135,11 @@ export type LibraryAction =
   | { type: "PROFILES_ERROR"; error: string }
   | { type: "PROFILE_EFFECTIVE_LOADING" }
   | { type: "PROFILE_EFFECTIVE_LOADED"; config: EffectiveConfig }
-  | { type: "PROFILE_EFFECTIVE_ERROR"; error: string };
+  | { type: "PROFILE_EFFECTIVE_ERROR"; error: string }
+  | { type: "RECOMMENDATION_LOADING" }
+  | { type: "RECOMMENDATION_LOADED"; availability: RecommendationAvailability }
+  | { type: "RECOMMENDATION_ERROR"; error: string }
+  | { type: "APPLY_RECOMMENDATION_PENDING"; pending: boolean };
 
 export function libraryReducer(
   state: LibraryState,
@@ -205,6 +216,8 @@ export function libraryReducer(
           action.gameId === state.selectedGameId ? state.profileInventory : null,
         profileEffectiveConfig:
           action.gameId === state.selectedGameId ? state.profileEffectiveConfig : null,
+        recommendationAvailability:
+          action.gameId === state.selectedGameId ? state.recommendationAvailability : null,
       };
     case "GAME_DETAILS_LOADED":
       return { ...state, selectedGame: action.details };
@@ -285,6 +298,22 @@ export function libraryReducer(
         profileEffectiveLoading: false,
         error: action.error,
       };
+    case "RECOMMENDATION_LOADING":
+      return { ...state, recommendationLoading: true };
+    case "RECOMMENDATION_LOADED":
+      return {
+        ...state,
+        recommendationLoading: false,
+        recommendationAvailability: action.availability,
+      };
+    case "RECOMMENDATION_ERROR":
+      return {
+        ...state,
+        recommendationLoading: false,
+        error: action.error,
+      };
+    case "APPLY_RECOMMENDATION_PENDING":
+      return { ...state, applyRecommendationPending: action.pending };
     default:
       return state;
   }

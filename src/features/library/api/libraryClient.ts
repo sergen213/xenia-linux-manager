@@ -28,6 +28,7 @@ import type {
   EffectiveConfig,
   ProfileDocument,
   ProfileInventory,
+  RecommendationAvailability,
 } from "../model/profileTypes";
 
 export async function addLibrarySource(
@@ -343,5 +344,30 @@ export async function saveProfileOverrides(
     gameId,
     profileId,
     overrides,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Recommendation commands
+// ---------------------------------------------------------------------------
+
+export async function checkRecommendationAvailability(
+  gameId: string,
+): Promise<RecommendationAvailability> {
+  return invoke<RecommendationAvailability>(
+    "check_recommendation_availability",
+    { gameId },
+  );
+}
+
+export async function applyRecommendedProfile(
+  libraryMetadataPath: string,
+  gameId: string,
+  profileName?: string,
+): Promise<ProfileInventory> {
+  return invoke<ProfileInventory>("apply_recommended_profile", {
+    libraryMetadataPath,
+    gameId,
+    profileName: profileName ?? null,
   });
 }
