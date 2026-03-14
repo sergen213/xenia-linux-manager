@@ -55,6 +55,7 @@ pub fn run() {
             library_commands::update_library_game_identity,
             library_commands::resolve_duplicate_review,
             library_commands::get_launch_preflight,
+            library_commands::get_launch_preflight_with_profile,
             library_commands::launch_library_game,
             patches_commands::list_game_patches,
             patches_commands::import_game_patch,
@@ -68,6 +69,7 @@ pub fn run() {
             profiles_commands::select_active_game_profile,
             profiles_commands::get_profile_effective_config,
             profiles_commands::save_profile_overrides,
+            profiles_commands::get_materialized_launch_config,
             profiles_commands::check_recommendation_availability,
             profiles_commands::apply_recommended_profile,
         ])

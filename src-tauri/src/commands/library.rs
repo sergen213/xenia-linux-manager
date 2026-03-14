@@ -9,9 +9,12 @@ use tauri::{AppHandle, State};
 
 use crate::jobs::events;
 use crate::jobs::store;
-use crate::jobs::{JobRegistry, LogLevel};
+use crate::jobs::JobRegistry;
 use crate::library::catalog;
-use crate::library::scan_jobs::{self, ScanCoordinator};
+use crate::library::identity;
+use crate::library::launch;
+use crate::library::review;
+use crate::library::scan_jobs::ScanCoordinator;
 use crate::library::sources;
 
 // ---------------------------------------------------------------------------
@@ -33,9 +36,7 @@ pub fn add_library_source(
 
 /// List all registered library sources.
 #[tauri::command]
-pub fn list_library_sources(
-    library_metadata_path: String,
-) -> Vec<sources::LibrarySource> {
+pub fn list_library_sources(library_metadata_path: String) -> Vec<sources::LibrarySource> {
     sources::list_sources(&library_metadata_path)
 }
 
@@ -74,10 +75,7 @@ pub async fn start_source_scan(
         .find(|s| s.id == source_id)
         .ok_or_else(|| format!("Source not found: {source_id}"))?;
 
-    let job_id = registry.register(
-        format!("Scan: {}", &source.label),
-        "scan".into(),
-    );
+    let job_id = registry.register(format!("Scan: {}", &source.label), "scan".into());
 
     if let Some(job) = registry.get(&job_id) {
         events::emit_job_created(&app, &job);
@@ -115,10 +113,7 @@ pub async fn scan_all_sources(
 
     let mut job_ids = Vec::new();
     for source in &source_list {
-        let job_id = registry.register(
-            format!("Scan: {}", &source.label),
-            "scan".into(),
-        );
+        let job_id = registry.register(format!("Scan: {}", &source.label), "scan".into());
 
         if let Some(job) = registry.get(&job_id) {
             events::emit_job_created(&app, &job);
@@ -205,12 +200,89 @@ pub fn get_source_catalog(
 ///
 /// Returns a list of catalogs, one per source, for the Library UI to render.
 #[tauri::command]
-pub fn get_all_catalogs(
-    library_metadata_path: String,
-) -> Vec<catalog::SourceCatalog> {
+pub fn get_all_catalogs(library_metadata_path: String) -> Vec<catalog::SourceCatalog> {
     let source_list = sources::list_sources(&library_metadata_path);
     let source_ids: Vec<String> = source_list.iter().map(|s| s.id.clone()).collect();
     catalog::load_all_catalogs(&library_metadata_path, &source_ids)
+}
+
+// ---------------------------------------------------------------------------
+// Resolved library browse / review / detail commands
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+pub fn browse_library(library_metadata_path: String) -> review::BrowseLibraryPayload {
+    review::browse_library(&library_metadata_path)
+}
+
+#[tauri::command]
+pub fn get_review_inbox(library_metadata_path: String) -> review::ReviewInboxPayload {
+    review::load_review_inbox(&library_metadata_path)
+}
+
+#[tauri::command]
+pub fn get_library_game_details(
+    library_metadata_path: String,
+    game_id: String,
+) -> Result<review::LibraryGameDetails, String> {
+    review::load_game_details(&library_metadata_path, &game_id)
+}
+
+#[tauri::command]
+pub fn create_manual_game(
+    library_metadata_path: String,
+    input: identity::ManualGameInput,
+) -> Result<identity::GameIdentityRecord, String> {
+    identity::create_manual_game(&library_metadata_path, input)
+}
+
+#[tauri::command]
+pub fn update_library_game_identity(
+    library_metadata_path: String,
+    input: identity::UpdateGameIdentityInput,
+) -> Result<identity::GameIdentityRecord, String> {
+    identity::update_game_identity(&library_metadata_path, input)
+}
+
+#[tauri::command]
+pub fn resolve_duplicate_review(
+    library_metadata_path: String,
+    input: identity::DuplicateResolutionInput,
+) -> Result<identity::DuplicateResolutionRecord, String> {
+    identity::apply_duplicate_resolution(&library_metadata_path, input)
+}
+
+#[tauri::command]
+pub fn get_launch_preflight(
+    app_data_path: String,
+    library_metadata_path: String,
+    game_id: String,
+) -> Result<launch::LaunchPreflight, String> {
+    launch::get_launch_preflight(&app_data_path, &library_metadata_path, &game_id)
+}
+
+#[tauri::command]
+pub fn get_launch_preflight_with_profile(
+    app_data_path: String,
+    library_metadata_path: String,
+    game_id: String,
+) -> Result<launch::LaunchPreflightWithProfile, String> {
+    launch::get_launch_preflight_with_profile(&app_data_path, &library_metadata_path, &game_id)
+}
+
+#[tauri::command]
+pub fn launch_library_game(
+    app_data_path: String,
+    library_metadata_path: String,
+    game_id: String,
+    allow_warnings: bool,
+) -> Result<launch::LaunchResult, String> {
+    launch::launch_game(
+        &app_data_path,
+        &library_metadata_path,
+        &game_id,
+        allow_warnings,
+    )
 }
 
 // ---------------------------------------------------------------------------
@@ -232,7 +304,9 @@ mod tests {
     #[test]
     fn add_and_list_sources_via_commands() {
         let dir = temp_dir("add-list");
-        let game_dir = env::temp_dir().join("xlm-lib-cmd-test").join("add-list-games");
+        let game_dir = env::temp_dir()
+            .join("xlm-lib-cmd-test")
+            .join("add-list-games");
         std::fs::create_dir_all(&game_dir).unwrap();
 
         let result = add_library_source(dir.clone(), game_dir.to_str().unwrap().into()).unwrap();
@@ -245,7 +319,9 @@ mod tests {
     #[test]
     fn remove_source_via_command() {
         let dir = temp_dir("remove");
-        let game_dir = env::temp_dir().join("xlm-lib-cmd-test").join("remove-games");
+        let game_dir = env::temp_dir()
+            .join("xlm-lib-cmd-test")
+            .join("remove-games");
         std::fs::create_dir_all(&game_dir).unwrap();
 
         let result = add_library_source(dir.clone(), game_dir.to_str().unwrap().into()).unwrap();
@@ -259,7 +335,9 @@ mod tests {
     #[test]
     fn add_duplicate_returns_error() {
         let dir = temp_dir("dup-cmd");
-        let game_dir = env::temp_dir().join("xlm-lib-cmd-test").join("dup-cmd-games");
+        let game_dir = env::temp_dir()
+            .join("xlm-lib-cmd-test")
+            .join("dup-cmd-games");
         std::fs::create_dir_all(&game_dir).unwrap();
 
         add_library_source(dir.clone(), game_dir.to_str().unwrap().into()).unwrap();
