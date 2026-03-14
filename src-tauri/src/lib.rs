@@ -21,6 +21,8 @@ use commands::xenia as xenia_commands;
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .manage(Arc::new(jobs::JobRegistry::new()))
         .manage(Arc::new(library::scan_jobs::ScanCoordinator::new()))
         .invoke_handler(tauri::generate_handler![
