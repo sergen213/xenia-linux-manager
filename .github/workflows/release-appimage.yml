@@ -1,0 +1,148 @@
+# Repeatable AppImage build, signing, and release-artifact assembly workflow
+# for Xenia Manager for Linux v1 distribution.
+#
+# Trigger: Push a tag matching v*.*.* (e.g. v0.1.0, v1.0.0)
+#
+# This workflow:
+# 1. Checks out the tagged commit
+# 2. Sets up Node.js and Rust toolchains
+# 3. Installs dependencies and builds the AppImage via Tauri
+# 4. Generates the updater manifest (latest.json) from build outputs
+# 5. Uploads the AppImage, tarball, signature, and manifest as release assets
+
+name: Release AppImage
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+  # Allow manual trigger for testing the workflow
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (build but do not publish release)"
+        required: false
+        default: "false"
+        type: boolean
+
+env:
+  CARGO_TERM_COLOR: always
+  NODE_VERSION: "22"
+  RUST_TOOLCHAIN: "stable"
+
+permissions:
+  contents: write
+
+jobs:
+  build-appimage:
+    name: Build Linux AppImage
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libfuse2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+
+      - name: Cache Rust dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Run frontend tests
+        run: npm run test -- --run
+
+      - name: Run Rust tests
+        run: cargo test --manifest-path src-tauri/Cargo.toml
+
+      - name: Build AppImage
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: npm run tauri build -- --bundles appimage
+
+      - name: Generate updater manifest
+        run: |
+          node scripts/generate-updater-manifest.mjs \
+            --notes "Release ${{ github.ref_name }}" \
+            --output latest.json
+
+      - name: List build artifacts
+        run: |
+          echo "=== AppImage artifacts ==="
+          ls -la src-tauri/target/release/bundle/appimage/ || echo "No appimage dir"
+          echo ""
+          echo "=== Updater manifest ==="
+          cat latest.json || echo "No manifest"
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: appimage-release-${{ github.ref_name || 'dev' }}
+          path: |
+            src-tauri/target/release/bundle/appimage/*.AppImage
+            src-tauri/target/release/bundle/appimage/*.AppImage.tar.gz
+            src-tauri/target/release/bundle/appimage/*.AppImage.tar.gz.sig
+            latest.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v') && github.event.inputs.dry_run != 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "Xenia Manager for Linux ${{ github.ref_name }}"
+          body: |
+            ## Xenia Manager for Linux ${{ github.ref_name }}
+
+            ### Installation
+
+            1. Download the `.AppImage` file below
+            2. Make it executable: `chmod +x Xenia-Manager-for-Linux_*.AppImage`
+            3. Run it: `./Xenia-Manager-for-Linux_*.AppImage`
+
+            ### In-app Updates
+
+            If you already have the app installed and in-app updates are enabled,
+            the app will notify you about this update automatically.
+
+            ### What's New
+
+            See the [changelog](https://github.com/xenialinuxmanager/releases) for details.
+          files: |
+            src-tauri/target/release/bundle/appimage/*.AppImage
+            src-tauri/target/release/bundle/appimage/*.AppImage.tar.gz
+            src-tauri/target/release/bundle/appimage/*.AppImage.tar.gz.sig
+            latest.json
+          draft: false
+          prerelease: false
+          generate_release_notes: true
