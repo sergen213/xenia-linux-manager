@@ -25,7 +25,6 @@ interface SaveQuickActionsProps {
  * immediate access to common save operations.
  */
 export function SaveQuickActions({
-  gameTitle,
   open,
   exportPreflight,
   exportPreflightLoading,

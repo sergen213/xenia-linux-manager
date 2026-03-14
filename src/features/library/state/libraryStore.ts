@@ -318,6 +318,12 @@ export function libraryReducer(
         profileEditorOpen: action.gameId === state.selectedGameId ? state.profileEditorOpen : false,
         materializedLaunchConfig:
           action.gameId === state.selectedGameId ? state.materializedLaunchConfig : null,
+        exportPreflight:
+          action.gameId === state.selectedGameId ? state.exportPreflight : null,
+        lastExportResult:
+          action.gameId === state.selectedGameId ? state.lastExportResult : null,
+        saveQuickActionsOpen:
+          action.gameId === state.selectedGameId ? state.saveQuickActionsOpen : false,
       };
     case "GAME_DETAILS_LOADED":
       return { ...state, selectedGame: action.details };

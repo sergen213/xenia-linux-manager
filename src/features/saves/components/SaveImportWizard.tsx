@@ -8,6 +8,7 @@ import type {
 import type { LibraryAction } from "../../library/state/libraryStore";
 import { SaveConflictPreview } from "./SaveConflictPreview";
 import { BackupFailureDialog } from "./BackupFailureDialog";
+import { SaveResultsPanel } from "./SaveResultsPanel";
 
 interface SaveImportWizardProps {
   inspection: ImportInspection | null;
@@ -207,16 +208,11 @@ export function SaveImportWizard({
       )}
 
       {wizardStep === "result" && lastImportResult && (
-        <div className="save-wizard__info">
-          <p>
-            Import complete for <strong>{lastImportResult.game_title}</strong>.
-          </p>
-          <div className="save-wizard__actions">
-            <button type="button" onClick={handleCancel}>
-              Done
-            </button>
-          </div>
-        </div>
+        <SaveResultsPanel
+          exportResult={null}
+          importResult={lastImportResult}
+          onDismissImport={handleCancel}
+        />
       )}
     </div>
   );
