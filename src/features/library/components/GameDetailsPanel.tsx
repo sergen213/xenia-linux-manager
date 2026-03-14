@@ -4,12 +4,14 @@ import type {
   ProfileInventory,
   RecommendationAvailability,
 } from "../model/profileTypes";
+import type { ExportPreflight, ExportResult } from "../model/saveTypes";
 import { GameIdentityEditor } from "./GameIdentityEditor";
 import { LaunchPreflightPanel } from "./LaunchPreflightPanel";
 import { LaunchWarningDialog } from "./LaunchWarningDialog";
 import { ManagePatchesPanel } from "./ManagePatchesPanel";
 import { ProfileEditorPanel } from "./ProfileEditorPanel";
 import { ProfileSummaryCard } from "./ProfileSummaryCard";
+import { SaveQuickActions } from "./SaveQuickActions";
 import { UnsavedProfileChangesDialog } from "./UnsavedProfileChangesDialog";
 
 interface GameDetailsPanelProps {
@@ -60,6 +62,16 @@ interface GameDetailsPanelProps {
   onUnsavedDialogSave: () => Promise<void>;
   onUnsavedDialogDiscard: () => void;
   onUnsavedDialogCancel: () => void;
+  saveQuickActionsOpen: boolean;
+  exportPreflight: ExportPreflight | null;
+  exportPreflightLoading: boolean;
+  exportPending: boolean;
+  lastExportResult: ExportResult | null;
+  onSaveQuickActionsToggle: () => void;
+  onLoadExportPreflight: () => void;
+  onExport: (selectedLabels: string[] | null) => void;
+  onImportNavigate: () => void;
+  onClearSaveResults: () => void;
 }
 
 function formatTimestamp(timestamp: number | null): string {
@@ -112,6 +124,16 @@ export function GameDetailsPanel({
   onUnsavedDialogSave,
   onUnsavedDialogDiscard,
   onUnsavedDialogCancel,
+  saveQuickActionsOpen,
+  exportPreflight,
+  exportPreflightLoading,
+  exportPending,
+  lastExportResult,
+  onSaveQuickActionsToggle,
+  onLoadExportPreflight,
+  onExport,
+  onImportNavigate,
+  onClearSaveResults,
 }: GameDetailsPanelProps) {
   if (!details) {
     return (
@@ -238,6 +260,36 @@ export function GameDetailsPanel({
             onLoadEffective={onLoadEffective}
             savePending={profileSavePending}
           />
+        )}
+      </section>
+
+      <section className="game-details__section">
+        <div className="game-details__section-header">
+          <h3>Saves</h3>
+          <button type="button" onClick={onSaveQuickActionsToggle}>
+            {saveQuickActionsOpen ? "Hide save actions" : "Save actions"}
+          </button>
+        </div>
+        {saveQuickActionsOpen ? (
+          <SaveQuickActions
+            gameId={details.game_id}
+            gameTitle={details.title}
+            open={saveQuickActionsOpen}
+            exportPreflight={exportPreflight}
+            exportPreflightLoading={exportPreflightLoading}
+            exportPending={exportPending}
+            lastExportResult={lastExportResult}
+            onToggle={onSaveQuickActionsToggle}
+            onLoadPreflight={onLoadExportPreflight}
+            onExport={onExport}
+            onImportNavigate={onImportNavigate}
+            onClearResults={onClearSaveResults}
+          />
+        ) : (
+          <p className="game-details__muted">
+            Export and import save data for this game from here, or use the
+            dedicated Saves page for archive-first imports.
+          </p>
         )}
       </section>
 

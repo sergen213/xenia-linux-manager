@@ -1,11 +1,14 @@
 import { useEffect } from "react";
 import { useSettings } from "../settings/state/settingsStore";
+import { useNavigate } from "react-router-dom";
 import {
   browseLibrary,
   createManualGame,
   createGameProfile,
   deleteGameProfile,
   fetchGamePatch,
+  getExportPreflight,
+  exportSaveArchive,
   getLaunchPreflight,
   getLibraryGameDetails,
   getProfileEffectiveConfig,
@@ -40,8 +43,10 @@ import "./LibraryPage.css";
 export function LibraryPage() {
   const { state, dispatch } = useLibrary();
   const { state: settingsState } = useSettings();
+  const navigate = useNavigate();
   const libPath = settingsState.settings?.library_metadata_path ?? "";
   const appDataPath = settingsState.settings?.app_data_path ?? "";
+  const xeniaPath = settingsState.settings?.xenia_path ?? "";
   const visibleCards = selectVisibleLibraryCards(state);
 
   async function refreshResolvedLibrary(selectGameId?: string | null) {
@@ -537,6 +542,57 @@ export function LibraryPage() {
           onUnsavedDialogCancel={() =>
             dispatch({ type: "HIDE_UNSAVED_DIALOG" })
           }
+          saveQuickActionsOpen={state.saveQuickActionsOpen}
+          exportPreflight={state.exportPreflight}
+          exportPreflightLoading={state.exportPreflightLoading}
+          exportPending={state.exportPending}
+          lastExportResult={state.lastExportResult}
+          onSaveQuickActionsToggle={() =>
+            dispatch({
+              type: "SET_SAVE_QUICK_ACTIONS_OPEN",
+              open: !state.saveQuickActionsOpen,
+            })
+          }
+          onLoadExportPreflight={async () => {
+            if (!state.selectedGameId || !libPath || !xeniaPath) return;
+            dispatch({ type: "EXPORT_PREFLIGHT_LOADING" });
+            try {
+              const preflight = await getExportPreflight(
+                libPath,
+                xeniaPath,
+                state.selectedGameId,
+              );
+              dispatch({ type: "EXPORT_PREFLIGHT_LOADED", preflight });
+            } catch (error) {
+              dispatch({
+                type: "EXPORT_PREFLIGHT_ERROR",
+                error: error instanceof Error ? error.message : String(error),
+              });
+            }
+          }}
+          onExport={async (selectedLabels) => {
+            if (!state.selectedGameId || !libPath || !xeniaPath || !appDataPath) return;
+            dispatch({ type: "EXPORT_PENDING", pending: true });
+            try {
+              const result = await exportSaveArchive(
+                appDataPath,
+                libPath,
+                xeniaPath,
+                state.selectedGameId,
+                appDataPath,
+                selectedLabels ?? undefined,
+              );
+              dispatch({ type: "EXPORT_COMPLETE", result });
+            } catch (error) {
+              dispatch({
+                type: "SET_ERROR",
+                error: error instanceof Error ? error.message : String(error),
+              });
+              dispatch({ type: "EXPORT_PENDING", pending: false });
+            }
+          }}
+          onImportNavigate={() => navigate("/saves")}
+          onClearSaveResults={() => dispatch({ type: "CLEAR_SAVE_STATE" })}
         />
       </div>
     </div>
