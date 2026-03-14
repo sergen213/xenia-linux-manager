@@ -274,6 +274,7 @@ describe("libraryReducer", () => {
       explicit_overrides: { "gpu.vsync": false },
       changed_count: 1,
       total_count: 2,
+      source: "local",
     };
     const next = libraryReducer(INITIAL_LIBRARY_STATE, {
       type: "PROFILE_EFFECTIVE_LOADED",
@@ -299,6 +300,7 @@ describe("libraryReducer", () => {
         explicit_overrides: {},
         changed_count: 0,
         total_count: 0,
+        source: "local",
       },
     };
     const next = libraryReducer(state, {
