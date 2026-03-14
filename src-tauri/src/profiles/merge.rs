@@ -6,6 +6,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+use super::sources::RecommendationLinkage;
 use super::storage;
 
 // ---------------------------------------------------------------------------
@@ -36,6 +37,11 @@ pub struct EffectiveConfig {
     pub changed_count: usize,
     /// Total number of known config fields.
     pub total_count: usize,
+    /// The source provenance of this profile.
+    pub source: storage::ProfileSource,
+    /// Recommendation linkage if this profile was applied from a source.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub recommendation_linkage: Option<RecommendationLinkage>,
 }
 
 /// Compute the effective config for a profile by merging defaults with overrides.
@@ -46,6 +52,14 @@ pub fn compute_effective_config(
 ) -> Result<EffectiveConfig, String> {
     let doc = storage::load_profile_document(library_metadata_path, game_id, profile_id)?;
     let defaults = xenia_default_config();
+
+    // Look up provenance metadata from the manifest.
+    let manifest = storage::load_manifest(library_metadata_path, game_id)?;
+    let record = manifest.profiles.iter().find(|p| p.id == profile_id);
+    let source = record
+        .map(|r| r.source.clone())
+        .unwrap_or(storage::ProfileSource::Local);
+    let recommendation_linkage = record.and_then(|r| r.recommendation_linkage.clone());
 
     let mut fields = Vec::with_capacity(defaults.len() + doc.overrides.len());
     let mut changed_count = 0;
@@ -91,6 +105,8 @@ pub fn compute_effective_config(
         explicit_overrides: doc.overrides,
         changed_count,
         total_count,
+        source,
+        recommendation_linkage,
     })
 }
 
@@ -295,5 +311,119 @@ mod tests {
         let config = compute_effective_config(&dir, "game-1", "missing-id").unwrap();
         assert_eq!(config.changed_count, 0);
         assert!(config.explicit_overrides.is_empty());
+    }
+
+    #[test]
+    fn effective_config_includes_provenance_for_local_profile() {
+        let dir = temp_dir("provenance-local");
+        let inv = storage::create_profile(&dir, "game-1", "Local").unwrap();
+        let pid = &inv.profiles[0].id;
+
+        let config = compute_effective_config(&dir, "game-1", pid).unwrap();
+        assert_eq!(config.source, storage::ProfileSource::Local);
+        assert!(config.recommendation_linkage.is_none());
+    }
+
+    #[test]
+    fn effective_config_includes_provenance_for_recommended_profile() {
+        use crate::profiles::sources::RecommendationLinkage;
+
+        let dir = temp_dir("provenance-recommended");
+        let mut baseline = HashMap::new();
+        baseline.insert("gpu.vsync".to_string(), serde_json::json!(false));
+
+        let linkage = RecommendationLinkage {
+            source_id: "bundled".to_string(),
+            source_label: "Bundled".to_string(),
+            applied_at: 1700000000000,
+        };
+
+        let inv = storage::create_recommended_profile(
+            &dir,
+            "game-1",
+            "Recommended",
+            baseline,
+            linkage.clone(),
+        )
+        .unwrap();
+        let pid = &inv.profiles[0].id;
+
+        let config = compute_effective_config(&dir, "game-1", pid).unwrap();
+        assert_eq!(config.source, storage::ProfileSource::Recommended);
+        assert_eq!(config.recommendation_linkage, Some(linkage));
+    }
+
+    #[test]
+    fn recommended_profile_overrides_go_through_same_merge() {
+        use crate::profiles::sources::RecommendationLinkage;
+
+        let dir = temp_dir("rec-merge");
+        let mut baseline = HashMap::new();
+        baseline.insert("gpu.vsync".to_string(), serde_json::json!(false));
+        baseline.insert("gpu.framerate_limit".to_string(), serde_json::json!(60));
+
+        let linkage = RecommendationLinkage {
+            source_id: "bundled".to_string(),
+            source_label: "Bundled".to_string(),
+            applied_at: 1700000000000,
+        };
+
+        let inv = storage::create_recommended_profile(
+            &dir,
+            "game-1",
+            "Optimized",
+            baseline,
+            linkage,
+        )
+        .unwrap();
+        let pid = &inv.profiles[0].id;
+
+        let config = compute_effective_config(&dir, "game-1", pid).unwrap();
+        assert_eq!(config.changed_count, 2);
+
+        let vsync = config.fields.iter().find(|f| f.key == "gpu.vsync").unwrap();
+        assert!(vsync.changed);
+        assert_eq!(vsync.value, serde_json::json!(false));
+
+        let fps = config.fields.iter().find(|f| f.key == "gpu.framerate_limit").unwrap();
+        assert!(fps.changed);
+        assert_eq!(fps.value, serde_json::json!(60));
+    }
+
+    #[test]
+    fn local_edits_win_over_recommended_baseline() {
+        use crate::profiles::sources::RecommendationLinkage;
+
+        let dir = temp_dir("local-wins");
+        let mut baseline = HashMap::new();
+        baseline.insert("gpu.vsync".to_string(), serde_json::json!(false));
+        baseline.insert("gpu.framerate_limit".to_string(), serde_json::json!(60));
+
+        let linkage = RecommendationLinkage {
+            source_id: "bundled".to_string(),
+            source_label: "Bundled".to_string(),
+            applied_at: 1700000000000,
+        };
+
+        let inv = storage::create_recommended_profile(
+            &dir,
+            "game-1",
+            "Rec",
+            baseline,
+            linkage,
+        )
+        .unwrap();
+        let pid = inv.profiles[0].id.clone();
+
+        // User edits: override framerate_limit but keep vsync from recommendation.
+        let mut user_overrides = HashMap::new();
+        user_overrides.insert("gpu.framerate_limit".to_string(), serde_json::json!(120));
+        user_overrides.insert("gpu.vsync".to_string(), serde_json::json!(false));
+        storage::save_profile_overrides(&dir, "game-1", &pid, user_overrides).unwrap();
+
+        let config = compute_effective_config(&dir, "game-1", &pid).unwrap();
+        let fps = config.fields.iter().find(|f| f.key == "gpu.framerate_limit").unwrap();
+        assert_eq!(fps.value, serde_json::json!(120)); // User edit wins
+        assert!(fps.changed);
     }
 }
