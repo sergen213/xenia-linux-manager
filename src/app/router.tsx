@@ -3,6 +3,7 @@ import { DashboardHome } from "../features/dashboard/DashboardHome";
 import { TasksPage } from "../features/tasks/TasksPage";
 import { SettingsPage } from "../features/settings/SettingsPage";
 import { LibraryPage } from "../features/library/LibraryPage";
+import { SavesPage } from "../features/saves/SavesPage";
 
 export interface AppRoute {
   path: string;
@@ -30,6 +31,13 @@ export const routes: AppRoute[] = [
     label: "Library",
     icon: "library",
     element: <LibraryPage />,
+    showInSidebar: true,
+  },
+  {
+    path: "/saves",
+    label: "Saves",
+    icon: "save",
+    element: <SavesPage />,
     showInSidebar: true,
   },
   {

@@ -121,3 +121,13 @@ export interface BackupEntry {
   path: string;
   size_bytes: number;
 }
+
+/** Steps in the guided import wizard flow. */
+export type ImportWizardStep =
+  | "idle"
+  | "inspect"
+  | "select_target"
+  | "conflict_review"
+  | "backup_warning"
+  | "applying"
+  | "result";

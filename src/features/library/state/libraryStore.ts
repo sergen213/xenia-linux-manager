@@ -27,6 +27,7 @@ import type {
   ExportResult,
   ImportApplyResult,
   ImportInspection,
+  ImportWizardStep,
 } from "../model/saveTypes";
 
 export type LibraryViewMode = "library" | "review";
@@ -86,6 +87,18 @@ export interface LibraryState {
   importApplyPending: boolean;
   lastImportResult: ImportApplyResult | null;
   saveBackups: BackupEntry[];
+  /** Which labels are selected for export (null = all). */
+  exportSelectedLabels: string[] | null;
+  /** The archive file path chosen for import. */
+  importArchivePath: string | null;
+  /** Current step in the import wizard flow. */
+  importWizardStep: ImportWizardStep;
+  /** Whether the user accepted backup failure risk. */
+  backupFailureAccepted: boolean;
+  /** Error from a failed backup attempt during import. */
+  backupFailureError: string | null;
+  /** Quick-actions panel open state. */
+  saveQuickActionsOpen: boolean;
 }
 
 export const INITIAL_LIBRARY_STATE: LibraryState = {
@@ -141,6 +154,12 @@ export const INITIAL_LIBRARY_STATE: LibraryState = {
   importApplyPending: false,
   lastImportResult: null,
   saveBackups: [],
+  exportSelectedLabels: null,
+  importArchivePath: null,
+  importWizardStep: "idle",
+  backupFailureAccepted: false,
+  backupFailureError: null,
+  saveQuickActionsOpen: false,
 };
 
 export type LibraryAction =
@@ -210,6 +229,11 @@ export type LibraryAction =
   | { type: "IMPORT_APPLY_PENDING"; pending: boolean }
   | { type: "IMPORT_APPLY_COMPLETE"; result: ImportApplyResult }
   | { type: "SAVE_BACKUPS_LOADED"; backups: BackupEntry[] }
+  | { type: "SET_EXPORT_SELECTED_LABELS"; labels: string[] | null }
+  | { type: "SET_IMPORT_ARCHIVE_PATH"; path: string | null }
+  | { type: "SET_IMPORT_WIZARD_STEP"; step: ImportWizardStep }
+  | { type: "SET_BACKUP_FAILURE"; error: string | null; accepted: boolean }
+  | { type: "SET_SAVE_QUICK_ACTIONS_OPEN"; open: boolean }
   | { type: "CLEAR_SAVE_STATE" };
 
 export function libraryReducer(
@@ -435,6 +459,20 @@ export function libraryReducer(
       return { ...state, importApplyPending: false, lastImportResult: action.result };
     case "SAVE_BACKUPS_LOADED":
       return { ...state, saveBackups: action.backups };
+    case "SET_EXPORT_SELECTED_LABELS":
+      return { ...state, exportSelectedLabels: action.labels };
+    case "SET_IMPORT_ARCHIVE_PATH":
+      return { ...state, importArchivePath: action.path };
+    case "SET_IMPORT_WIZARD_STEP":
+      return { ...state, importWizardStep: action.step };
+    case "SET_BACKUP_FAILURE":
+      return {
+        ...state,
+        backupFailureError: action.error,
+        backupFailureAccepted: action.accepted,
+      };
+    case "SET_SAVE_QUICK_ACTIONS_OPEN":
+      return { ...state, saveQuickActionsOpen: action.open };
     case "CLEAR_SAVE_STATE":
       return {
         ...state,
@@ -447,6 +485,12 @@ export function libraryReducer(
         importConflictPlan: null,
         importApplyPending: false,
         lastImportResult: null,
+        exportSelectedLabels: null,
+        importArchivePath: null,
+        importWizardStep: "idle",
+        backupFailureAccepted: false,
+        backupFailureError: null,
+        saveQuickActionsOpen: false,
       };
     default:
       return state;
