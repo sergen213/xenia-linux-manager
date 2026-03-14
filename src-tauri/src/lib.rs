@@ -1,6 +1,8 @@
 pub mod commands;
 pub mod jobs;
 pub mod library;
+pub mod patches;
+pub mod profiles;
 pub mod settings;
 pub mod xenia;
 
@@ -8,6 +10,8 @@ use std::sync::Arc;
 
 use commands::jobs as jobs_commands;
 use commands::library as library_commands;
+use commands::patches as patches_commands;
+use commands::profiles as profiles_commands;
 use commands::settings as settings_commands;
 use commands::xenia as xenia_commands;
 
@@ -44,6 +48,26 @@ pub fn run() {
             library_commands::get_library_status,
             library_commands::get_source_catalog,
             library_commands::get_all_catalogs,
+            library_commands::browse_library,
+            library_commands::get_review_inbox,
+            library_commands::get_library_game_details,
+            library_commands::create_manual_game,
+            library_commands::update_library_game_identity,
+            library_commands::resolve_duplicate_review,
+            library_commands::get_launch_preflight,
+            library_commands::launch_library_game,
+            patches_commands::list_game_patches,
+            patches_commands::import_game_patch,
+            patches_commands::fetch_game_patch,
+            patches_commands::select_active_patch_file,
+            patches_commands::set_patch_entry_enabled,
+            profiles_commands::list_game_profiles,
+            profiles_commands::create_game_profile,
+            profiles_commands::rename_game_profile,
+            profiles_commands::delete_game_profile,
+            profiles_commands::select_active_game_profile,
+            profiles_commands::get_profile_effective_config,
+            profiles_commands::save_profile_overrides,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
