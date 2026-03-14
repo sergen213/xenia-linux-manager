@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-03-12)
 
 **Core value:** Linux desktop users can get Xenia running and manage their Xbox 360 game library with minimal setup friction from a single native app.
-**Current focus:** Phase 6 - Profiles and Community Settings
+**Current focus:** Phase 7 - Save Portability and Safety
 
 ## Current Position
 
-Phase: 6 of 8 (Profiles and Community Settings)
-Plan: 3 of 3 in current phase
-Status: Phase Complete
-Last activity: 2026-03-14 — Completed profile editor UI and launch-time config application
+Phase: 7 of 8 (Save Portability and Safety)
+Plan: 2 of 2 complete in current phase
+Status: In Progress
+Last activity: 2026-03-14 — Completed save management UI with overwrite warnings and recovery messaging
 
-Progress: [##############░] 75%
+Progress: [################] 90%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 17
+- Total plans completed: 19
 - Average duration: 13min
-- Total execution time: 3.6 hours
+- Total execution time: 4.1 hours
 
 **By Phase:**
 
@@ -33,9 +33,10 @@ Progress: [##############░] 75%
 | 4 | 3 | 85min | 28min |
 | 5 | 2 | 90min | 45min |
 | 6 | 3 | 31min | 10min |
+| 7 | 2 | 28min | 14min |
 
 **Recent Trend:**
-- Last 5 plans: 55min, 35min, 7min, 9min, 15min
+- Last 5 plans: 35min, 7min, 9min, 15min, 13min
 - Trend: Variable complexity, consistently shipping
 
 ## Accumulated Context
@@ -87,6 +88,10 @@ Recent decisions affecting current work:
 - 06-03: Launch materialization produces a deterministic snapshot combining active profile effective config and active patch state
 - 06-03: Standard and raw editors share one underlying sparse draft object to avoid diverging sources of truth
 - 06-03: Unsaved-change dialog intercepts game selection and editor close when draft is dirty
+- 07-01: Save path resolution uses library identity game_id and title_id to build canonical roots
+- 07-01: Archive format is standard zip with manifest.json for portability and inspectability
+- 07-02: Import wizard uses dispatch-driven step state shared through library store for both dedicated and detail entry points
+- 07-02: Conflict preview enforces only three approved policies (Replace all, Keep both, Cancel)
 
 ### Pending Todos
 
@@ -100,5 +105,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-14
-Stopped at: Completed 06-03-PLAN.md (profile editor UI and launch-time config application)
+Stopped at: Completed 07-02-PLAN.md (save management UI, overwrite warnings, recovery messaging)
 Resume file: None

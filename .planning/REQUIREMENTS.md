@@ -43,9 +43,9 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Saves
 
-- [ ] **SAVE-01**: User can export a game’s save data to a portable archive.
-- [ ] **SAVE-02**: User can import a portable save archive for a game.
-- [ ] **SAVE-03**: User is warned before a save import or other save-management action overwrites existing data.
+- [x] **SAVE-01**: User can export a game’s save data to a portable archive.
+- [x] **SAVE-02**: User can import a portable save archive for a game.
+- [x] **SAVE-03**: User is warned before a save import or other save-management action overwrites existing data.
 
 ### Application
 
@@ -108,9 +108,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PROF-03 | Phase 6 | Complete |
 | PROF-04 | Phase 6 | Complete |
 | LAUN-02 | Phase 6 | Complete |
-| SAVE-01 | Phase 7 | Pending |
-| SAVE-02 | Phase 7 | Pending |
-| SAVE-03 | Phase 7 | Pending |
+| SAVE-01 | Phase 7 | Complete |
+| SAVE-02 | Phase 7 | Complete |
+| SAVE-03 | Phase 7 | Complete |
 | APP-02 | Phase 8 | Pending |
 
 **Coverage:**

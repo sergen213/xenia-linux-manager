@@ -18,7 +18,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 4: Library Review and Launch Core** - Turn detected titles into a browsable library with safe launch preflights. (completed 2026-03-13)
 - [x] **Phase 5: Patch Management** - Add local and remote Canary patch workflows with per-patch toggles. (completed 2026-03-13)
 - [x] **Phase 6: Profiles and Community Settings** - Deliver effective per-game config profiles and community-optimized settings. (completed 2026-03-14)
-- [ ] **Phase 7: Save Portability and Safety** - Add import/export workflows with overwrite protection.
+- [x] **Phase 7: Save Portability and Safety** - Add import/export workflows with overwrite protection. (completed 2026-03-14)
 - [ ] **Phase 8: Packaging and Release Hardening** - Ship the manager as an AppImage and validate release readiness.
 
 ## Phase Details
@@ -156,5 +156,5 @@ Phases execute in numeric order: 2 → 2.1 → 2.2 → 3 → 3.1 → 4
 | 4. Library Review and Launch Core | 3/3 | Complete | 2026-03-13 |
 | 5. Patch Management | 2/2 | Complete | 2026-03-13 |
 | 6. Profiles and Community Settings | 3/3 | Complete | 2026-03-14 |
-| 7. Save Portability and Safety | 0/2 | Not started | - |
+| 7. Save Portability and Safety | 2/2 | Complete   | 2026-03-14 |
 | 8. Packaging and Release Hardening | 0/2 | Not started | - |
