@@ -19,7 +19,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 5: Patch Management** - Add local and remote Canary patch workflows with per-patch toggles. (completed 2026-03-13)
 - [x] **Phase 6: Profiles and Community Settings** - Deliver effective per-game config profiles and community-optimized settings. (completed 2026-03-14)
 - [x] **Phase 7: Save Portability and Safety** - Add import/export workflows with overwrite protection. (completed 2026-03-14)
-- [ ] **Phase 8: Packaging and Release Hardening** - Ship the manager as an AppImage and validate release readiness.
+- [x] **Phase 8: Packaging and Release Hardening** - Ship the manager as an AppImage and validate release readiness. (completed 2026-03-14)
 
 ## Phase Details
 
@@ -157,4 +157,4 @@ Phases execute in numeric order: 2 → 2.1 → 2.2 → 3 → 3.1 → 4
 | 5. Patch Management | 2/2 | Complete | 2026-03-13 |
 | 6. Profiles and Community Settings | 3/3 | Complete | 2026-03-14 |
 | 7. Save Portability and Safety | 2/2 | Complete   | 2026-03-14 |
-| 8. Packaging and Release Hardening | 1/2 | In Progress | - |
+| 8. Packaging and Release Hardening | 2/2 | Complete   | 2026-03-14 |
