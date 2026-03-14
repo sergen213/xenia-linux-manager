@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-03-12)
 
 **Core value:** Linux desktop users can get Xenia running and manage their Xbox 360 game library with minimal setup friction from a single native app.
-**Current focus:** Phase 7 - Save Portability and Safety
+**Current focus:** Phase 8 - Packaging and Release Hardening
 
 ## Current Position
 
-Phase: 7 of 8 (Save Portability and Safety)
-Plan: 2 of 2 complete in current phase
+Phase: 8 of 8 (Packaging and Release Hardening)
+Plan: 1 of 2 complete in current phase
 Status: In Progress
-Last activity: 2026-03-14 — Completed save management UI with overwrite warnings and recovery messaging
+Last activity: 2026-03-14 — Completed AppImage packaging, release metadata, and automation
 
-Progress: [################] 90%
+Progress: [#################] 95%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 19
+- Total plans completed: 20
 - Average duration: 13min
-- Total execution time: 4.1 hours
+- Total execution time: 4.3 hours
 
 **By Phase:**
 
@@ -34,10 +34,11 @@ Progress: [################] 90%
 | 5 | 2 | 90min | 45min |
 | 6 | 3 | 31min | 10min |
 | 7 | 2 | 28min | 14min |
+| 8 | 1 | 10min | 10min |
 
 **Recent Trend:**
-- Last 5 plans: 35min, 7min, 9min, 15min, 13min
-- Trend: Variable complexity, consistently shipping
+- Last 5 plans: 7min, 9min, 15min, 13min, 10min
+- Trend: Consistent pace through final phase
 
 ## Accumulated Context
 
@@ -92,6 +93,10 @@ Recent decisions affecting current work:
 - 07-01: Archive format is standard zip with manifest.json for portability and inspectability
 - 07-02: Import wizard uses dispatch-driven step state shared through library store for both dedicated and detail entry points
 - 07-02: Conflict preview enforces only three approved policies (Replace all, Keep both, Cancel)
+- 08-01: AppImage as sole v1 Linux release target instead of generic "all" bundle targets
+- 08-01: Updater gated on three prerequisites: packaged build, signing key, and configured endpoints
+- 08-01: APPIMAGE env var detection for runtime build kind classification
+- 08-01: Release metadata as backend-owned contract rather than frontend environment probing
 
 ### Pending Todos
 
@@ -105,5 +110,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-14
-Stopped at: Completed 07-02-PLAN.md (save management UI, overwrite warnings, recovery messaging)
+Stopped at: Completed 08-01-PLAN.md (AppImage packaging, release metadata, and automation)
 Resume file: None

@@ -140,7 +140,7 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 08-01: Create AppImage packaging, metadata, and release automation
+- [x] 08-01: Create AppImage packaging, metadata, and release automation
 - [ ] 08-02: Run packaged-app verification and release hardening pass
 
 ## Progress
@@ -157,4 +157,4 @@ Phases execute in numeric order: 2 → 2.1 → 2.2 → 3 → 3.1 → 4
 | 5. Patch Management | 2/2 | Complete | 2026-03-13 |
 | 6. Profiles and Community Settings | 3/3 | Complete | 2026-03-14 |
 | 7. Save Portability and Safety | 2/2 | Complete   | 2026-03-14 |
-| 8. Packaging and Release Hardening | 0/2 | Not started | - |
+| 8. Packaging and Release Hardening | 1/2 | In Progress | - |

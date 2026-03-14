@@ -50,7 +50,7 @@ Requirements for initial release. Each maps to roadmap phases.
 ### Application
 
 - [x] **APP-01**: User can see progress for downloads, scans, and save operations without the UI freezing.
-- [ ] **APP-02**: User can run the released manager as an AppImage on supported Linux desktop systems.
+- [x] **APP-02**: User can run the released manager as an AppImage on supported Linux desktop systems.
 
 ## v2 Requirements
 
@@ -111,7 +111,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SAVE-01 | Phase 7 | Complete |
 | SAVE-02 | Phase 7 | Complete |
 | SAVE-03 | Phase 7 | Complete |
-| APP-02 | Phase 8 | Pending |
+| APP-02 | Phase 8 | Complete |
 
 **Coverage:**
 - v1 requirements: 24 total
