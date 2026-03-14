@@ -25,7 +25,7 @@ Requirements for initial release. Each maps to roadmap phases.
 ### Launch
 
 - [ ] **LAUN-01**: User can launch a detected game through the installed Linux Xenia build from the manager.
-- [ ] **LAUN-02**: User launches a game with the selected patch and effective per-game configuration profile applied.
+- [x] **LAUN-02**: User launches a game with the selected patch and effective per-game configuration profile applied.
 - [ ] **LAUN-03**: User sees actionable preflight errors when the selected game cannot launch because a required executable, path, patch, or config state is invalid.
 
 ### Patches
@@ -107,7 +107,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PROF-02 | Phase 6 | Complete |
 | PROF-03 | Phase 6 | Complete |
 | PROF-04 | Phase 6 | Complete |
-| LAUN-02 | Phase 6 | Pending |
+| LAUN-02 | Phase 6 | Complete |
 | SAVE-01 | Phase 7 | Pending |
 | SAVE-02 | Phase 7 | Pending |
 | SAVE-03 | Phase 7 | Pending |
