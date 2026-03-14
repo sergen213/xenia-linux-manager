@@ -199,6 +199,48 @@
   border-radius: var(--radius-sm, 4px);
 }
 
+.xenia-dialog__update-notice {
+  background-color: rgba(56, 189, 248, 0.08);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  margin-bottom: 16px;
+}
+
+.xenia-dialog__update-heading {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-accent);
+  margin-bottom: 8px;
+}
+
+.xenia-dialog__update-detail {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+  margin-bottom: 8px;
+}
+
+.xenia-dialog__update-detail strong {
+  color: var(--color-text-primary);
+}
+
+.xenia-dialog__update-notes-link {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.xenia-dialog__link {
+  color: var(--color-accent);
+  text-decoration: none;
+  transition: opacity 0.15s;
+}
+
+.xenia-dialog__link:hover {
+  opacity: 0.8;
+  text-decoration: underline;
+}
+
 .xenia-dialog__error-text {
   font-size: var(--font-size-sm);
   color: var(--color-danger, #ef4444);

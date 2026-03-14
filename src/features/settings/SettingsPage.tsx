@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useSettings } from "./state/settingsStore";
 import { EditPathsDialog } from "./components/EditPathsDialog";
 import { ReleaseChannelCard } from "./components/ReleaseChannelCard";
+import { PackagedEnvironmentNotice } from "./components/PackagedEnvironmentNotice";
 import { PATH_FIELDS, getPathValue } from "./model/settingsSchema";
 import "./SettingsPage.css";
 
@@ -51,6 +52,8 @@ export function SettingsPage() {
       </section>
 
       <ReleaseChannelCard />
+
+      <PackagedEnvironmentNotice />
 
       <EditPathsDialog open={editOpen} onClose={() => setEditOpen(false)} />
     </div>

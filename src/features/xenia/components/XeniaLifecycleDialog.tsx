@@ -169,9 +169,35 @@ function ConfirmPhase({
         </div>
       )}
 
+      {actionLabel === "Update" && release && (
+        <div className="xenia-dialog__update-notice">
+          <p className="xenia-dialog__update-heading">
+            A new version is available
+          </p>
+          <p className="xenia-dialog__update-detail">
+            This update will replace your current Xenia Canary installation with
+            version <strong>{release.tag}</strong>. Your game library, saves,
+            patches, and profiles will not be affected.
+          </p>
+          <p className="xenia-dialog__update-notes-link">
+            Review what changed before updating:{" "}
+            <a
+              href={`https://github.com/xenia-canary/xenia-canary/releases/tag/${release.tag}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="xenia-dialog__link"
+              data-testid="update-release-notes"
+            >
+              Release notes for {release.tag}
+            </a>
+          </p>
+        </div>
+      )}
+
       <p className="xenia-dialog__confirm-text">
-        This will download and install the Linux Canary build. You can continue
-        using the app while the operation runs in the background.
+        {actionLabel === "Update"
+          ? "By clicking Update below, you confirm that you want to replace the current Xenia build. The download will run in the background."
+          : "This will download and install the Linux Canary build. You can continue using the app while the operation runs in the background."}
       </p>
 
       <div className="xenia-dialog__actions">
