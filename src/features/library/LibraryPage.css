@@ -373,6 +373,62 @@
   margin-bottom: 4px;
 }
 
+.game-details__block {
+  margin-bottom: 12px;
+}
+
+.game-details__label {
+  font-size: 0.85rem;
+  margin-bottom: 6px;
+  color: var(--color-text-secondary);
+}
+
+.game-details__helper {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+}
+
+.game-details__helper--spaced {
+  margin-top: 8px;
+  margin-bottom: 4px;
+}
+
+.game-details__stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.game-details__actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.game-details__pre {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.game-details__pre--spaced {
+  margin-top: 8px;
+}
+
+.game-details__muted--tight {
+  margin-top: 0;
+  margin-bottom: 8px;
+}
+
+.game-details__muted--loose {
+  margin-top: 0;
+  margin-bottom: 16px;
+}
+
+.library-grid__badge--inline {
+  margin-left: 8px;
+  font-size: 0.7rem;
+}
+
 .game-details__list {
   display: grid;
   gap: 10px;

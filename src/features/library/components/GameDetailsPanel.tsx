@@ -332,8 +332,8 @@ export function GameDetailsPanel({
         profileEffectiveLoading={profileEffectiveLoading}
       />
       {installedXeniaBuildTags.length > 0 && (
-        <div style={{ marginBottom: "12px" }}>
-          <div style={{ fontSize: "0.85rem", marginBottom: "6px", color: "var(--color-text-secondary)" }}>
+        <div className="game-details__block">
+          <div className="game-details__label">
             Preferred Xenia build for this game
           </div>
           <CustomSelect
@@ -346,22 +346,22 @@ export function GameDetailsPanel({
           />
         </div>
       )}
-      <div style={{ marginBottom: "12px" }}>
-        <div style={{ fontSize: "0.85rem", marginBottom: "6px", color: "var(--color-text-secondary)" }}>
+      <div className="game-details__block">
+        <div className="game-details__label">
           Per-game launch environment variables
         </div>
-        <div style={{ fontSize: "0.8rem", marginBottom: "8px", color: "var(--color-text-secondary)" }}>
+        <div className="game-details__helper">
           Effective launch environment preview (global + per-game, with per-game overrides winning)
         </div>
         {launchEnvEditing ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+          <div className="game-details__stack">
             <textarea
               value={launchEnvValue}
               onChange={(e) => setLaunchEnvValue(e.target.value)}
               placeholder={"MANGOHUD=1\nMANGOHUD_CONFIG=fps,gpu_temp\n# KEY=VALUE per line"}
               rows={5}
             />
-            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+            <div className="game-details__actions">
               <button
                 type="button"
                 onClick={() => setLaunchEnvValue((current) => applyPreset(current, { MANGOHUD: "1" }))}
@@ -382,7 +382,7 @@ export function GameDetailsPanel({
                 Preset: gamescope
               </button>
             </div>
-            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+            <div className="game-details__actions">
               <button type="button" onClick={() => void handleLaunchEnvSave()}>
                 Save launch env
               </button>
@@ -392,8 +392,8 @@ export function GameDetailsPanel({
             </div>
           </div>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-            <pre style={{ margin: 0, whiteSpace: "pre-wrap" }}>
+          <div className="game-details__stack">
+            <pre className="game-details__pre">
               {details.launch_environment?.trim() || "Not set"}
             </pre>
             <div>
@@ -409,22 +409,22 @@ export function GameDetailsPanel({
             </div>
           </div>
         )}
-        <pre style={{ marginTop: "8px", marginBottom: 0, whiteSpace: "pre-wrap" }}>
+        <pre className="game-details__pre game-details__pre--spaced">
           {effectiveLaunchEnv || "Not set"}
         </pre>
       </div>
-      <div style={{ marginBottom: "12px" }}>
-        <div style={{ fontSize: "0.85rem", marginBottom: "6px", color: "var(--color-text-secondary)" }}>
+      <div className="game-details__block">
+        <div className="game-details__label">
           Per-game launch wrapper / prefix
         </div>
         {launchWrapperEditing ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+          <div className="game-details__stack">
             <input
               value={launchWrapperValue}
               onChange={(e) => setLaunchWrapperValue(e.target.value)}
               placeholder="gamemoderun or gamescope --mangoapp --"
             />
-            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+            <div className="game-details__actions">
               <button type="button" onClick={() => setLaunchWrapperValue("gamemoderun")}>
                 Preset: GameMode
               </button>
@@ -432,7 +432,7 @@ export function GameDetailsPanel({
                 Preset: gamescope
               </button>
             </div>
-            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+            <div className="game-details__actions">
               <button type="button" onClick={() => void handleLaunchWrapperSave()}>
                 Save launch wrapper
               </button>
@@ -442,8 +442,8 @@ export function GameDetailsPanel({
             </div>
           </div>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-            <pre style={{ margin: 0, whiteSpace: "pre-wrap" }}>
+          <div className="game-details__stack">
+            <pre className="game-details__pre">
               {details.launch_wrapper?.trim() || "Not set"}
             </pre>
             <div>
@@ -459,14 +459,14 @@ export function GameDetailsPanel({
             </div>
           </div>
         )}
-        <div style={{ fontSize: "0.8rem", marginTop: "8px", marginBottom: "4px", color: "var(--color-text-secondary)" }}>
+        <div className="game-details__helper game-details__helper--spaced">
           Effective launch wrapper preview
         </div>
-        <pre style={{ margin: 0, whiteSpace: "pre-wrap" }}>
+        <pre className="game-details__pre">
           {effectiveLaunchWrapper || "Not set"}
         </pre>
       </div>
-      <div style={{ display: "flex", gap: "8px", marginBottom: "8px", flexWrap: "wrap" }}>
+      <div className="game-details__actions game-details__block">
         <button
           type="button"
           disabled={shortcutExportPending}
@@ -496,12 +496,12 @@ export function GameDetailsPanel({
         </button>
       </div>
       {steamExportMessage && (
-        <p className="game-details__muted" style={{ marginTop: 0, marginBottom: "8px" }}>
+        <p className="game-details__muted game-details__muted--tight">
           {steamExportMessage}
         </p>
       )}
       {shortcutStatusMessage && (
-        <p className="game-details__muted" style={{ marginTop: 0, marginBottom: "16px" }}>
+        <p className="game-details__muted game-details__muted--loose">
           {shortcutStatusMessage}
         </p>
       )}
@@ -512,7 +512,7 @@ export function GameDetailsPanel({
           <h3>
             Patches
             {!managePatchesOpen && patchInfo && patchInfo.files.length > 0 && (
-              <span className="library-grid__badge" style={{ marginLeft: "8px", fontSize: "0.7rem" }}>
+              <span className="library-grid__badge library-grid__badge--inline">
                 {patchInfo.files.reduce((sum, f) => sum + f.entries.length, 0)} patches available
               </span>
             )}
@@ -589,7 +589,7 @@ export function GameDetailsPanel({
       <section className="game-details__section">
         <div className="game-details__section-header">
           <h3>Installed Content</h3>
-          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+          <div className="game-details__actions">
             <button type="button" onClick={() => void onOpenContentFolder()}>
               Open Content Folder
             </button>
@@ -619,7 +619,7 @@ export function GameDetailsPanel({
                   <strong>{entry.content_type_label}</strong>
                   <span>{entry.content_type}</span>
                   <span>{entry.item_count} item{entry.item_count === 1 ? "" : "s"}</span>
-                  <span style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                  <span className="game-details__actions">
                     <button type="button" onClick={() => void onOpenContentFolder()}>
                       Open Root
                     </button>

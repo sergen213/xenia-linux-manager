@@ -106,7 +106,7 @@ export function SettingsPage() {
         <div className="settings-page__section-header">
           <h3 className="settings-page__section-title">Storage Paths</h3>
           <button
-            className="settings-page__edit-btn"
+            className="settings-page__edit-btn ui-button ui-button--small"
             onClick={() => setEditOpen(true)}
           >
             Edit Paths
@@ -154,13 +154,13 @@ export function SettingsPage() {
                     placeholder="Enter your gamer tag"
                   />
                   <button
-                    className="settings-page__save-btn"
+                    className="settings-page__save-btn ui-button ui-button--primary ui-button--small"
                     onClick={handleGamerTagSave}
                   >
                     Save
                   </button>
                   <button
-                    className="settings-page__cancel-btn"
+                    className="settings-page__cancel-btn ui-button ui-button--small"
                     onClick={() => setGamerTagEditing(false)}
                   >
                     Cancel

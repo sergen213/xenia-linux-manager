@@ -137,7 +137,7 @@ export function TasksPage() {
           </h3>
           {history.length > 0 && (
             <button
-              className="tasks-page__clear-btn"
+              className="tasks-page__clear-btn ui-button ui-button--small"
               onClick={handleClearHistory}
               data-testid="clear-history-btn"
             >

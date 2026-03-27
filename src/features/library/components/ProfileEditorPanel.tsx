@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   EffectiveConfig,
   EffectiveField,
@@ -39,8 +39,62 @@ const STANDARD_FIELDS: FieldDef[] = [
   { key: "storage.mount_scratch", label: "Mount Scratch", category: "Storage", type: "boolean" },
 ];
 
+const CATEGORY_GROUPS = STANDARD_FIELDS.reduce<Map<string, FieldDef[]>>((groups, field) => {
+  const list = groups.get(field.category) ?? [];
+  list.push(field);
+  groups.set(field.category, list);
+  return groups;
+}, new Map());
+
 export type EditorViewMode = "explicit" | "effective";
 export type EditorTabMode = "standard" | "raw";
+
+interface ProfileFieldRowProps {
+  fieldDef: FieldDef;
+  displayValue: unknown;
+  isHighlighted: boolean;
+  showInView: boolean;
+  onChange: (key: string, value: unknown) => void;
+  onReset: (key: string) => void;
+}
+
+const ProfileFieldRow = memo(function ProfileFieldRow({
+  fieldDef,
+  displayValue,
+  isHighlighted,
+  showInView,
+  onChange,
+  onReset,
+}: ProfileFieldRowProps) {
+  if (!showInView) {
+    return null;
+  }
+
+  return (
+    <div
+      className={`profile-editor__field${isHighlighted ? " profile-editor__field--changed" : ""}`}
+    >
+      <label htmlFor={`field-${fieldDef.key}`}>
+        {fieldDef.label}
+      </label>
+      {renderFieldInput(
+        fieldDef,
+        displayValue,
+        onChange,
+      )}
+      {isHighlighted && (
+        <button
+          type="button"
+          className="profile-editor__reset ui-button ui-button--small"
+          title="Reset to default"
+          onClick={() => onReset(fieldDef.key)}
+        >
+          Reset
+        </button>
+      )}
+    </div>
+  );
+});
 
 interface ProfileEditorPanelProps {
   inventory: ProfileInventory;
@@ -81,6 +135,7 @@ export function ProfileEditorPanel({
   const [newProfileName, setNewProfileName] = useState("");
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
+  const draftRef = useRef(draft);
 
   const activeProfile = inventory.profiles.find((p) => p.active);
   const profileOptions = useMemo(
@@ -93,6 +148,10 @@ export function ProfileEditorPanel({
     ],
     [inventory.profiles],
   );
+
+  useEffect(() => {
+    draftRef.current = draft;
+  }, [draft]);
 
   // Load effective config when active profile changes.
   useEffect(() => {
@@ -114,16 +173,16 @@ export function ProfileEditorPanel({
 
   const handleFieldChange = useCallback(
     (key: string, value: unknown) => {
-      onDraftChange({ ...draft, [key]: value });
+      onDraftChange({ ...draftRef.current, [key]: value });
     },
-    [draft, onDraftChange],
+    [onDraftChange],
   );
 
   const handleFieldReset = useCallback(
     (key: string) => {
-      onDraftChange({ ...draft, [key]: null });
+      onDraftChange({ ...draftRef.current, [key]: null });
     },
-    [draft, onDraftChange],
+    [onDraftChange],
   );
 
   const handleSave = useCallback(async () => {
@@ -150,16 +209,7 @@ export function ProfileEditorPanel({
     setRenameValue("");
   }, [renamingId, renameValue, onRenameProfile]);
 
-  // Group standard fields by category.
-  const categories = useMemo(() => {
-    const groups = new Map<string, FieldDef[]>();
-    for (const field of STANDARD_FIELDS) {
-      const list = groups.get(field.category) ?? [];
-      list.push(field);
-      groups.set(field.category, list);
-    }
-    return groups;
-  }, []);
+  const categories = CATEGORY_GROUPS;
 
   return (
     <div className="profile-editor">
@@ -306,29 +356,15 @@ export function ProfileEditorPanel({
                     }
 
                     return (
-                      <div
+                      <ProfileFieldRow
                         key={fieldDef.key}
-                        className={`profile-editor__field${isChanged || draftValue !== undefined ? " profile-editor__field--changed" : ""}`}
-                      >
-                        <label htmlFor={`field-${fieldDef.key}`}>
-                          {fieldDef.label}
-                        </label>
-                        {renderFieldInput(
-                          fieldDef,
-                          displayValue,
-                          handleFieldChange,
-                        )}
-                        {(isChanged || draftValue !== undefined) && (
-                          <button
-                            type="button"
-                            className="profile-editor__reset"
-                            title="Reset to default"
-                            onClick={() => handleFieldReset(fieldDef.key)}
-                          >
-                            Reset
-                          </button>
-                        )}
-                      </div>
+                        fieldDef={fieldDef}
+                        displayValue={displayValue}
+                        isHighlighted={isChanged || draftValue !== undefined}
+                        showInView={!(viewMode === "explicit" && !isChanged && draftValue === undefined)}
+                        onChange={handleFieldChange}
+                        onReset={handleFieldReset}
+                      />
                     );
                   })}
                   {viewMode === "explicit" &&
