@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { getEnvironmentDiagnostics } from "../api/releaseClient";
 import { useSettings } from "../state/settingsStore";
 import type { EnvironmentDiagnostic } from "../model/releaseTypes";
@@ -17,34 +17,27 @@ export function PackagedEnvironmentNotice() {
   const { state } = useSettings();
   const metadata = state.releaseMetadata;
   const [diagnostics, setDiagnostics] = useState<EnvironmentDiagnostic[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true); // Start with loading=true, let effect set false when done
   const [error, setError] = useState<string | null>(null);
 
   const isPackaged = metadata?.build_kind === "packaged_appimage";
 
+  // Use ref to track if we've attempted to load, avoiding redundant fetches
+  const loadAttemptedRef = useRef(false);
   useEffect(() => {
-    if (!isPackaged) return;
+    if (!isPackaged || loadAttemptedRef.current) return;
 
-    let cancelled = false;
-    setLoading(true);
+    loadAttemptedRef.current = true;
 
     getEnvironmentDiagnostics()
       .then((diags) => {
-        if (!cancelled) {
-          setDiagnostics(diags);
-          setLoading(false);
-        }
+        setDiagnostics(diags);
+        setLoading(false);
       })
       .catch((err) => {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : String(err));
-          setLoading(false);
-        }
+        setError(err instanceof Error ? err.message : String(err));
+        setLoading(false);
       });
-
-    return () => {
-      cancelled = true;
-    };
   }, [isPackaged]);
 
   // Only show this section in packaged builds

@@ -52,7 +52,11 @@ pub fn save_history(app_data_path: &str, history: &TaskHistory) -> Result<(), St
     }
     let data =
         serde_json::to_string_pretty(history).map_err(|e| format!("Serialization error: {e}"))?;
-    fs::write(&path, data).map_err(|e| format!("Failed to write history: {e}"))?;
+    let tmp_path = path.with_extension("json.tmp");
+    fs::write(&tmp_path, data)
+        .map_err(|e| format!("Failed to write history temp file: {e}"))?;
+    fs::rename(&tmp_path, &path)
+        .map_err(|e| format!("Failed to finalize history write: {e}"))?;
     Ok(())
 }
 
@@ -100,9 +104,7 @@ mod tests {
     use std::env;
 
     fn temp_data_dir(suffix: &str) -> String {
-        let p = env::temp_dir()
-            .join("xlm-jobs-test")
-            .join(suffix);
+        let p = env::temp_dir().join("xlm-jobs-test").join(suffix);
         // Clean up from previous runs
         let _ = std::fs::remove_dir_all(&p);
         std::fs::create_dir_all(&p).unwrap();

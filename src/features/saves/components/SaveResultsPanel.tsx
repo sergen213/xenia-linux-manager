@@ -1,4 +1,4 @@
-import type { ExportResult, ImportApplyResult } from "../../library/model/saveTypes";
+import type { ExportResult, ImportApplyResult } from "../model/saveTypes";
 
 interface SaveResultsPanelProps {
   exportResult: ExportResult | null;

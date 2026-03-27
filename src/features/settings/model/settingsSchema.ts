@@ -5,6 +5,10 @@ export interface AppSettings {
   library_metadata_path: string;
   setup_complete: boolean;
   last_active_route: string | null;
+  /** User's Xbox Live gamer tag (used for save imports/exports). */
+  gamer_tag: string | null;
+  /** Click behavior for game cards: "single" or "double" click to open. */
+  click_behavior: "single" | "double";
 }
 
 /** Result of validating a single path on the backend. */

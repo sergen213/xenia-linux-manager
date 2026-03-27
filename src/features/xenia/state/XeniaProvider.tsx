@@ -1,4 +1,4 @@
-import { useReducer, useEffect, type ReactNode } from "react";
+import { useReducer, useEffect, useMemo, type ReactNode } from "react";
 import {
   XeniaContext,
   xeniaReducer,
@@ -9,6 +9,10 @@ import {
   getInstallStatus,
   checkForUpdateAuto,
 } from "../api/xeniaClient";
+import {
+  useTasks,
+  selectLatestTerminalJobByCategory,
+} from "../../tasks/state/tasksStore";
 
 interface XeniaProviderProps {
   children: ReactNode;
@@ -22,6 +26,16 @@ interface XeniaProviderProps {
 export function XeniaProvider({ children }: XeniaProviderProps) {
   const [state, dispatch] = useReducer(xeniaReducer, INITIAL_XENIA_STATE);
   const { state: settingsState } = useSettings();
+  const { state: tasksState } = useTasks();
+  const latestInstallJob = selectLatestTerminalJobByCategory(tasksState, "install");
+  const latestUpdateJob = selectLatestTerminalJobByCategory(tasksState, "update");
+  const latestLifecycleJob = useMemo(() => {
+    if (!latestInstallJob) return latestUpdateJob;
+    if (!latestUpdateJob) return latestInstallJob;
+    const installTime = latestInstallJob.finished_at ?? latestInstallJob.created_at;
+    const updateTime = latestUpdateJob.finished_at ?? latestUpdateJob.created_at;
+    return installTime >= updateTime ? latestInstallJob : latestUpdateJob;
+  }, [latestInstallJob, latestUpdateJob]);
 
   // Load install status once settings provide app_data_path
   useEffect(() => {
@@ -36,7 +50,7 @@ export function XeniaProvider({ children }: XeniaProviderProps) {
         );
         if (cancelled) return;
         dispatch({ type: "LOAD_STATUS_SUCCESS", installState });
-      } catch (err) {
+      } catch {
         if (cancelled) return;
         // Outside Tauri (dev mode), just mark initialized with defaults
         dispatch({
@@ -51,6 +65,22 @@ export function XeniaProvider({ children }: XeniaProviderProps) {
       cancelled = true;
     };
   }, [settingsState.settings?.app_data_path]);
+
+  useEffect(() => {
+    const appDataPath = settingsState.settings?.app_data_path;
+    if (!appDataPath || !latestLifecycleJob) return;
+
+    const refresh = async () => {
+      try {
+        const installState = await getInstallStatus(appDataPath);
+        dispatch({ type: "SET_INSTALL_STATE", installState });
+      } catch {
+        // non-critical
+      }
+    };
+
+    void refresh();
+  }, [settingsState.settings?.app_data_path, latestLifecycleJob?.id]);
 
   // Auto-check for updates when installed
   useEffect(() => {

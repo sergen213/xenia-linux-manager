@@ -43,11 +43,7 @@ pub fn select_active_game_profile(
     game_id: String,
     profile_id: Option<String>,
 ) -> Result<storage::ProfileInventory, String> {
-    storage::select_active_profile(
-        &library_metadata_path,
-        &game_id,
-        profile_id.as_deref(),
-    )
+    storage::select_active_profile(&library_metadata_path, &game_id, profile_id.as_deref())
 }
 
 #[tauri::command]
@@ -56,11 +52,7 @@ pub fn get_profile_effective_config(
     game_id: String,
     profile_id: String,
 ) -> Result<crate::profiles::merge::EffectiveConfig, String> {
-    crate::profiles::merge::compute_effective_config(
-        &library_metadata_path,
-        &game_id,
-        &profile_id,
-    )
+    crate::profiles::merge::compute_effective_config(&library_metadata_path, &game_id, &profile_id)
 }
 
 #[tauri::command]
@@ -70,12 +62,7 @@ pub fn save_profile_overrides(
     profile_id: String,
     overrides: std::collections::HashMap<String, serde_json::Value>,
 ) -> Result<storage::ProfileDocument, String> {
-    storage::save_profile_overrides(
-        &library_metadata_path,
-        &game_id,
-        &profile_id,
-        overrides,
-    )
+    storage::save_profile_overrides(&library_metadata_path, &game_id, &profile_id, overrides)
 }
 
 // ---------------------------------------------------------------------------
@@ -87,10 +74,7 @@ pub fn get_materialized_launch_config(
     library_metadata_path: String,
     game_id: String,
 ) -> Result<crate::profiles::materialize::MaterializedLaunchConfig, String> {
-    crate::profiles::materialize::materialize_launch_config(
-        &library_metadata_path,
-        &game_id,
-    )
+    crate::profiles::materialize::materialize_launch_config(&library_metadata_path, &game_id)
 }
 
 // ---------------------------------------------------------------------------
@@ -98,9 +82,7 @@ pub fn get_materialized_launch_config(
 // ---------------------------------------------------------------------------
 
 #[tauri::command]
-pub fn check_recommendation_availability(
-    game_id: String,
-) -> sources::RecommendationAvailability {
+pub fn check_recommendation_availability(game_id: String) -> sources::RecommendationAvailability {
     let source = sources::default_recommendation_source();
     sources::check_recommendation(&source, &game_id)
 }

@@ -6,7 +6,6 @@ import {
 } from "./state/tasksStore";
 import { TaskHistoryCard } from "./components/TaskHistoryCard";
 import { XeniaRecoveryActions } from "../xenia/components/XeniaRecoveryActions";
-import { useXenia } from "../xenia/state/xeniaStore";
 import { useSettings } from "../settings/state/settingsStore";
 import { retryLastOperation } from "../xenia/api/xeniaClient";
 import type { Job } from "./model/taskTypes";
@@ -14,7 +13,6 @@ import "./TasksPage.css";
 
 export function TasksPage() {
   const { state, dispatch } = useTasks();
-  const { state: _xeniaState } = useXenia();
   const { state: settingsState } = useSettings();
   const running = selectRunningJobs(state);
   const history = selectHistoryJobs(state);
@@ -30,10 +28,11 @@ export function TasksPage() {
     const isXeniaJob =
       job.category === "install" || job.category === "update";
     const appDataPath = settingsState.settings?.app_data_path;
+    const xeniaPath = settingsState.settings?.xenia_path;
 
-    if (isXeniaJob && appDataPath) {
+    if (isXeniaJob && appDataPath && xeniaPath) {
       try {
-        await retryLastOperation(appDataPath);
+        await retryLastOperation(appDataPath, xeniaPath);
       } catch {
         // Retry failure is non-critical -- the user can retry manually
       }

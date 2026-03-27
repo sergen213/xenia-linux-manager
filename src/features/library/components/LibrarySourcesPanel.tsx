@@ -1,4 +1,6 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { open as openDialog } from "@tauri-apps/plugin-dialog";
+import { openPath } from "../api/libraryClient";
 import { useLibrary } from "../state/libraryStore";
 import { useSettings } from "../../settings/state/settingsStore";
 import {
@@ -7,17 +9,51 @@ import {
   startSourceScan,
   scanAllSources,
   getLibraryStatus,
+  checkPatchesStatus,
+  deployGamePatches,
 } from "../api/libraryClient";
+import type { PatchesVersionInfo } from "../api/libraryClient";
 import type { LibrarySource } from "../model/libraryTypes";
 import "./LibrarySourcesPanel.css";
 
-export function LibrarySourcesPanel() {
+interface LibrarySourcesPanelProps {
+  onRefreshLibrary?: () => void | Promise<void>;
+  appDataPath?: string;
+}
+
+export function LibrarySourcesPanel({ onRefreshLibrary, appDataPath }: LibrarySourcesPanelProps = {}) {
   const { state, dispatch } = useLibrary();
   const { state: settingsState } = useSettings();
   const [newPath, setNewPath] = useState("");
   const [adding, setAdding] = useState(false);
+  const [patchStatus, setPatchStatus] = useState<PatchesVersionInfo | null>(null);
+  const [deploying, setDeploying] = useState(false);
 
   const libPath = settingsState.settings?.library_metadata_path ?? "";
+
+  // Check game patches deploy status on mount.
+  useEffect(() => {
+    if (!appDataPath) return;
+    checkPatchesStatus(appDataPath)
+      .then(setPatchStatus)
+      .catch(() => {
+        // best-effort
+      });
+  }, [appDataPath]);
+
+  const handleDeployPatches = useCallback(async () => {
+    if (!appDataPath) return;
+    setDeploying(true);
+    try {
+      await deployGamePatches(appDataPath);
+      const status = await checkPatchesStatus(appDataPath);
+      setPatchStatus(status);
+    } catch {
+      // best-effort
+    } finally {
+      setDeploying(false);
+    }
+  }, [appDataPath]);
 
   const refreshStatus = useCallback(async () => {
     if (!libPath) return;
@@ -47,6 +83,14 @@ export function LibrarySourcesPanel() {
         warnings: result.warnings,
       });
       setNewPath("");
+
+      // Auto-scan the newly added source.
+      try {
+        await startSourceScan(libPath, result.source.id);
+        await refreshStatus();
+      } catch {
+        // Scan failure is non-critical; source was still added.
+      }
     } catch (err) {
       dispatch({
         type: "SET_ERROR",
@@ -55,7 +99,22 @@ export function LibrarySourcesPanel() {
     } finally {
       setAdding(false);
     }
-  }, [newPath, libPath, dispatch]);
+  }, [newPath, libPath, dispatch, refreshStatus]);
+
+  const handleBrowse = useCallback(async () => {
+    try {
+      const selected = await openDialog({
+        directory: true,
+        multiple: false,
+        title: "Select game folder",
+      });
+      if (selected) {
+        setNewPath(selected as string);
+      }
+    } catch {
+      // User cancelled or dialog error — ignore.
+    }
+  }, []);
 
   const handleRemove = useCallback(
     async (sourceId: string) => {
@@ -63,6 +122,10 @@ export function LibrarySourcesPanel() {
       try {
         await removeLibrarySource(libPath, sourceId);
         dispatch({ type: "REMOVE_SOURCE", sourceId });
+        // Refresh the browse view so removed games disappear from the grid.
+        if (onRefreshLibrary) {
+          void onRefreshLibrary();
+        }
       } catch (err) {
         dispatch({
           type: "SET_ERROR",
@@ -70,7 +133,7 @@ export function LibrarySourcesPanel() {
         });
       }
     },
-    [libPath, dispatch],
+    [libPath, dispatch, onRefreshLibrary],
   );
 
   const handleScanOne = useCallback(
@@ -142,6 +205,14 @@ export function LibrarySourcesPanel() {
           style={{ flex: 1 }}
         />
         <button
+          className="sources-panel__btn"
+          onClick={handleBrowse}
+          disabled={adding}
+          title="Browse for folder"
+        >
+          Browse
+        </button>
+        <button
           className="sources-panel__btn sources-panel__btn--primary"
           onClick={handleAdd}
           disabled={adding || !newPath.trim()}
@@ -165,6 +236,57 @@ export function LibrarySourcesPanel() {
               scanActive={scanActive}
             />
           ))}
+        </div>
+      )}
+
+      {appDataPath && (
+        <div className="sources-panel__patches" style={{ marginTop: "24px", padding: "12px", border: "1px solid var(--border-color, #444)", borderRadius: "6px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+            <span className="sources-panel__title">Game Patches</span>
+            {patchStatus?.update_available && (
+              <span style={{ fontSize: "0.75rem", padding: "2px 8px", borderRadius: "4px", background: "var(--accent-color, #f59e0b)", color: "#000", fontWeight: 600 }}>
+                Update Available
+              </span>
+            )}
+          </div>
+          {patchStatus ? (
+            <div style={{ fontSize: "0.85rem", marginBottom: "8px" }}>
+              {patchStatus.patch_count > 0 ? (
+                <>
+                  <div>{patchStatus.patch_count} patch files installed</div>
+                  {patchStatus.local_version && <div>Version: {patchStatus.local_version}</div>}
+                </>
+              ) : (
+                <div>Not installed</div>
+              )}
+            </div>
+          ) : (
+            <div style={{ fontSize: "0.85rem", marginBottom: "8px", opacity: 0.6 }}>Checking status…</div>
+          )}
+          <div style={{ display: "flex", gap: "8px" }}>
+            <button
+              className="sources-panel__btn sources-panel__btn--primary"
+              onClick={handleDeployPatches}
+              disabled={deploying}
+            >
+              {deploying
+                ? "Downloading…"
+                : patchStatus && patchStatus.patch_count > 0
+                  ? "Update Patches"
+                  : "Download Patches"}
+            </button>
+            {patchStatus && patchStatus.patch_count > 0 && (
+              <button
+                className="sources-panel__btn"
+                onClick={() => {
+                  void openPath(patchStatus.patches_dir, [patchStatus.patches_dir]);
+                }}
+                title={patchStatus.patches_dir}
+              >
+                Open Location
+              </button>
+            )}
+          </div>
         </div>
       )}
 

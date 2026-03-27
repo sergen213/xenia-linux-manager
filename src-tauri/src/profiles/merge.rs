@@ -54,8 +54,8 @@ pub fn compute_effective_config(
     let defaults = xenia_default_config();
 
     // Look up provenance metadata from the manifest.
-    let manifest = storage::load_manifest(library_metadata_path, game_id)?;
-    let record = manifest.profiles.iter().find(|p| p.id == profile_id);
+    let inventory = storage::load_inventory(library_metadata_path, game_id)?;
+    let record = inventory.profiles.iter().find(|p| p.id == profile_id);
     let source = record
         .map(|r| r.source.clone())
         .unwrap_or(storage::ProfileSource::Local);
@@ -137,23 +137,44 @@ fn xenia_default_config() -> HashMap<String, serde_json::Value> {
 
     // CPU settings
     defaults.insert("cpu.backend".to_string(), serde_json::json!("any"));
-    defaults.insert("cpu.break_on_unimplemented".to_string(), serde_json::json!(false));
+    defaults.insert(
+        "cpu.break_on_unimplemented".to_string(),
+        serde_json::json!(false),
+    );
 
     // Display settings
     defaults.insert("display.fullscreen".to_string(), serde_json::json!(false));
-    defaults.insert("display.internal_display_resolution".to_string(), serde_json::json!(8));
-    defaults.insert("display.postprocess_antialiasing".to_string(), serde_json::json!("fxaa"));
+    defaults.insert(
+        "display.internal_display_resolution".to_string(),
+        serde_json::json!(8),
+    );
+    defaults.insert(
+        "display.postprocess_antialiasing".to_string(),
+        serde_json::json!("fxaa"),
+    );
 
     // GPU settings
     defaults.insert("gpu.backend".to_string(), serde_json::json!("vulkan"));
     defaults.insert("gpu.vsync".to_string(), serde_json::json!(true));
-    defaults.insert("gpu.render_target_path_vulkan".to_string(), serde_json::json!("any"));
+    defaults.insert(
+        "gpu.render_target_path_vulkan".to_string(),
+        serde_json::json!("any"),
+    );
     defaults.insert("gpu.framerate_limit".to_string(), serde_json::json!(0));
-    defaults.insert("gpu.draw_resolution_scale_x".to_string(), serde_json::json!(1));
-    defaults.insert("gpu.draw_resolution_scale_y".to_string(), serde_json::json!(1));
+    defaults.insert(
+        "gpu.draw_resolution_scale_x".to_string(),
+        serde_json::json!(1),
+    );
+    defaults.insert(
+        "gpu.draw_resolution_scale_y".to_string(),
+        serde_json::json!(1),
+    );
 
     // HID (input) settings
-    defaults.insert("hid.host_radians_per_second".to_string(), serde_json::json!(3.0));
+    defaults.insert(
+        "hid.host_radians_per_second".to_string(),
+        serde_json::json!(3.0),
+    );
 
     // Kernel settings
     defaults.insert("kernel.patcher".to_string(), serde_json::json!(true));
@@ -163,7 +184,10 @@ fn xenia_default_config() -> HashMap<String, serde_json::Value> {
 
     // Storage settings
     defaults.insert("storage.mount_cache".to_string(), serde_json::json!(false));
-    defaults.insert("storage.mount_scratch".to_string(), serde_json::json!(false));
+    defaults.insert(
+        "storage.mount_scratch".to_string(),
+        serde_json::json!(false),
+    );
 
     defaults
 }
@@ -179,9 +203,7 @@ mod tests {
     use std::fs;
 
     fn temp_dir(suffix: &str) -> String {
-        let path = env::temp_dir()
-            .join("xlm-profile-merge")
-            .join(suffix);
+        let path = env::temp_dir().join("xlm-profile-merge").join(suffix);
         let _ = fs::remove_dir_all(&path);
         fs::create_dir_all(&path).unwrap();
         path.to_string_lossy().to_string()
@@ -217,7 +239,11 @@ mod tests {
         assert!(vsync.changed);
         assert_eq!(vsync.value, serde_json::json!(false));
 
-        let fps = config.fields.iter().find(|f| f.key == "gpu.framerate_limit").unwrap();
+        let fps = config
+            .fields
+            .iter()
+            .find(|f| f.key == "gpu.framerate_limit")
+            .unwrap();
         assert!(fps.changed);
         assert_eq!(fps.value, serde_json::json!(60));
     }
@@ -256,7 +282,11 @@ mod tests {
         storage::save_profile_overrides(&dir, "game-1", &pid, overrides).unwrap();
 
         let config = compute_effective_config(&dir, "game-1", &pid).unwrap();
-        let cpu = config.fields.iter().find(|f| f.key == "cpu.backend").unwrap();
+        let cpu = config
+            .fields
+            .iter()
+            .find(|f| f.key == "cpu.backend")
+            .unwrap();
         assert_eq!(cpu.value, serde_json::json!("x64"));
         assert!(cpu.changed);
     }
@@ -272,7 +302,11 @@ mod tests {
         storage::save_profile_overrides(&dir, "game-1", &pid, overrides).unwrap();
 
         let config = compute_effective_config(&dir, "game-1", &pid).unwrap();
-        let custom = config.fields.iter().find(|f| f.key == "custom.debug_flag").unwrap();
+        let custom = config
+            .fields
+            .iter()
+            .find(|f| f.key == "custom.debug_flag")
+            .unwrap();
         assert!(custom.changed);
         assert_eq!(custom.value, serde_json::json!(true));
     }
@@ -368,14 +402,9 @@ mod tests {
             applied_at: 1700000000000,
         };
 
-        let inv = storage::create_recommended_profile(
-            &dir,
-            "game-1",
-            "Optimized",
-            baseline,
-            linkage,
-        )
-        .unwrap();
+        let inv =
+            storage::create_recommended_profile(&dir, "game-1", "Optimized", baseline, linkage)
+                .unwrap();
         let pid = &inv.profiles[0].id;
 
         let config = compute_effective_config(&dir, "game-1", pid).unwrap();
@@ -385,7 +414,11 @@ mod tests {
         assert!(vsync.changed);
         assert_eq!(vsync.value, serde_json::json!(false));
 
-        let fps = config.fields.iter().find(|f| f.key == "gpu.framerate_limit").unwrap();
+        let fps = config
+            .fields
+            .iter()
+            .find(|f| f.key == "gpu.framerate_limit")
+            .unwrap();
         assert!(fps.changed);
         assert_eq!(fps.value, serde_json::json!(60));
     }
@@ -405,14 +438,8 @@ mod tests {
             applied_at: 1700000000000,
         };
 
-        let inv = storage::create_recommended_profile(
-            &dir,
-            "game-1",
-            "Rec",
-            baseline,
-            linkage,
-        )
-        .unwrap();
+        let inv =
+            storage::create_recommended_profile(&dir, "game-1", "Rec", baseline, linkage).unwrap();
         let pid = inv.profiles[0].id.clone();
 
         // User edits: override framerate_limit but keep vsync from recommendation.
@@ -422,7 +449,11 @@ mod tests {
         storage::save_profile_overrides(&dir, "game-1", &pid, user_overrides).unwrap();
 
         let config = compute_effective_config(&dir, "game-1", &pid).unwrap();
-        let fps = config.fields.iter().find(|f| f.key == "gpu.framerate_limit").unwrap();
+        let fps = config
+            .fields
+            .iter()
+            .find(|f| f.key == "gpu.framerate_limit")
+            .unwrap();
         assert_eq!(fps.value, serde_json::json!(120)); // User edit wins
         assert!(fps.changed);
     }

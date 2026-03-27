@@ -91,6 +91,7 @@ pub async fn check_for_update_auto(
 /// Returns the job ID immediately so the renderer can track progress.
 #[tauri::command]
 pub async fn start_install(
+    xenia_path: String,
     app: AppHandle,
     registry: State<'_, Arc<JobRegistry>>,
     app_data_path: String,
@@ -112,7 +113,7 @@ pub async fn start_install(
     let data_path = app_data_path.clone();
 
     tauri::async_runtime::spawn(async move {
-        run_lifecycle_pipeline(&app_handle, &reg, &jid, &data_path, &release, false).await;
+        run_lifecycle_pipeline(&xenia_path, &app_handle, &reg, &jid, &data_path, &release, false).await;
     });
 
     Ok(job_id)
@@ -124,6 +125,7 @@ pub async fn start_install(
 /// the previous build until the new one is fully promoted.
 #[tauri::command]
 pub async fn start_update(
+    xenia_path: String,
     app: AppHandle,
     registry: State<'_, Arc<JobRegistry>>,
     app_data_path: String,
@@ -144,7 +146,7 @@ pub async fn start_update(
     let data_path = app_data_path.clone();
 
     tauri::async_runtime::spawn(async move {
-        run_lifecycle_pipeline(&app_handle, &reg, &jid, &data_path, &release, true).await;
+        run_lifecycle_pipeline(&xenia_path, &app_handle, &reg, &jid, &data_path, &release, true).await;
     });
 
     Ok(job_id)
@@ -157,6 +159,7 @@ pub async fn start_update(
 /// the appropriate pipeline.
 #[tauri::command]
 pub async fn retry_last_operation(
+    xenia_path: String,
     app: AppHandle,
     registry: State<'_, Arc<JobRegistry>>,
     app_data_path: String,
@@ -193,7 +196,7 @@ pub async fn retry_last_operation(
     let data_path = app_data_path.clone();
 
     tauri::async_runtime::spawn(async move {
-        run_lifecycle_pipeline(&app_handle, &reg, &jid, &data_path, &release, is_update).await;
+        run_lifecycle_pipeline(&xenia_path, &app_handle, &reg, &jid, &data_path, &release, is_update).await;
     });
 
     Ok(job_id)
@@ -228,8 +231,8 @@ pub async fn cleanup_install_artifacts(
 /// Deletes the install directory, backup directory, and updates the
 /// persisted state to NotInstalled.
 #[tauri::command]
-pub async fn remove_xenia_install(app_data_path: String) -> Result<(), String> {
-    lifecycle::remove_install(&app_data_path)
+pub async fn remove_xenia_install(xenia_path: String, app_data_path: String) -> Result<(), String> {
+    lifecycle::remove_install(&app_data_path, &xenia_path)
         .await
         .map_err(|e| e.to_string())?;
 
@@ -247,6 +250,7 @@ pub async fn remove_xenia_install(app_data_path: String) -> Result<(), String> {
 /// If `is_update` is true, failures are recorded as update failures
 /// (preserving the existing manifest). Otherwise as install failures.
 async fn run_lifecycle_pipeline(
+    xenia_path: &str,
     app: &AppHandle,
     registry: &Arc<JobRegistry>,
     job_id: &str,
@@ -351,7 +355,7 @@ async fn run_lifecycle_pipeline(
     log_and_emit(app, registry, job_id, "Promoting staged build...", LogLevel::Info);
 
     let (final_exec, install_dir) =
-        match lifecycle::promote_staged_build(app_data_path, release, &exec_path).await {
+        match lifecycle::promote_staged_build(xenia_path, app_data_path, release, &exec_path).await {
             Ok(result) => {
                 log_and_emit(
                     app,
@@ -655,7 +659,7 @@ mod tests {
         let dir = temp_dir("remove-install");
 
         // Create install directory.
-        let install = install_state::install_dir(&dir);
+        let install = install_state::install_dir(&format!("{}/xenia", dir));
         std::fs::create_dir_all(&install).unwrap();
         std::fs::write(install.join("xenia_canary"), "build").unwrap();
 
@@ -670,7 +674,7 @@ mod tests {
         );
         install_state::save_state(&dir, &state).unwrap();
 
-        remove_xenia_install(dir.clone()).await.unwrap();
+        remove_xenia_install(format!("{}/xenia", dir), dir.clone()).await.unwrap();
 
         assert!(!install.exists());
         let loaded = install_state::load_state(&dir);

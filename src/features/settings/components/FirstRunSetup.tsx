@@ -1,9 +1,11 @@
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useSettings } from "../state/settingsStore";
 import { saveSettings, validatePaths } from "../api/settingsClient";
 import { PATH_FIELDS, getPathValue } from "../model/settingsSchema";
 import type { AppSettings } from "../model/settingsSchema";
 import "./FirstRunSetup.css";
+
+const PATH_VALIDATION_DEBOUNCE_MS = 300;
 
 /**
  * Gated first-run path confirmation flow.
@@ -15,6 +17,17 @@ import "./FirstRunSetup.css";
 export function FirstRunSetup() {
   const { state, dispatch } = useSettings();
   const { settings, validation, loading, error } = state;
+  const validationTimer = useRef<number | null>(null);
+  const validationRequest = useRef(0);
+
+  useEffect(() => {
+    return () => {
+      validationRequest.current += 1;
+      if (validationTimer.current != null) {
+        window.clearTimeout(validationTimer.current);
+      }
+    };
+  }, []);
 
   const handlePathChange = useCallback(
     async (field: string, value: string) => {
@@ -23,12 +36,24 @@ export function FirstRunSetup() {
       if (!settings) return;
       const updated: AppSettings = { ...settings, [field]: value };
 
-      try {
-        const result = await validatePaths(updated);
-        dispatch({ type: "SET_VALIDATION", validation: result });
-      } catch {
-        // Validation call failed; UI will show stale validation state
+      validationRequest.current += 1;
+      const requestId = validationRequest.current;
+
+      if (validationTimer.current != null) {
+        window.clearTimeout(validationTimer.current);
       }
+
+      validationTimer.current = window.setTimeout(async () => {
+        try {
+          const result = await validatePaths(updated);
+          if (validationRequest.current !== requestId) {
+            return;
+          }
+          dispatch({ type: "SET_VALIDATION", validation: result });
+        } catch {
+          // Validation call failed; UI will show stale validation state
+        }
+      }, PATH_VALIDATION_DEBOUNCE_MS);
     },
     [dispatch, settings],
   );

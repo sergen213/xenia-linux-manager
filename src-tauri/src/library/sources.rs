@@ -86,17 +86,13 @@ pub fn load_sources(library_metadata_path: &str) -> SourcesDocument {
 }
 
 /// Save sources document to disk atomically (write-to-temp-then-rename).
-pub fn save_sources(
-    library_metadata_path: &str,
-    doc: &SourcesDocument,
-) -> Result<(), String> {
+pub fn save_sources(library_metadata_path: &str, doc: &SourcesDocument) -> Result<(), String> {
     let path = sources_file_path(library_metadata_path);
     if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)
-            .map_err(|e| format!("Failed to create sources dir: {e}"))?;
+        fs::create_dir_all(parent).map_err(|e| format!("Failed to create sources dir: {e}"))?;
     }
-    let data = serde_json::to_string_pretty(doc)
-        .map_err(|e| format!("Serialization error: {e}"))?;
+    let data =
+        serde_json::to_string_pretty(doc).map_err(|e| format!("Serialization error: {e}"))?;
     let tmp = path.with_extension("json.tmp");
     fs::write(&tmp, &data).map_err(|e| format!("Failed to write sources: {e}"))?;
     fs::rename(&tmp, &path).map_err(|e| format!("Failed to rename sources: {e}"))?;
@@ -108,10 +104,7 @@ pub fn save_sources(
 // ---------------------------------------------------------------------------
 
 /// Add a new source folder. Returns the created source and any nested-source warnings.
-pub fn add_source(
-    library_metadata_path: &str,
-    raw_path: &str,
-) -> Result<AddSourceResult, String> {
+pub fn add_source(library_metadata_path: &str, raw_path: &str) -> Result<AddSourceResult, String> {
     let normalized = normalize_path(raw_path)?;
 
     let mut doc = load_sources(library_metadata_path);
@@ -169,8 +162,8 @@ pub fn remove_source(
     save_sources(library_metadata_path, &doc)?;
 
     // Clean up scan results for this source (best-effort).
-    let scan_file = PathBuf::from(library_metadata_path)
-        .join(format!("scan-results-{}.json", source_id));
+    let scan_file =
+        PathBuf::from(library_metadata_path).join(format!("scan-results-{}.json", source_id));
     let _ = fs::remove_file(&scan_file);
 
     Ok(removed)
@@ -289,12 +282,17 @@ mod tests {
     #[test]
     fn add_and_list_roundtrip() {
         let dir = temp_lib_dir("add-list");
-        let game_dir = env::temp_dir().join("xlm-lib-sources-test").join("add-list-games");
+        let game_dir = env::temp_dir()
+            .join("xlm-lib-sources-test")
+            .join("add-list-games");
         fs::create_dir_all(&game_dir).unwrap();
 
         let result = add_source(&dir, game_dir.to_str().unwrap()).unwrap();
         assert!(!result.source.id.is_empty());
-        assert_eq!(result.source.root_path, fs::canonicalize(&game_dir).unwrap());
+        assert_eq!(
+            result.source.root_path,
+            fs::canonicalize(&game_dir).unwrap()
+        );
         assert!(result.warnings.is_empty());
 
         let sources = list_sources(&dir);
@@ -305,7 +303,9 @@ mod tests {
     #[test]
     fn add_duplicate_is_rejected() {
         let dir = temp_lib_dir("duplicate");
-        let game_dir = env::temp_dir().join("xlm-lib-sources-test").join("dup-games");
+        let game_dir = env::temp_dir()
+            .join("xlm-lib-sources-test")
+            .join("dup-games");
         fs::create_dir_all(&game_dir).unwrap();
 
         add_source(&dir, game_dir.to_str().unwrap()).unwrap();
@@ -316,7 +316,9 @@ mod tests {
     #[test]
     fn remove_source_deletes_entry() {
         let dir = temp_lib_dir("remove");
-        let game_dir = env::temp_dir().join("xlm-lib-sources-test").join("remove-games");
+        let game_dir = env::temp_dir()
+            .join("xlm-lib-sources-test")
+            .join("remove-games");
         fs::create_dir_all(&game_dir).unwrap();
 
         let result = add_source(&dir, game_dir.to_str().unwrap()).unwrap();
@@ -391,7 +393,9 @@ mod tests {
     #[test]
     fn update_scan_summary_persists() {
         let dir = temp_lib_dir("scan-summary");
-        let game_dir = env::temp_dir().join("xlm-lib-sources-test").join("summary-games");
+        let game_dir = env::temp_dir()
+            .join("xlm-lib-sources-test")
+            .join("summary-games");
         fs::create_dir_all(&game_dir).unwrap();
 
         let result = add_source(&dir, game_dir.to_str().unwrap()).unwrap();
@@ -443,7 +447,9 @@ mod tests {
     #[test]
     fn label_defaults_to_folder_name() {
         let dir = temp_lib_dir("label");
-        let game_dir = env::temp_dir().join("xlm-lib-sources-test").join("my-xbox-games");
+        let game_dir = env::temp_dir()
+            .join("xlm-lib-sources-test")
+            .join("my-xbox-games");
         fs::create_dir_all(&game_dir).unwrap();
 
         let result = add_source(&dir, game_dir.to_str().unwrap()).unwrap();
@@ -453,12 +459,13 @@ mod tests {
     #[test]
     fn remove_cleans_up_scan_results_file() {
         let dir = temp_lib_dir("cleanup-scan");
-        let game_dir = env::temp_dir().join("xlm-lib-sources-test").join("cleanup-games");
+        let game_dir = env::temp_dir()
+            .join("xlm-lib-sources-test")
+            .join("cleanup-games");
         fs::create_dir_all(&game_dir).unwrap();
 
         let result = add_source(&dir, game_dir.to_str().unwrap()).unwrap();
-        let scan_file = PathBuf::from(&dir)
-            .join(format!("scan-results-{}.json", result.source.id));
+        let scan_file = PathBuf::from(&dir).join(format!("scan-results-{}.json", result.source.id));
         fs::write(&scan_file, "{}").unwrap();
         assert!(scan_file.exists());
 

@@ -41,26 +41,23 @@ pub async fn create_backup(
 
     let source_owned = source_dir.to_path_buf();
     let backup_owned = backup_path.clone();
-    tokio::task::spawn_blocking(move || {
-        write_backup_zip(&source_owned, &backup_owned)
-    })
-    .await
-    .map_err(|e| format!("Backup task join error: {e}"))?
-    .map_err(|e| format!("Backup creation failed: {e}"))?;
+    tokio::task::spawn_blocking(move || write_backup_zip(&source_owned, &backup_owned))
+        .await
+        .map_err(|e| format!("Backup task join error: {e}"))?
+        .map_err(|e| format!("Backup creation failed: {e}"))?;
 
     Ok(backup_path)
 }
 
 /// Write a backup zip archive from a source directory using the `zip` crate.
 fn write_backup_zip(source: &Path, output: &Path) -> Result<(), String> {
-    use zip::write::FileOptions;
     use zip::CompressionMethod;
+    use zip::write::FileOptions;
 
-    let file = fs::File::create(output)
-        .map_err(|e| format!("Failed to create backup file: {e}"))?;
+    let file =
+        fs::File::create(output).map_err(|e| format!("Failed to create backup file: {e}"))?;
     let mut zip = zip::ZipWriter::new(file);
-    let options = FileOptions::<()>::default()
-        .compression_method(CompressionMethod::Deflated);
+    let options = FileOptions::<()>::default().compression_method(CompressionMethod::Deflated);
 
     add_dir_to_backup_zip(&mut zip, source, "", &options)?;
 
@@ -76,8 +73,8 @@ fn add_dir_to_backup_zip(
     prefix: &str,
     options: &zip::write::FileOptions<()>,
 ) -> Result<(), String> {
-    let entries = fs::read_dir(src)
-        .map_err(|e| format!("Failed to read {}: {e}", src.display()))?;
+    let entries =
+        fs::read_dir(src).map_err(|e| format!("Failed to read {}: {e}", src.display()))?;
 
     for entry in entries {
         let entry = entry.map_err(|e| format!("Failed to read entry: {e}"))?;
@@ -92,8 +89,8 @@ fn add_dir_to_backup_zip(
         if path.is_dir() {
             add_dir_to_backup_zip(zip, &path, &archive_path, options)?;
         } else {
-            let contents = fs::read(&path)
-                .map_err(|e| format!("Failed to read {}: {e}", path.display()))?;
+            let contents =
+                fs::read(&path).map_err(|e| format!("Failed to read {}: {e}", path.display()))?;
             zip.start_file(&archive_path, options.clone())
                 .map_err(|e| format!("Failed to add {archive_path}: {e}"))?;
             std::io::Write::write_all(zip, &contents)
@@ -155,16 +152,13 @@ pub struct BackupEntry {
 /// Write a serializable value to a JSON file atomically (write-to-temp-then-rename).
 pub fn write_json_atomic<T: Serialize>(path: &Path, value: &T) -> Result<(), String> {
     if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)
-            .map_err(|e| format!("Failed to create directory: {e}"))?;
+        fs::create_dir_all(parent).map_err(|e| format!("Failed to create directory: {e}"))?;
     }
     let temp_path = path.with_extension("json.tmp");
-    let contents = serde_json::to_string_pretty(value)
-        .map_err(|e| format!("Failed to serialize: {e}"))?;
-    fs::write(&temp_path, contents)
-        .map_err(|e| format!("Failed to write: {e}"))?;
-    fs::rename(&temp_path, path)
-        .map_err(|e| format!("Failed to finalize: {e}"))
+    let contents =
+        serde_json::to_string_pretty(value).map_err(|e| format!("Failed to serialize: {e}"))?;
+    fs::write(&temp_path, contents).map_err(|e| format!("Failed to write: {e}"))?;
+    fs::rename(&temp_path, path).map_err(|e| format!("Failed to finalize: {e}"))
 }
 
 // ---------------------------------------------------------------------------
@@ -257,7 +251,10 @@ mod tests {
     #[test]
     fn write_json_atomic_creates_parent_dirs() {
         let dir = temp_dir("atomic-parents");
-        let path = PathBuf::from(&dir).join("nested").join("deep").join("test.json");
+        let path = PathBuf::from(&dir)
+            .join("nested")
+            .join("deep")
+            .join("test.json");
         let data = serde_json::json!(42);
         write_json_atomic(&path, &data).unwrap();
         assert!(path.exists());
@@ -266,12 +263,7 @@ mod tests {
     #[tokio::test]
     async fn create_backup_rejects_nonexistent_source() {
         let dir = temp_dir("backup-missing");
-        let result = create_backup(
-            &dir,
-            Path::new("/nonexistent/path"),
-            "test",
-        )
-        .await;
+        let result = create_backup(&dir, Path::new("/nonexistent/path"), "test").await;
         assert!(result.is_err());
     }
 

@@ -54,6 +54,8 @@ function renderTasksPage(
         library_metadata_path: "/home/test/.local/share/xlm/library",
         setup_complete: true,
         last_active_route: null,
+        gamer_tag: null,
+        click_behavior: "single" as const,
       },
     },
     dispatch: vi.fn(),
@@ -126,6 +128,7 @@ describe("TasksPage", () => {
       installState: {
         status: "install_failed",
         manifest: null,
+        installed_builds: [],
         failure: {
           retry_mode: "install",
           error: "Download failed: connection reset",

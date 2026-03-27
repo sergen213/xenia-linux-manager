@@ -85,3 +85,111 @@
   font-size: var(--font-size-sm);
   padding: 1rem;
 }
+
+/* User Preferences Section */
+.settings-page__preferences {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.settings-page__pref-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.settings-page__pref-label {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.settings-page__pref-display {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.settings-page__pref-value {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.settings-page__pref-edit {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.settings-page__input {
+  padding: 0.375rem 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  background: var(--color-bg-input);
+  color: var(--color-text-primary);
+  min-width: 200px;
+}
+
+.settings-page__input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.settings-page__save-btn {
+  padding: 0.375rem 0.75rem;
+  background: var(--color-accent);
+  border: none;
+  border-radius: var(--radius-sm);
+  color: white;
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+}
+
+.settings-page__cancel-btn {
+  padding: 0.375rem 0.75rem;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+}
+
+.settings-page__edit-small {
+  padding: 0.25rem 0.5rem;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+}
+
+.settings-page__edit-small:hover {
+  background: var(--color-bg-hover);
+}
+
+.settings-page__pref-help {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.settings-page__radio-group {
+  display: flex;
+  gap: 1.5rem;
+}
+
+.settings-page__radio {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.settings-page__radio input {
+  cursor: pointer;
+}

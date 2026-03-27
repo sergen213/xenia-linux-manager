@@ -6,6 +6,14 @@ import {
   SettingsContext,
   INITIAL_STATE,
 } from "../../features/settings/state/settingsStore";
+import {
+  TasksContext,
+  INITIAL_TASKS_STATE,
+} from "../../features/tasks/state/tasksStore";
+import {
+  XeniaContext,
+  INITIAL_XENIA_STATE,
+} from "../../features/xenia/state/xeniaStore";
 
 // Mock Tauri invoke so StatusBar's releaseClient call doesn't throw
 vi.mock("@tauri-apps/api/core", () => ({
@@ -15,9 +23,13 @@ vi.mock("@tauri-apps/api/core", () => ({
 function renderSidebar(initialRoute = "/") {
   return render(
     <SettingsContext value={{ state: INITIAL_STATE, dispatch: vi.fn() }}>
-      <MemoryRouter initialEntries={[initialRoute]}>
-        <Sidebar />
-      </MemoryRouter>
+      <TasksContext value={{ state: INITIAL_TASKS_STATE, dispatch: vi.fn() }}>
+        <XeniaContext value={{ state: INITIAL_XENIA_STATE, dispatch: vi.fn() }}>
+          <MemoryRouter initialEntries={[initialRoute]}>
+            <Sidebar />
+          </MemoryRouter>
+        </XeniaContext>
+      </TasksContext>
     </SettingsContext>,
   );
 }

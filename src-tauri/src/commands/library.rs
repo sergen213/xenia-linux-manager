@@ -7,15 +7,26 @@ use std::sync::Arc;
 
 use tauri::{AppHandle, State};
 
+use crate::jobs::JobRegistry;
 use crate::jobs::events;
 use crate::jobs::store;
-use crate::jobs::JobRegistry;
+use crate::library::artwork;
 use crate::library::catalog;
+use crate::library::content;
 use crate::library::identity;
 use crate::library::launch;
 use crate::library::review;
-use crate::library::scan_jobs::ScanCoordinator;
+use crate::library::scan_jobs::{ScanCoordinator, ScanLaunchMode};
+use crate::library::shortcuts;
 use crate::library::sources;
+use crate::library::steam;
+use crate::settings;
+
+fn resolve_app_data_path() -> Result<String, String> {
+    settings::load_settings()
+        .map(|settings| settings.app_data_path.to_string_lossy().to_string())
+        .map_err(|e| format!("Failed to load settings for task persistence: {e}"))
+}
 
 // ---------------------------------------------------------------------------
 // Source management commands
@@ -68,6 +79,8 @@ pub async fn start_source_scan(
     library_metadata_path: String,
     source_id: String,
 ) -> Result<String, String> {
+    let app_data_path = resolve_app_data_path()?;
+
     // Validate source exists.
     let source_list = sources::list_sources(&library_metadata_path);
     let source = source_list
@@ -85,8 +98,10 @@ pub async fn start_source_scan(
         job_id.clone(),
         source_id,
         library_metadata_path,
+        app_data_path,
         app,
         Arc::clone(&registry),
+        ScanLaunchMode::QueueIfBusy,
     );
 
     Ok(job_id)
@@ -103,6 +118,8 @@ pub async fn scan_all_sources(
     coordinator: State<'_, Arc<ScanCoordinator>>,
     library_metadata_path: String,
 ) -> Result<Vec<String>, String> {
+    let app_data_path = resolve_app_data_path()?;
+
     let source_list = sources::list_sources(&library_metadata_path);
     if source_list.is_empty() {
         return Err("No library sources configured".into());
@@ -123,8 +140,10 @@ pub async fn scan_all_sources(
             job_id.clone(),
             source.id.clone(),
             library_metadata_path.clone(),
+            app_data_path.clone(),
             app.clone(),
             Arc::clone(&registry),
+            ScanLaunchMode::StartImmediately,
         );
         job_ids.push(job_id);
     }
@@ -245,6 +264,14 @@ pub fn update_library_game_identity(
 }
 
 #[tauri::command]
+pub fn update_preferred_xenia_build(
+    library_metadata_path: String,
+    input: identity::UpdatePreferredXeniaBuildInput,
+) -> Result<identity::GameIdentityRecord, String> {
+    identity::update_preferred_xenia_build(&library_metadata_path, input)
+}
+
+#[tauri::command]
 pub fn resolve_duplicate_review(
     library_metadata_path: String,
     input: identity::DuplicateResolutionInput,
@@ -285,9 +312,121 @@ pub fn launch_library_game(
     )
 }
 
+#[tauri::command]
+pub fn export_game_desktop_shortcut(
+    app_data_path: String,
+    library_metadata_path: String,
+    game_id: String,
+    target: Option<String>,
+) -> Result<shortcuts::DesktopShortcutExportResult, String> {
+    shortcuts::export_game_desktop_shortcut(
+        &app_data_path,
+        &library_metadata_path,
+        &game_id,
+        target.as_deref().unwrap_or("applications"),
+    )
+}
+
+#[tauri::command]
+pub fn get_shortcut_locations() -> Result<shortcuts::DesktopShortcutLocations, String> {
+    shortcuts::get_shortcut_locations()
+}
+
+#[tauri::command]
+pub fn inspect_game_content(
+    app_data_path: String,
+    library_metadata_path: String,
+    game_id: String,
+) -> Result<content::GameInstalledContent, String> {
+    content::inspect_game_content(&app_data_path, &library_metadata_path, &game_id)
+}
+
+#[tauri::command]
+pub fn import_game_content(
+    app_data_path: String,
+    library_metadata_path: String,
+    game_id: String,
+    source_path: String,
+    content_type: String,
+) -> Result<content::ContentImportResult, String> {
+    content::import_game_content(
+        &app_data_path,
+        &library_metadata_path,
+        &game_id,
+        &source_path,
+        &content_type,
+    )
+}
+
+#[tauri::command]
+pub fn remove_game_content(
+    app_data_path: String,
+    library_metadata_path: String,
+    game_id: String,
+    entry_path: String,
+) -> Result<content::ContentRemoveResult, String> {
+    content::remove_game_content(
+        &app_data_path,
+        &library_metadata_path,
+        &game_id,
+        &entry_path,
+    )
+}
+
+// ---------------------------------------------------------------------------
+// Artwork commands
+// ---------------------------------------------------------------------------
+
+/// Fetch cover art for a single library game.
+///
+/// Downloads box art from the Xbox Marketplace CDN using the game's
+/// title ID (extracted from patch data or filesystem path). The image
+/// is cached locally so subsequent calls return immediately.
+#[tauri::command]
+pub async fn fetch_game_artwork(
+    library_metadata_path: String,
+    game_id: String,
+) -> artwork::ArtworkResult {
+    artwork::fetch_artwork(&library_metadata_path, &game_id).await
+}
+
+/// Fetch cover art for all library games that are missing artwork.
+///
+/// Iterates through the identity store and downloads artwork for any
+/// game that doesn't already have a cached image. Returns a result
+/// per game attempted.
+#[tauri::command]
+pub async fn fetch_all_artwork(library_metadata_path: String) -> Vec<artwork::ArtworkResult> {
+    artwork::fetch_all_missing_artwork(&library_metadata_path).await
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Steam export commands
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+pub fn detect_steam_install() -> Result<steam::SteamInstallInfo, String> {
+    steam::detect_steam()
+}
+
+#[tauri::command]
+pub fn export_game_to_steam(
+    library_metadata_path: String,
+    app_data_path: String,
+    game_id: String,
+    steam_user_id: String,
+) -> Result<steam::SteamExportResult, String> {
+    steam::export_game_to_steam(
+        &library_metadata_path,
+        &app_data_path,
+        &game_id,
+        &steam_user_id,
+    )
+}
 
 #[cfg(test)]
 mod tests {

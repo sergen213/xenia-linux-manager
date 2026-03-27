@@ -95,11 +95,7 @@ where
 }
 
 /// Stream a URL to a local file with progress reporting.
-async fn download_to_file<F>(
-    url: &str,
-    dest: &Path,
-    on_progress: &F,
-) -> Result<(), DownloadError>
+async fn download_to_file<F>(url: &str, dest: &Path, on_progress: &F) -> Result<(), DownloadError>
 where
     F: Fn(DownloadProgress),
 {

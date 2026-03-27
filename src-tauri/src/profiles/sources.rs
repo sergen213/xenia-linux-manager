@@ -13,7 +13,9 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use super::storage::{self, ProfileSource};
+use super::storage;
+#[cfg(test)]
+use super::storage::ProfileSource;
 
 // ---------------------------------------------------------------------------
 // Recommendation source contract

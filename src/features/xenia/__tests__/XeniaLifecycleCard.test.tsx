@@ -44,6 +44,8 @@ function renderWithProviders(
         library_metadata_path: "/home/test/.local/share/xlm/library",
         setup_complete: true,
         last_active_route: null,
+        gamer_tag: null,
+        click_behavior: "single" as const,
       },
     },
     dispatch: settingsDispatch,
@@ -79,13 +81,15 @@ describe("XeniaLifecycleCard", () => {
       installState: {
         status: "installed",
         manifest: mockManifest,
+        installed_builds: [],
         failure: null,
       },
     };
     renderWithProviders(state);
     expect(screen.getByTestId("xenia-card-version")).toHaveTextContent("v0.2.100");
     expect(screen.getByTestId("xenia-card-status")).toHaveTextContent("Installed");
-    expect(screen.getByTestId("xenia-check-update")).toBeInTheDocument();
+    expect(screen.getByTestId("xenia-primary-action")).toHaveTextContent("Check for updates");
+    expect(screen.getByTestId("xenia-uninstall")).toBeInTheDocument();
   });
 
   it("shows update notice when update is available", () => {
@@ -95,6 +99,7 @@ describe("XeniaLifecycleCard", () => {
       installState: {
         status: "installed",
         manifest: mockManifest,
+        installed_builds: [],
         failure: null,
       },
       availableUpdate: {
@@ -119,6 +124,7 @@ describe("XeniaLifecycleCard", () => {
       installState: {
         status: "install_failed",
         manifest: null,
+        installed_builds: [],
         failure: {
           retry_mode: "install",
           error: "Download failed: connection reset",
@@ -142,14 +148,14 @@ describe("XeniaLifecycleCard", () => {
       installState: {
         status: "installed",
         manifest: mockManifest,
+        installed_builds: [],
         failure: null,
       },
       checkingForUpdate: true,
     };
     renderWithProviders(state);
-    expect(screen.getByText("Checking...")).toBeInTheDocument();
-    // Check for updates button should be hidden during check
-    expect(screen.queryByTestId("xenia-check-update")).not.toBeInTheDocument();
+    // Primary button shows "Checking..." when update check is in progress
+    expect(screen.getByTestId("xenia-primary-action")).toHaveTextContent("Checking...");
   });
 
   it("opens dialog when primary action clicked", async () => {

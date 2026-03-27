@@ -24,6 +24,13 @@ export async function getInstallStatus(
   return invoke<InstallState>("get_install_status", { appDataPath });
 }
 
+export async function switchActiveXeniaBuild(
+  appDataPath: string,
+  tag: string,
+): Promise<InstallState> {
+  return invoke<InstallState>("switch_active_xenia_build", { appDataPath, tag });
+}
+
 /** Check for updates by comparing the installed tag against latest release. */
 export async function checkForUpdate(
   installedTag: string,
@@ -45,24 +52,27 @@ export async function checkForUpdateAuto(
 /** Start a Xenia install job. Returns the job ID for progress tracking. */
 export async function startInstall(
   appDataPath: string,
+  xeniaPath: string,
   release: LinuxRelease,
 ): Promise<string> {
-  return invoke<string>("start_install", { appDataPath, release });
+  return invoke<string>("start_install", { appDataPath, xeniaPath, release });
 }
 
 /** Start a Xenia update job. Returns the job ID for progress tracking. */
 export async function startUpdate(
   appDataPath: string,
+  xeniaPath: string,
   release: LinuxRelease,
 ): Promise<string> {
-  return invoke<string>("start_update", { appDataPath, release });
+  return invoke<string>("start_update", { appDataPath, xeniaPath, release });
 }
 
 /** Retry the last failed operation (install or update). Returns job ID. */
 export async function retryLastOperation(
   appDataPath: string,
+  xeniaPath: string,
 ): Promise<string> {
-  return invoke<string>("retry_last_operation", { appDataPath });
+  return invoke<string>("retry_last_operation", { appDataPath, xeniaPath });
 }
 
 // ---------------------------------------------------------------------------
@@ -87,6 +97,7 @@ export async function cleanupInstallArtifacts(
 /** Remove the active Xenia installation entirely. */
 export async function removeXeniaInstall(
   appDataPath: string,
+  xeniaPath: string,
 ): Promise<void> {
-  return invoke<void>("remove_xenia_install", { appDataPath });
+  return invoke<void>("remove_xenia_install", { appDataPath, xeniaPath });
 }

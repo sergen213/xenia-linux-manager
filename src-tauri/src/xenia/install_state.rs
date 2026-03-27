@@ -81,6 +81,9 @@ pub struct InstallState {
     pub status: LifecycleStatus,
     /// Active install manifest, if any build is installed.
     pub manifest: Option<InstallManifest>,
+    /// All installed build manifests known to the manager.
+    #[serde(default)]
+    pub installed_builds: Vec<InstallManifest>,
     /// Failure context from the last failed operation, if any.
     pub failure: Option<FailureContext>,
 }
@@ -90,6 +93,7 @@ impl Default for InstallState {
         Self {
             status: LifecycleStatus::NotInstalled,
             manifest: None,
+            installed_builds: Vec::new(),
             failure: None,
         }
     }
@@ -137,8 +141,31 @@ pub fn save_state(app_data_path: &str, state: &InstallState) -> std::io::Result<
 // ---------------------------------------------------------------------------
 
 /// Resolve the managed install directory for Xenia builds.
-pub fn install_dir(app_data_path: &str) -> PathBuf {
-    PathBuf::from(app_data_path).join("xenia")
+///
+/// `xenia_path` is the dedicated path from settings where the emulator
+/// binaries are installed (e.g. `~/.local/share/xenia-linux-manager/xenia`).
+pub fn install_dir(xenia_path: &str) -> PathBuf {
+    PathBuf::from(xenia_path)
+}
+
+pub fn builds_root_dir(xenia_path: &str) -> PathBuf {
+    install_dir(xenia_path).join("builds")
+}
+
+pub fn install_dir_for_tag(xenia_path: &str, tag: &str) -> PathBuf {
+    builds_root_dir(xenia_path).join(sanitize_tag(tag))
+}
+
+fn sanitize_tag(tag: &str) -> String {
+    tag.chars()
+        .map(|c| {
+            if c.is_alphanumeric() || c == '.' || c == '-' || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect()
 }
 
 /// Record a successful install or update by creating/updating the manifest.
@@ -148,14 +175,16 @@ pub fn record_success(
     executable_path: &Path,
     install_directory: &Path,
 ) {
-    state.manifest = Some(InstallManifest {
+    let manifest = InstallManifest {
         tag: release.tag.clone(),
         published_at: release.published_at.clone(),
         asset_name: release.asset_name.clone(),
         executable_path: executable_path.to_string_lossy().to_string(),
         install_dir: install_directory.to_string_lossy().to_string(),
         installed_at: now_millis(),
-    });
+    };
+    upsert_installed_build(state, manifest.clone());
+    state.manifest = Some(manifest);
     state.status = LifecycleStatus::Installed;
     state.failure = None;
 }
@@ -207,13 +236,42 @@ pub fn clear_failure(state: &mut InstallState) {
 /// Remove the install entirely (wipes manifest and failure context).
 pub fn record_removal(state: &mut InstallState) {
     state.manifest = None;
+    state.installed_builds.clear();
     state.failure = None;
     state.status = LifecycleStatus::NotInstalled;
+}
+
+pub fn switch_active_build(state: &mut InstallState, tag: &str) -> Result<(), String> {
+    let manifest = state
+        .installed_builds
+        .iter()
+        .find(|m| m.tag == tag)
+        .cloned()
+        .ok_or_else(|| format!("Installed build not found: {tag}"))?;
+    state.manifest = Some(manifest);
+    state.status = LifecycleStatus::Installed;
+    state.failure = None;
+    Ok(())
 }
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+fn upsert_installed_build(state: &mut InstallState, manifest: InstallManifest) {
+    if let Some(existing) = state
+        .installed_builds
+        .iter_mut()
+        .find(|existing| existing.tag == manifest.tag)
+    {
+        *existing = manifest;
+    } else {
+        state.installed_builds.push(manifest);
+    }
+    state
+        .installed_builds
+        .sort_by(|left, right| right.installed_at.cmp(&left.installed_at));
+}
 
 fn now_millis() -> u64 {
     std::time::SystemTime::now()
@@ -424,8 +482,8 @@ mod tests {
     }
 
     #[test]
-    fn install_dir_is_under_app_data() {
-        let dir = install_dir("/tmp/xlm-test");
+    fn install_dir_returns_xenia_path_directly() {
+        let dir = install_dir("/tmp/xlm-test/xenia");
         assert_eq!(dir, PathBuf::from("/tmp/xlm-test/xenia"));
     }
 

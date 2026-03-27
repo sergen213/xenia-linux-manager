@@ -75,17 +75,13 @@ pub fn load_catalog(library_metadata_path: &str, source_id: &str) -> SourceCatal
 }
 
 /// Save catalog to disk atomically (write-to-temp-then-rename).
-pub fn save_catalog(
-    library_metadata_path: &str,
-    catalog: &SourceCatalog,
-) -> Result<(), String> {
+pub fn save_catalog(library_metadata_path: &str, catalog: &SourceCatalog) -> Result<(), String> {
     let path = catalog_file_path(library_metadata_path, &catalog.source_id);
     if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)
-            .map_err(|e| format!("Failed to create catalog dir: {e}"))?;
+        fs::create_dir_all(parent).map_err(|e| format!("Failed to create catalog dir: {e}"))?;
     }
-    let data = serde_json::to_string_pretty(catalog)
-        .map_err(|e| format!("Serialization error: {e}"))?;
+    let data =
+        serde_json::to_string_pretty(catalog).map_err(|e| format!("Serialization error: {e}"))?;
     let tmp = path.with_extension("json.tmp");
     fs::write(&tmp, &data).map_err(|e| format!("Failed to write catalog: {e}"))?;
     fs::rename(&tmp, &path).map_err(|e| format!("Failed to rename catalog: {e}"))?;
@@ -177,10 +173,7 @@ pub fn collect_existing_paths(
 }
 
 /// Load catalogs for all provided source IDs and return them.
-pub fn load_all_catalogs(
-    library_metadata_path: &str,
-    source_ids: &[String],
-) -> Vec<SourceCatalog> {
+pub fn load_all_catalogs(library_metadata_path: &str, source_ids: &[String]) -> Vec<SourceCatalog> {
     source_ids
         .iter()
         .map(|sid| load_catalog(library_metadata_path, sid))

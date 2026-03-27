@@ -215,6 +215,7 @@ mod tests {
                 installed_at: 100,
             }),
             failure: None,
+            installed_builds: vec![],
         };
         install_state::save_state(app_dir, &state).unwrap();
         game_id

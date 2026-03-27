@@ -7,6 +7,9 @@ import { useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useSettings } from "./settingsStore";
 import { saveSettings } from "../api/settingsClient";
+import type { AppSettings } from "../model/settingsSchema";
+
+const ROUTE_SAVE_DEBOUNCE_MS = 750;
 
 /**
  * Persists the current location to settings whenever it changes and
@@ -19,6 +22,7 @@ export function useRouteRestore() {
   const location = useLocation();
   const navigate = useNavigate();
   const hasRestored = useRef(false);
+  const saveTimer = useRef<number | null>(null);
 
   // On first mount after settings load, restore the last active route.
   useEffect(() => {
@@ -51,13 +55,31 @@ export function useRouteRestore() {
     lastSaved.current = location.pathname;
     dispatch({ type: "SET_LAST_ROUTE", route: location.pathname });
 
-    // Fire-and-forget save -- route restore is best-effort.
-    const updated = {
-      ...state.settings,
-      last_active_route: location.pathname,
+    if (saveTimer.current != null) {
+      window.clearTimeout(saveTimer.current);
+    }
+
+    saveTimer.current = window.setTimeout(() => {
+      if (!state.settings) return;
+      const updated: AppSettings = {
+        xenia_path: state.settings.xenia_path ?? "",
+        app_data_path: state.settings.app_data_path ?? "",
+        library_metadata_path: state.settings.library_metadata_path ?? "",
+        setup_complete: state.settings.setup_complete,
+        last_active_route: location.pathname,
+        gamer_tag: state.settings.gamer_tag ?? null,
+        click_behavior: state.settings.click_behavior ?? "single",
+      };
+      void saveSettings(updated).catch(() => {
+        // Silently ignore -- route restore is not critical.
+      });
+    }, ROUTE_SAVE_DEBOUNCE_MS);
+
+    return () => {
+      if (saveTimer.current != null) {
+        window.clearTimeout(saveTimer.current);
+        saveTimer.current = null;
+      }
     };
-    saveSettings(updated).catch(() => {
-      // Silently ignore -- route restore is not critical.
-    });
   }, [location.pathname, state.settings, state.initialized, dispatch]);
 }

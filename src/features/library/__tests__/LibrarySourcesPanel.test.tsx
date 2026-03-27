@@ -21,6 +21,8 @@ const mockSettings: AppSettings = {
   library_metadata_path: "/home/test/library",
   setup_complete: true,
   last_active_route: null,
+  gamer_tag: null,
+  click_behavior: "single" as const,
 };
 
 const settingsState: SettingsState = {

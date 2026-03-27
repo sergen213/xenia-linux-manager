@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use path_defaults as defaults;
-use path_validation::{validate_or_fallback, PathValidationResult};
+use path_validation::{PathValidationResult, validate_or_fallback};
 
 // ---------------------------------------------------------------------------
 // Error type
@@ -54,6 +54,16 @@ pub struct AppSettings {
     /// Last active sidebar section path (for restart restore).
     #[serde(default)]
     pub last_active_route: Option<String>,
+    /// User's Xbox Live gamer tag (used for save imports/exports).
+    #[serde(default)]
+    pub gamer_tag: Option<String>,
+    /// Click behavior for game cards: "single" or "double" click to open.
+    #[serde(default = "default_click_behavior")]
+    pub click_behavior: String,
+}
+
+fn default_click_behavior() -> String {
+    "single".to_string()
 }
 
 impl Default for AppSettings {
@@ -65,6 +75,8 @@ impl Default for AppSettings {
             library_metadata_path: lib,
             setup_complete: false,
             last_active_route: None,
+            gamer_tag: None,
+            click_behavior: "single".to_string(),
         }
     }
 }
@@ -143,8 +155,7 @@ pub fn validate_settings_paths(settings: &AppSettings) -> SettingsValidation {
     if let Some(w) = w {
         warnings.push(w);
     }
-    let (library_metadata, w) =
-        validate_or_fallback(&settings.library_metadata_path, &lib_default);
+    let (library_metadata, w) = validate_or_fallback(&settings.library_metadata_path, &lib_default);
     if let Some(w) = w {
         warnings.push(w);
     }
@@ -218,9 +229,21 @@ mod tests {
     #[test]
     fn default_paths_contain_xenia_linux_manager() {
         let s = AppSettings::default();
-        assert!(s.xenia_path.to_string_lossy().contains("xenia-linux-manager"));
-        assert!(s.app_data_path.to_string_lossy().contains("xenia-linux-manager"));
-        assert!(s.library_metadata_path.to_string_lossy().contains("xenia-linux-manager"));
+        assert!(
+            s.xenia_path
+                .to_string_lossy()
+                .contains("xenia-linux-manager")
+        );
+        assert!(
+            s.app_data_path
+                .to_string_lossy()
+                .contains("xenia-linux-manager")
+        );
+        assert!(
+            s.library_metadata_path
+                .to_string_lossy()
+                .contains("xenia-linux-manager")
+        );
     }
 
     #[test]

@@ -6,13 +6,6 @@ import {
   type LibraryAction,
 } from "../state/libraryStore";
 import type { LibrarySource, NestedSourceWarning } from "../model/libraryTypes";
-import type { GamePatchInventory } from "../model/patchTypes";
-import type {
-  ProfileInventory,
-  EffectiveConfig,
-  MaterializedLaunchConfig,
-  RecommendationAvailability,
-} from "../model/profileTypes";
 
 const mockSource: LibrarySource = {
   id: "src-1",
@@ -30,12 +23,6 @@ const mockSource2: LibrarySource = {
   created_at: 2000,
   updated_at: 2000,
   last_scan_summary: null,
-};
-
-const mockInventory: GamePatchInventory = {
-  game_id: "game-1",
-  active_patch_id: null,
-  files: [],
 };
 
 describe("libraryReducer", () => {
@@ -197,332 +184,18 @@ describe("libraryReducer", () => {
 
   it("unknown action returns state unchanged", () => {
     const state = { ...INITIAL_LIBRARY_STATE, initialized: true };
-    const next = libraryReducer(state, { type: "UNKNOWN" } as any);
+    // Use a properly typed unknown action instead of `any`
+    const unknownAction = { type: "UNKNOWN" } as unknown as LibraryAction;
+    const next = libraryReducer(state, unknownAction);
     expect(next).toEqual(state);
   });
 
-  it("PATCHES_LOADED stores patch inventory", () => {
+  it("SET_PATCH_IMPORT_PENDING toggles import pending state", () => {
     const next = libraryReducer(INITIAL_LIBRARY_STATE, {
-      type: "PATCHES_LOADED",
-      inventory: mockInventory,
-    });
-    expect(next.patchInventory).toEqual(mockInventory);
-    expect(next.patchInventoryLoading).toBe(false);
-  });
-
-  it("SET_PATCH_CHOOSER toggles chooser state", () => {
-    const next = libraryReducer(INITIAL_LIBRARY_STATE, {
-      type: "SET_PATCH_CHOOSER",
-      open: true,
-      reason: "after-import",
-    });
-    expect(next.activePatchChooserOpen).toBe(true);
-    expect(next.chooserReason).toBe("after-import");
-  });
-
-  it("PROFILES_LOADED stores profile inventory", () => {
-    const inventory: ProfileInventory = {
-      game_id: "game-1",
-      active_profile_id: "prof-abc",
-      profiles: [
-        {
-          id: "prof-abc",
-          name: "Default",
-          source: "local",
-          active: true,
-          override_count: 3,
-          created_at: 1000,
-          updated_at: 2000,
-        },
-      ],
-    };
-    const next = libraryReducer(INITIAL_LIBRARY_STATE, {
-      type: "PROFILES_LOADED",
-      inventory,
-    });
-    expect(next.profileInventory).toEqual(inventory);
-    expect(next.profileInventoryLoading).toBe(false);
-  });
-
-  it("PROFILES_LOADING sets loading flag", () => {
-    const next = libraryReducer(INITIAL_LIBRARY_STATE, {
-      type: "PROFILES_LOADING",
-    });
-    expect(next.profileInventoryLoading).toBe(true);
-  });
-
-  it("PROFILES_ERROR stores error and clears loading", () => {
-    const loading: LibraryState = {
-      ...INITIAL_LIBRARY_STATE,
-      profileInventoryLoading: true,
-    };
-    const next = libraryReducer(loading, {
-      type: "PROFILES_ERROR",
-      error: "failed to load",
-    });
-    expect(next.profileInventoryLoading).toBe(false);
-    expect(next.error).toBe("failed to load");
-  });
-
-  it("PROFILE_EFFECTIVE_LOADED stores effective config", () => {
-    const config: EffectiveConfig = {
-      profile_id: "prof-abc",
-      game_id: "game-1",
-      fields: [
-        { key: "gpu.vsync", value: false, changed: true },
-        { key: "gpu.backend", value: "vulkan", changed: false },
-      ],
-      explicit_overrides: { "gpu.vsync": false },
-      changed_count: 1,
-      total_count: 2,
-      source: "local",
-    };
-    const next = libraryReducer(INITIAL_LIBRARY_STATE, {
-      type: "PROFILE_EFFECTIVE_LOADED",
-      config,
-    });
-    expect(next.profileEffectiveConfig).toEqual(config);
-    expect(next.profileEffectiveLoading).toBe(false);
-  });
-
-  it("SELECT_GAME clears profile state for different game", () => {
-    const state: LibraryState = {
-      ...INITIAL_LIBRARY_STATE,
-      selectedGameId: "game-1",
-      profileInventory: {
-        game_id: "game-1",
-        active_profile_id: null,
-        profiles: [],
-      },
-      profileEffectiveConfig: {
-        profile_id: "p",
-        game_id: "game-1",
-        fields: [],
-        explicit_overrides: {},
-        changed_count: 0,
-        total_count: 0,
-        source: "local",
-      },
-    };
-    const next = libraryReducer(state, {
-      type: "SELECT_GAME",
-      gameId: "game-2",
-    });
-    expect(next.profileInventory).toBeNull();
-    expect(next.profileEffectiveConfig).toBeNull();
-  });
-
-  it("SELECT_GAME preserves profile state for same game", () => {
-    const inventory: ProfileInventory = {
-      game_id: "game-1",
-      active_profile_id: null,
-      profiles: [],
-    };
-    const state: LibraryState = {
-      ...INITIAL_LIBRARY_STATE,
-      selectedGameId: "game-1",
-      profileInventory: inventory,
-    };
-    const next = libraryReducer(state, {
-      type: "SELECT_GAME",
-      gameId: "game-1",
-    });
-    expect(next.profileInventory).toEqual(inventory);
-  });
-
-  it("RECOMMENDATION_LOADED stores availability", () => {
-    const availability: RecommendationAvailability = {
-      status: "unsupported",
-      reason: "no_source_configured",
-    };
-    const next = libraryReducer(INITIAL_LIBRARY_STATE, {
-      type: "RECOMMENDATION_LOADED",
-      availability,
-    });
-    expect(next.recommendationAvailability).toEqual(availability);
-    expect(next.recommendationLoading).toBe(false);
-  });
-
-  it("RECOMMENDATION_LOADING sets loading flag", () => {
-    const next = libraryReducer(INITIAL_LIBRARY_STATE, {
-      type: "RECOMMENDATION_LOADING",
-    });
-    expect(next.recommendationLoading).toBe(true);
-  });
-
-  it("RECOMMENDATION_ERROR stores error and clears loading", () => {
-    const loading: LibraryState = {
-      ...INITIAL_LIBRARY_STATE,
-      recommendationLoading: true,
-    };
-    const next = libraryReducer(loading, {
-      type: "RECOMMENDATION_ERROR",
-      error: "source unreachable",
-    });
-    expect(next.recommendationLoading).toBe(false);
-    expect(next.error).toBe("source unreachable");
-  });
-
-  it("APPLY_RECOMMENDATION_PENDING toggles pending state", () => {
-    const next = libraryReducer(INITIAL_LIBRARY_STATE, {
-      type: "APPLY_RECOMMENDATION_PENDING",
+      type: "SET_PATCH_IMPORT_PENDING",
       pending: true,
     });
-    expect(next.applyRecommendationPending).toBe(true);
-
-    const done = libraryReducer(next, {
-      type: "APPLY_RECOMMENDATION_PENDING",
-      pending: false,
-    });
-    expect(done.applyRecommendationPending).toBe(false);
-  });
-
-  it("SELECT_GAME clears recommendation state for different game", () => {
-    const state: LibraryState = {
-      ...INITIAL_LIBRARY_STATE,
-      selectedGameId: "game-1",
-      recommendationAvailability: {
-        status: "unsupported",
-        reason: "no_source_configured",
-      },
-    };
-    const next = libraryReducer(state, {
-      type: "SELECT_GAME",
-      gameId: "game-2",
-    });
-    expect(next.recommendationAvailability).toBeNull();
-  });
-
-  it("RECOMMENDATION_LOADED with available status stores source info", () => {
-    const availability: RecommendationAvailability = {
-      status: "available",
-      source_id: "bundled",
-      source_label: "Bundled Baselines",
-      baseline: { "gpu.vsync": false },
-    };
-    const next = libraryReducer(INITIAL_LIBRARY_STATE, {
-      type: "RECOMMENDATION_LOADED",
-      availability,
-    });
-    expect(next.recommendationAvailability).toEqual(availability);
-    if (next.recommendationAvailability?.status === "available") {
-      expect(next.recommendationAvailability.source_label).toBe("Bundled Baselines");
-    }
-  });
-
-  // --- Profile draft and editor state tests ---
-
-  it("SET_PROFILE_DRAFT updates draft and marks dirty", () => {
-    const draft = { "gpu.vsync": false, "gpu.framerate_limit": 60 };
-    const next = libraryReducer(INITIAL_LIBRARY_STATE, {
-      type: "SET_PROFILE_DRAFT",
-      draft,
-    });
-    expect(next.profileDraft).toEqual(draft);
-    expect(next.profileDirty).toBe(true);
-  });
-
-  it("RESET_PROFILE_DRAFT clears draft and dirty state", () => {
-    const state: LibraryState = {
-      ...INITIAL_LIBRARY_STATE,
-      profileDraft: { "gpu.vsync": false },
-      profileDirty: true,
-      profileSavePending: true,
-    };
-    const next = libraryReducer(state, { type: "RESET_PROFILE_DRAFT" });
-    expect(next.profileDraft).toEqual({});
-    expect(next.profileDirty).toBe(false);
-    expect(next.profileSavePending).toBe(false);
-  });
-
-  it("SET_PROFILE_EDITOR_OPEN toggles editor visibility", () => {
-    const next = libraryReducer(INITIAL_LIBRARY_STATE, {
-      type: "SET_PROFILE_EDITOR_OPEN",
-      open: true,
-    });
-    expect(next.profileEditorOpen).toBe(true);
-
-    const closed = libraryReducer(next, {
-      type: "SET_PROFILE_EDITOR_OPEN",
-      open: false,
-    });
-    expect(closed.profileEditorOpen).toBe(false);
-  });
-
-  it("SHOW_UNSAVED_DIALOG and HIDE_UNSAVED_DIALOG manage dialog state", () => {
-    const next = libraryReducer(INITIAL_LIBRARY_STATE, {
-      type: "SHOW_UNSAVED_DIALOG",
-      target: "game-2",
-    });
-    expect(next.unsavedDialogVisible).toBe(true);
-    expect(next.unsavedDialogTarget).toBe("game-2");
-
-    const hidden = libraryReducer(next, { type: "HIDE_UNSAVED_DIALOG" });
-    expect(hidden.unsavedDialogVisible).toBe(false);
-    expect(hidden.unsavedDialogTarget).toBeNull();
-  });
-
-  it("SET_PROFILE_SAVE_PENDING toggles save pending", () => {
-    const next = libraryReducer(INITIAL_LIBRARY_STATE, {
-      type: "SET_PROFILE_SAVE_PENDING",
-      pending: true,
-    });
-    expect(next.profileSavePending).toBe(true);
-  });
-
-  it("SELECT_GAME clears profile draft for different game", () => {
-    const state: LibraryState = {
-      ...INITIAL_LIBRARY_STATE,
-      selectedGameId: "game-1",
-      profileDraft: { "gpu.vsync": false },
-      profileDirty: true,
-      profileEditorOpen: true,
-    };
-    const next = libraryReducer(state, {
-      type: "SELECT_GAME",
-      gameId: "game-2",
-    });
-    expect(next.profileDraft).toEqual({});
-    expect(next.profileDirty).toBe(false);
-    expect(next.profileEditorOpen).toBe(false);
-  });
-
-  it("SELECT_GAME preserves profile draft for same game", () => {
-    const draft = { "gpu.vsync": false };
-    const state: LibraryState = {
-      ...INITIAL_LIBRARY_STATE,
-      selectedGameId: "game-1",
-      profileDraft: draft,
-      profileDirty: true,
-      profileEditorOpen: true,
-    };
-    const next = libraryReducer(state, {
-      type: "SELECT_GAME",
-      gameId: "game-1",
-    });
-    expect(next.profileDraft).toEqual(draft);
-    expect(next.profileDirty).toBe(true);
-    expect(next.profileEditorOpen).toBe(true);
-  });
-
-  it("MATERIALIZED_LOADED stores materialized launch config", () => {
-    const config: MaterializedLaunchConfig = {
-      game_id: "game-1",
-      profile_id: "prof-1",
-      profile_name: "Performance",
-      effective_fields: [{ key: "gpu.vsync", value: false, changed: true }],
-      explicit_overrides: { "gpu.vsync": false },
-      changed_setting_count: 1,
-      key_changes: [{ key: "gpu.vsync", value: false, label: "Gpu Vsync" }],
-      patch_summary: null,
-      materialized_at: 1700000000000,
-    };
-    const next = libraryReducer(INITIAL_LIBRARY_STATE, {
-      type: "MATERIALIZED_LOADED",
-      config,
-    });
-    expect(next.materializedLaunchConfig).toEqual(config);
-    expect(next.materializedLoading).toBe(false);
+    expect(next.patchImportPending).toBe(true);
   });
 
   it("MATERIALIZED_LOADING sets loading flag", () => {
@@ -532,13 +205,7 @@ describe("libraryReducer", () => {
     expect(next.materializedLoading).toBe(true);
   });
 
-  it("initial state includes profile editor defaults", () => {
-    expect(INITIAL_LIBRARY_STATE.profileDraft).toEqual({});
-    expect(INITIAL_LIBRARY_STATE.profileDirty).toBe(false);
-    expect(INITIAL_LIBRARY_STATE.profileSavePending).toBe(false);
-    expect(INITIAL_LIBRARY_STATE.profileEditorOpen).toBe(false);
-    expect(INITIAL_LIBRARY_STATE.unsavedDialogVisible).toBe(false);
-    expect(INITIAL_LIBRARY_STATE.unsavedDialogTarget).toBeNull();
+  it("initial state includes library defaults", () => {
     expect(INITIAL_LIBRARY_STATE.materializedLaunchConfig).toBeNull();
     expect(INITIAL_LIBRARY_STATE.materializedLoading).toBe(false);
   });

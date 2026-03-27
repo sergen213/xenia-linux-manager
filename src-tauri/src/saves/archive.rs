@@ -158,12 +158,10 @@ pub async fn create_export_archive(
     // Build zip in a blocking context since zip crate is sync.
     let manifest_clone = manifest.clone();
     let archive_path_clone = archive_path.clone();
-    tokio::task::spawn_blocking(move || {
-        write_zip_archive(&archive_path_clone, &manifest_clone)
-    })
-    .await
-    .map_err(|e| ArchiveError::CreationFailed(format!("Task join error: {e}")))?
-    .map_err(|e| ArchiveError::CreationFailed(format!("{e}")))?;
+    tokio::task::spawn_blocking(move || write_zip_archive(&archive_path_clone, &manifest_clone))
+        .await
+        .map_err(|e| ArchiveError::CreationFailed(format!("Task join error: {e}")))?
+        .map_err(|e| ArchiveError::CreationFailed(format!("{e}")))?;
 
     Ok(ExportResult {
         game_id: manifest.game_id,
@@ -176,19 +174,15 @@ pub async fn create_export_archive(
 }
 
 /// Write a zip archive synchronously using the `zip` crate.
-fn write_zip_archive(
-    output: &Path,
-    manifest: &ArchiveManifest,
-) -> Result<(), String> {
-    use zip::write::FileOptions;
+fn write_zip_archive(output: &Path, manifest: &ArchiveManifest) -> Result<(), String> {
     use zip::CompressionMethod;
+    use zip::write::FileOptions;
 
-    let file = fs::File::create(output)
-        .map_err(|e| format!("Failed to create archive file: {e}"))?;
+    let file =
+        fs::File::create(output).map_err(|e| format!("Failed to create archive file: {e}"))?;
     let mut zip = zip::ZipWriter::new(file);
 
-    let options = FileOptions::<()>::default()
-        .compression_method(CompressionMethod::Deflated);
+    let options = FileOptions::<()>::default().compression_method(CompressionMethod::Deflated);
 
     // Write manifest.json first.
     let manifest_json = serde_json::to_string_pretty(manifest)
@@ -204,8 +198,8 @@ fn write_zip_archive(
         if src.is_dir() {
             add_dir_to_zip(&mut zip, src, &item.archive_path, &options)?;
         } else if src.is_file() {
-            let contents = fs::read(src)
-                .map_err(|e| format!("Failed to read {}: {e}", src.display()))?;
+            let contents =
+                fs::read(src).map_err(|e| format!("Failed to read {}: {e}", src.display()))?;
             zip.start_file(&item.archive_path, options.clone())
                 .map_err(|e| format!("Failed to add {}: {e}", item.archive_path))?;
             std::io::Write::write_all(&mut zip, &contents)
@@ -266,25 +260,23 @@ pub async fn extract_to_staging(
 
     let archive_owned = archive_path.to_string();
     let staging_clone = staging.clone();
-    tokio::task::spawn_blocking(move || {
-        extract_zip_archive(&archive_owned, &staging_clone)
-    })
-    .await
-    .map_err(|e| ArchiveError::ExtractionFailed(format!("Task join error: {e}")))?
-    .map_err(|e| ArchiveError::ExtractionFailed(format!("{e}")))?;
+    tokio::task::spawn_blocking(move || extract_zip_archive(&archive_owned, &staging_clone))
+        .await
+        .map_err(|e| ArchiveError::ExtractionFailed(format!("Task join error: {e}")))?
+        .map_err(|e| ArchiveError::ExtractionFailed(format!("{e}")))?;
 
     Ok(staging)
 }
 
 /// Extract a zip archive using the `zip` crate.
 fn extract_zip_archive(archive_path: &str, dest: &Path) -> Result<(), String> {
-    let file = fs::File::open(archive_path)
-        .map_err(|e| format!("Failed to open archive: {e}"))?;
-    let mut archive = zip::ZipArchive::new(file)
-        .map_err(|e| format!("Failed to read zip archive: {e}"))?;
+    let file = fs::File::open(archive_path).map_err(|e| format!("Failed to open archive: {e}"))?;
+    let mut archive =
+        zip::ZipArchive::new(file).map_err(|e| format!("Failed to read zip archive: {e}"))?;
 
     for i in 0..archive.len() {
-        let mut entry = archive.by_index(i)
+        let mut entry = archive
+            .by_index(i)
             .map_err(|e| format!("Failed to read archive entry: {e}"))?;
 
         let Some(name) = entry.enclosed_name() else {
@@ -300,8 +292,8 @@ fn extract_zip_archive(archive_path: &str, dest: &Path) -> Result<(), String> {
                 fs::create_dir_all(parent)
                     .map_err(|e| format!("Failed to create parent directory: {e}"))?;
             }
-            let mut outfile = fs::File::create(&out_path)
-                .map_err(|e| format!("Failed to create file: {e}"))?;
+            let mut outfile =
+                fs::File::create(&out_path).map_err(|e| format!("Failed to create file: {e}"))?;
             std::io::copy(&mut entry, &mut outfile)
                 .map_err(|e| format!("Failed to extract file: {e}"))?;
         }

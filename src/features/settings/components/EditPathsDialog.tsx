@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSettings } from "../state/settingsStore";
 import { saveSettings, validatePaths } from "../api/settingsClient";
 import { PATH_FIELDS, getPathValue } from "../model/settingsSchema";
 import type { AppSettings, SettingsValidation } from "../model/settingsSchema";
 import "./EditPathsDialog.css";
+
+const PATH_VALIDATION_DEBOUNCE_MS = 300;
 
 interface EditPathsDialogProps {
   open: boolean;
@@ -27,6 +29,8 @@ export function EditPathsDialog({ open, onClose }: EditPathsDialogProps) {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [showConfirm, setShowConfirm] = useState(false);
+  const validationTimer = useRef<number | null>(null);
+  const validationRequest = useRef(0);
 
   // Reset draft whenever dialog opens.
   useEffect(() => {
@@ -38,6 +42,15 @@ export function EditPathsDialog({ open, onClose }: EditPathsDialogProps) {
     }
   }, [open, settings]);
 
+  useEffect(() => {
+    return () => {
+      validationRequest.current += 1;
+      if (validationTimer.current != null) {
+        window.clearTimeout(validationTimer.current);
+      }
+    };
+  }, []);
+
   const handleChange = useCallback(
     async (field: string, value: string) => {
       if (!draft) return;
@@ -45,12 +58,24 @@ export function EditPathsDialog({ open, onClose }: EditPathsDialogProps) {
       setDraft(updated);
       setShowConfirm(false);
 
-      try {
-        const result = await validatePaths(updated);
-        setLocalValidation(result);
-      } catch {
-        // keep stale validation
+      validationRequest.current += 1;
+      const requestId = validationRequest.current;
+
+      if (validationTimer.current != null) {
+        window.clearTimeout(validationTimer.current);
       }
+
+      validationTimer.current = window.setTimeout(async () => {
+        try {
+          const result = await validatePaths(updated);
+          if (validationRequest.current !== requestId) {
+            return;
+          }
+          setLocalValidation(result);
+        } catch {
+          // keep stale validation
+        }
+      }, PATH_VALIDATION_DEBOUNCE_MS);
     },
     [draft],
   );

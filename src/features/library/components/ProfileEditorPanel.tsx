@@ -5,6 +5,7 @@ import type {
   ProfileInventory,
   ProfileSummary,
 } from "../model/profileTypes";
+import { CustomSelect } from "./CustomSelect";
 import { ProfileRawEditor } from "./ProfileRawEditor";
 
 /** Field metadata for the standard labeled editor. */
@@ -155,19 +156,18 @@ export function ProfileEditorPanel({
       {/* Profile selector */}
       <div className="profile-editor__selector">
         <label htmlFor="profile-select">Profile</label>
-        <select
+        <CustomSelect
           id="profile-select"
           value={activeProfile?.id ?? ""}
-          onChange={(e) => void onSelectProfile(e.target.value || null)}
-        >
-          <option value="">None</option>
-          {inventory.profiles.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-              {p.source === "recommended" ? " (Recommended)" : ""}
-            </option>
-          ))}
-        </select>
+          options={[
+            { value: "", label: "None" },
+            ...inventory.profiles.map((p) => ({
+              value: p.id,
+              label: `${p.name}${p.source === "recommended" ? " (Recommended)" : ""}`,
+            })),
+          ]}
+          onChange={(v) => void onSelectProfile(v || null)}
+        />
       </div>
 
       {/* Profile lifecycle controls */}
@@ -406,17 +406,12 @@ function renderFieldInput(
       );
     case "select":
       return (
-        <select
+        <CustomSelect
           id={`field-${fieldDef.key}`}
           value={String(value ?? "")}
-          onChange={(e) => onChange(fieldDef.key, e.target.value)}
-        >
-          {fieldDef.options?.map((opt) => (
-            <option key={opt} value={opt}>
-              {opt}
-            </option>
-          ))}
-        </select>
+          options={(fieldDef.options ?? []).map((opt) => ({ value: opt, label: opt }))}
+          onChange={(v) => onChange(fieldDef.key, v)}
+        />
       );
     default:
       return (

@@ -28,12 +28,19 @@ pub struct ScanRequest {
     pub job_id: String,
     pub source_id: String,
     pub library_metadata_path: String,
+    pub app_data_path: String,
 }
 
 #[derive(Clone)]
 struct ScanRuntimeContext {
     pub app_handle: AppHandle,
     pub registry: Arc<JobRegistry>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ScanLaunchMode {
+    QueueIfBusy,
+    StartImmediately,
 }
 
 // ---------------------------------------------------------------------------
@@ -72,13 +79,16 @@ impl ScanCoordinator {
         job_id: String,
         source_id: String,
         library_metadata_path: String,
+        app_data_path: String,
         app_handle: AppHandle,
         registry: Arc<JobRegistry>,
+        launch_mode: ScanLaunchMode,
     ) {
         let request = ScanRequest {
             job_id: job_id.clone(),
             source_id,
             library_metadata_path,
+            app_data_path,
         };
 
         let should_start = {
@@ -87,7 +97,7 @@ impl ScanCoordinator {
                 app_handle: app_handle.clone(),
                 registry: Arc::clone(&registry),
             });
-            if state.active.is_empty() {
+            if state.active.is_empty() || launch_mode == ScanLaunchMode::StartImmediately {
                 state.active.push(job_id.clone());
                 true
             } else {
@@ -163,9 +173,10 @@ impl ScanCoordinator {
         let job_id = request.job_id.clone();
         let source_id = request.source_id.clone();
         let lib_path = request.library_metadata_path.clone();
+        let app_data_path = request.app_data_path.clone();
 
         tauri::async_runtime::spawn(async move {
-            run_scan_job(&app, &registry, &job_id, &source_id, &lib_path).await;
+            run_scan_job(&app, &registry, &job_id, &source_id, &lib_path, &app_data_path).await;
             finish_scan_runtime_slot(&app, &job_id);
         });
     }
@@ -198,6 +209,7 @@ async fn run_scan_job(
     job_id: &str,
     source_id: &str,
     library_metadata_path: &str,
+    app_data_path: &str,
 ) {
     use crate::library::sources;
 
@@ -219,6 +231,7 @@ async fn run_scan_job(
                 app,
                 registry,
                 job_id,
+                app_data_path,
                 &format!("Source {source_id} not found"),
             );
             return;
@@ -229,7 +242,7 @@ async fn run_scan_job(
     if !source.root_path.exists() {
         let msg = format!("Source path not accessible: {}", source.root_path.display());
         log_and_emit(app, registry, job_id, &msg, LogLevel::Error);
-        fail_job(app, registry, job_id, &msg);
+        fail_job(app, registry, job_id, app_data_path, &msg);
         return;
     }
 
@@ -331,10 +344,11 @@ async fn run_scan_job(
                     app,
                     registry,
                     job_id,
+                    app_data_path,
                     "Cancelled by user (partial results preserved)",
                 );
             } else {
-                complete_job(app, registry, job_id);
+                complete_job(app, registry, job_id, app_data_path);
             }
         }
         Err(persist_err) => {
@@ -349,6 +363,7 @@ async fn run_scan_job(
                 app,
                 registry,
                 job_id,
+                app_data_path,
                 &format!("Catalog persistence error: {persist_err}"),
             );
         }
@@ -391,16 +406,22 @@ fn update_progress(app: &AppHandle, registry: &JobRegistry, job_id: &str, pct: u
     events::emit_job_progress(app, job_id, pct, label);
 }
 
-fn complete_job(app: &AppHandle, registry: &JobRegistry, job_id: &str) {
+fn persist_terminal_job(app_data_path: &str, job: crate::jobs::Job) {
+    let _ = store::append_job(app_data_path, job);
+}
+
+fn complete_job(app: &AppHandle, registry: &JobRegistry, job_id: &str, app_data_path: &str) {
     if let Some(job) = registry.update(job_id, |j| j.complete()) {
         events::emit_job_completed(app, &job);
+        persist_terminal_job(app_data_path, job);
     }
 }
 
-fn fail_job(app: &AppHandle, registry: &JobRegistry, job_id: &str, error: &str) {
+fn fail_job(app: &AppHandle, registry: &JobRegistry, job_id: &str, app_data_path: &str, error: &str) {
     log_and_emit(app, registry, job_id, error, LogLevel::Error);
     if let Some(job) = registry.update(job_id, |j| j.fail(error)) {
         events::emit_job_failed(app, &job);
+        persist_terminal_job(app_data_path, job);
     }
 }
 
@@ -411,6 +432,16 @@ fn fail_job(app: &AppHandle, registry: &JobRegistry, job_id: &str, error: &str) 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::jobs::{Job, JobStatus};
+    use std::env;
+    use std::fs;
+
+    fn temp_data_dir(name: &str) -> String {
+        let path = env::temp_dir().join("xlm-scan-jobs-test").join(name);
+        let _ = fs::remove_dir_all(&path);
+        fs::create_dir_all(&path).unwrap();
+        path.to_string_lossy().to_string()
+    }
 
     #[test]
     fn coordinator_starts_empty() {
@@ -435,6 +466,20 @@ mod tests {
         let coord = ScanCoordinator::new();
         coord.cancel_scan("nonexistent");
         assert!(!coord.is_cancelled("nonexistent"));
+    }
+
+    #[test]
+    fn persist_terminal_job_appends_history_entry() {
+        let dir = temp_data_dir("persist-terminal-job");
+        let mut job = Job::new("scan-1".into(), "Scan Test".into(), "scan".into());
+        job.complete();
+
+        persist_terminal_job(&dir, job);
+
+        let history = store::load_history(&dir);
+        assert_eq!(history.jobs.len(), 1);
+        assert_eq!(history.jobs[0].id, "scan-1");
+        assert_eq!(history.jobs[0].status, JobStatus::Completed);
     }
 
     #[test]
@@ -490,6 +535,7 @@ mod tests {
                 job_id: "scan-2".into(),
                 source_id: "source-2".into(),
                 library_metadata_path: "/tmp/metadata".into(),
+                app_data_path: "/tmp/app-data".into(),
             });
         }
 
@@ -511,6 +557,7 @@ mod tests {
                 job_id: "scan-2".into(),
                 source_id: "source-2".into(),
                 library_metadata_path: "/tmp/metadata".into(),
+                app_data_path: "/tmp/app-data".into(),
             });
         }
 

@@ -190,6 +190,22 @@ export function selectTaskSummary(state: TasksState): {
   };
 }
 
+/** Get the newest terminal job for a given category, if any. */
+export function selectLatestTerminalJobByCategory(
+  state: TasksState,
+  category: string,
+): Job | null {
+  return (
+    Object.values(state.jobs)
+      .filter((job) => job.category === category && isTerminal(job.status))
+      .sort((left, right) => {
+        const leftTime = left.finished_at ?? left.created_at;
+        const rightTime = right.finished_at ?? right.created_at;
+        return rightTime - leftTime;
+      })[0] ?? null
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Context
 // ---------------------------------------------------------------------------

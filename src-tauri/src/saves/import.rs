@@ -127,8 +127,7 @@ pub async fn inspect_archive(
         .await
         .map_err(|e| e.to_string())?;
 
-    let manifest = archive::read_staging_manifest(&staging)
-        .map_err(|e| e.to_string())?;
+    let manifest = archive::read_staging_manifest(&staging).map_err(|e| e.to_string())?;
 
     let verifications = archive::verify_staged_content(&staging, &manifest);
     let warnings: Vec<String> = verifications
@@ -163,27 +162,17 @@ pub fn generate_conflict_plan(
     target_game_id: &str,
     policy: ConflictPolicy,
 ) -> Result<ConflictPlan, String> {
-    let roots = paths::resolve_game_save_roots(
-        library_metadata_path,
-        xenia_path,
-        target_game_id,
-    )?;
+    let roots = paths::resolve_game_save_roots(library_metadata_path, xenia_path, target_game_id)?;
 
     let staging = Path::new(&inspection.staging_path);
     let mut items = Vec::new();
     let mut has_conflicts = false;
 
     for manifest_item in &inspection.manifest.items {
-        let local_path = resolve_local_target(
-            &roots,
-            manifest_item,
-            library_metadata_path,
-            xenia_path,
-        );
+        let local_path =
+            resolve_local_target(&roots, manifest_item, library_metadata_path, xenia_path);
 
-        let local_exists = local_path
-            .as_ref()
-            .map_or(false, |p| p.exists());
+        let local_exists = local_path.as_ref().map_or(false, |p| p.exists());
 
         let action = match &policy {
             ConflictPolicy::Cancel => ConflictAction::Skip,
@@ -216,10 +205,9 @@ pub fn generate_conflict_plan(
 
         let explanation = match &action {
             ConflictAction::New => "New item, will be added".to_string(),
-            ConflictAction::Replace => format!(
-                "Will replace existing local {}",
-                manifest_item.label
-            ),
+            ConflictAction::Replace => {
+                format!("Will replace existing local {}", manifest_item.label)
+            }
             ConflictAction::RenameKeepBoth => format!(
                 "Will import as a renamed copy alongside existing {}",
                 manifest_item.label
@@ -260,15 +248,12 @@ fn resolve_local_target(
     _xenia_path: &str,
 ) -> Option<PathBuf> {
     match item.category {
-        ExportCategory::Save => {
-            roots.save_root.as_ref().map(|root| root.join(&item.label))
-        }
-        ExportCategory::Settings => {
-            roots.profile_root.as_ref().map(|root| root.join(&item.label))
-        }
-        ExportCategory::Patches => {
-            roots.patch_root.as_ref().map(|root| root.join(&item.label))
-        }
+        ExportCategory::Save => roots.save_root.as_ref().map(|root| root.join(&item.label)),
+        ExportCategory::Settings => roots
+            .profile_root
+            .as_ref()
+            .map(|root| root.join(&item.label)),
+        ExportCategory::Patches => roots.patch_root.as_ref().map(|root| root.join(&item.label)),
     }
 }
 
@@ -288,16 +273,15 @@ pub async fn apply_import(
     staging_path: &str,
     force_without_backup: bool,
 ) -> Result<ImportApplyResult, String> {
-    let roots = paths::resolve_game_save_roots(
-        library_metadata_path,
-        xenia_path,
-        &plan.game_id,
-    )?;
+    let roots = paths::resolve_game_save_roots(library_metadata_path, xenia_path, &plan.game_id)?;
 
     // Step 1: Create backup of existing local state before any overwrites.
     let mut backup_path: Option<String> = None;
     let has_overwrites = plan.items.iter().any(|i| {
-        matches!(i.action, ConflictAction::Replace | ConflictAction::RenameKeepBoth)
+        matches!(
+            i.action,
+            ConflictAction::Replace | ConflictAction::RenameKeepBoth
+        )
     });
 
     if has_overwrites && !force_without_backup {
@@ -405,10 +389,7 @@ pub async fn apply_import(
                         profile_dir.join(&item.label)
                     }
                     ExportCategory::Patches => {
-                        let patch_dir = crate::patches::storage::patch_root_dir(
-                            library_metadata_path,
-                            &plan.game_id,
-                        );
+                        let patch_dir = PathBuf::from(xenia_path).join("patches");
                         patch_dir.join(&item.label)
                     }
                 }
@@ -586,10 +567,12 @@ mod tests {
                 issue_notes: vec![],
                 review_state: crate::library::identity::ReviewState::Clean,
                 artwork_path: None,
+                title_id: None,
                 last_played_at: None,
                 running_session: None,
                 created_at: 0,
                 updated_at: 0,
+                preferred_xenia_tag: None,
             }],
             duplicate_resolutions: vec![],
         };
@@ -630,10 +613,12 @@ mod tests {
                 issue_notes: vec![],
                 review_state: crate::library::identity::ReviewState::Clean,
                 artwork_path: None,
+                title_id: None,
                 last_played_at: None,
                 running_session: None,
                 created_at: 0,
                 updated_at: 0,
+                preferred_xenia_tag: None,
             }],
             duplicate_resolutions: vec![],
         };
@@ -681,10 +666,12 @@ mod tests {
                 issue_notes: vec![],
                 review_state: crate::library::identity::ReviewState::Clean,
                 artwork_path: None,
+                title_id: None,
                 last_played_at: None,
                 running_session: None,
                 created_at: 0,
                 updated_at: 0,
+                preferred_xenia_tag: None,
             }],
             duplicate_resolutions: vec![],
         };
@@ -723,10 +710,12 @@ mod tests {
                 issue_notes: vec![],
                 review_state: crate::library::identity::ReviewState::Clean,
                 artwork_path: None,
+                title_id: None,
                 last_played_at: None,
                 running_session: None,
                 created_at: 0,
                 updated_at: 0,
+                preferred_xenia_tag: None,
             }],
             duplicate_resolutions: vec![],
         };
@@ -780,10 +769,12 @@ mod tests {
                 issue_notes: vec![],
                 review_state: crate::library::identity::ReviewState::Clean,
                 artwork_path: None,
+                title_id: None,
                 last_played_at: None,
                 running_session: None,
                 created_at: 0,
                 updated_at: 0,
+                preferred_xenia_tag: None,
             }],
             duplicate_resolutions: vec![],
         };
@@ -792,7 +783,11 @@ mod tests {
         // Create staged content.
         let staging = PathBuf::from(&staging_dir);
         fs::create_dir_all(staging.join("settings")).unwrap();
-        fs::write(staging.join("settings").join("config.json"), "{\"key\":\"val\"}").unwrap();
+        fs::write(
+            staging.join("settings").join("config.json"),
+            "{\"key\":\"val\"}",
+        )
+        .unwrap();
 
         let plan = ConflictPlan {
             game_id: "game-apply".to_string(),
@@ -846,10 +841,12 @@ mod tests {
                 issue_notes: vec![],
                 review_state: crate::library::identity::ReviewState::Clean,
                 artwork_path: None,
+                title_id: None,
                 last_played_at: None,
                 running_session: None,
                 created_at: 0,
                 updated_at: 0,
+                preferred_xenia_tag: None,
             }],
             duplicate_resolutions: vec![],
         };

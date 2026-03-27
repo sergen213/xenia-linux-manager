@@ -1,4 +1,4 @@
-import { useLibrary } from "../library/state/libraryStore";
+import { useSaves } from "./state/savesStore";
 import { SaveImportWizard } from "./components/SaveImportWizard";
 import { SaveResultsPanel } from "./components/SaveResultsPanel";
 import "./SavesPage.css";
@@ -8,10 +8,10 @@ import "./SavesPage.css";
  *
  * Provides the archive-first import workflow and displays recent
  * export/import results. Shares save state with game-detail quick
- * actions through the library store.
+ * actions through the dedicated saves store.
  */
 export function SavesPage() {
-  const { state, dispatch } = useLibrary();
+  const { state, dispatch } = useSaves();
 
   const hasImportResult = state.lastImportResult !== null;
   const hasExportResult = state.lastExportResult !== null;

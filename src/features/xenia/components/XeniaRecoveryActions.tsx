@@ -21,6 +21,7 @@ export function XeniaRecoveryActions() {
 
   const failure = state.installState.failure;
   const appDataPath = settingsState.settings?.app_data_path ?? "";
+  const xeniaPath = settingsState.settings?.xenia_path ?? "";
   const isFailed =
     state.installState.status === "install_failed" ||
     state.installState.status === "update_failed";
@@ -43,7 +44,7 @@ export function XeniaRecoveryActions() {
   const handleRemove = async () => {
     setRemoving(true);
     try {
-      await removeXeniaInstall(appDataPath);
+      await removeXeniaInstall(appDataPath, xeniaPath);
       const installState = await getInstallStatus(appDataPath);
       dispatch({ type: "SET_INSTALL_STATE", installState });
     } catch {

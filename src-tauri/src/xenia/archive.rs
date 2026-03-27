@@ -90,7 +90,13 @@ fn release_staging_dir(app_data_path: &str, release_tag: &str) -> PathBuf {
 /// Sanitize a release tag for use as a directory name.
 fn sanitize_tag(tag: &str) -> String {
     tag.chars()
-        .map(|c| if c.is_alphanumeric() || c == '.' || c == '-' || c == '_' { c } else { '_' })
+        .map(|c| {
+            if c.is_alphanumeric() || c == '.' || c == '-' || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
         .collect()
 }
 
@@ -99,15 +105,42 @@ fn sanitize_tag(tag: &str) -> String {
 // ---------------------------------------------------------------------------
 
 async fn extract_tar_gz(archive: &Path, dest: &Path) -> Result<(), ArchiveError> {
-    run_extraction_command("tar", &["xzf", &archive.to_string_lossy(), "-C", &dest.to_string_lossy()]).await
+    run_extraction_command(
+        "tar",
+        &[
+            "xzf",
+            &archive.to_string_lossy(),
+            "-C",
+            &dest.to_string_lossy(),
+        ],
+    )
+    .await
 }
 
 async fn extract_tar_xz(archive: &Path, dest: &Path) -> Result<(), ArchiveError> {
-    run_extraction_command("tar", &["xJf", &archive.to_string_lossy(), "-C", &dest.to_string_lossy()]).await
+    run_extraction_command(
+        "tar",
+        &[
+            "xJf",
+            &archive.to_string_lossy(),
+            "-C",
+            &dest.to_string_lossy(),
+        ],
+    )
+    .await
 }
 
 async fn extract_zip(archive: &Path, dest: &Path) -> Result<(), ArchiveError> {
-    run_extraction_command("unzip", &["-o", &archive.to_string_lossy(), "-d", &dest.to_string_lossy()]).await
+    run_extraction_command(
+        "unzip",
+        &[
+            "-o",
+            &archive.to_string_lossy(),
+            "-d",
+            &dest.to_string_lossy(),
+        ],
+    )
+    .await
 }
 
 async fn run_extraction_command(cmd: &str, args: &[&str]) -> Result<(), ArchiveError> {
@@ -174,31 +207,24 @@ pub async fn validate_extracted_layout(staging_dir: &Path) -> Result<PathBuf, Ar
 
 /// Search for the Xenia executable in the staging directory.
 ///
-/// Looks at the top level and one level of subdirectories, since some
-/// archive formats wrap their contents.
+/// Recursively walks the directory tree since some archives nest the
+/// executable deeply (e.g. `build/bin/Linux/Release/xenia_canary`).
 async fn find_executable_candidates(staging_dir: &Path) -> Result<Vec<PathBuf>, ArchiveError> {
     let mut candidates = Vec::new();
+    let mut dirs_to_scan = vec![staging_dir.to_path_buf()];
 
-    // Check top level.
-    for name in REQUIRED_FILES {
-        let path = staging_dir.join(name);
-        if path.exists() {
-            candidates.push(path);
-        }
-    }
-
-    if !candidates.is_empty() {
-        return Ok(candidates);
-    }
-
-    // Check one level of subdirectories.
-    let mut entries = tokio::fs::read_dir(staging_dir).await?;
-    while let Some(entry) = entries.next_entry().await? {
-        if entry.file_type().await?.is_dir() {
-            for name in REQUIRED_FILES {
-                let path = entry.path().join(name);
-                if path.exists() {
-                    candidates.push(path);
+    while let Some(dir) = dirs_to_scan.pop() {
+        let mut entries = tokio::fs::read_dir(&dir).await?;
+        while let Some(entry) = entries.next_entry().await? {
+            let ft = entry.file_type().await?;
+            if ft.is_dir() {
+                dirs_to_scan.push(entry.path());
+            } else {
+                let file_name = entry.file_name();
+                for name in REQUIRED_FILES {
+                    if file_name == *name {
+                        candidates.push(entry.path());
+                    }
                 }
             }
         }
@@ -209,10 +235,7 @@ async fn find_executable_candidates(staging_dir: &Path) -> Result<Vec<PathBuf>, 
 
 /// Clean up a staging directory (e.g. after failed validation or successful
 /// promotion).
-pub async fn cleanup_staging(
-    app_data_path: &str,
-    release_tag: &str,
-) -> std::io::Result<()> {
+pub async fn cleanup_staging(app_data_path: &str, release_tag: &str) -> std::io::Result<()> {
     let stage = release_staging_dir(app_data_path, release_tag);
     if stage.exists() {
         tokio::fs::remove_dir_all(&stage).await?;
@@ -231,9 +254,7 @@ mod tests {
     use std::fs;
 
     fn temp_dir(suffix: &str) -> String {
-        let p = env::temp_dir()
-            .join("xlm-archive-test")
-            .join(suffix);
+        let p = env::temp_dir().join("xlm-archive-test").join(suffix);
         let _ = fs::remove_dir_all(&p);
         fs::create_dir_all(&p).unwrap();
         p.to_string_lossy().to_string()
@@ -305,11 +326,7 @@ mod tests {
     #[tokio::test]
     async fn validate_rejects_missing_executable() {
         let dir = temp_dir("validate-wrong");
-        fs::write(
-            PathBuf::from(&dir).join("some_other_file"),
-            "not xenia",
-        )
-        .unwrap();
+        fs::write(PathBuf::from(&dir).join("some_other_file"), "not xenia").unwrap();
         let result = validate_extracted_layout(Path::new(&dir)).await;
         assert!(result.is_err());
     }

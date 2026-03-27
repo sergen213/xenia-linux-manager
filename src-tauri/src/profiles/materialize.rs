@@ -79,13 +79,13 @@ pub fn materialize_launch_config(
 
     // Load the active profile and compute effective config.
     let manifest = storage::load_manifest(library_metadata_path, game_id)?;
+    let inventory = storage::load_inventory(library_metadata_path, game_id)?;
     let (profile_id, profile_name, effective_fields, explicit_overrides, changed_count) =
         match &manifest.active_profile_id {
             Some(pid) => {
-                let record = manifest.profiles.iter().find(|p| p.id == *pid);
+                let record = inventory.profiles.iter().find(|p| p.id == *pid);
                 let name = record.map(|r| r.name.clone());
-                let config =
-                    merge::compute_effective_config(library_metadata_path, game_id, pid)?;
+                let config = merge::compute_effective_config(library_metadata_path, game_id, pid)?;
                 (
                     Some(pid.clone()),
                     name,
@@ -164,32 +164,10 @@ fn humanize_key(key: &str) -> String {
 
 /// Load the active patch summary for a game, if any.
 fn load_patch_summary(
-    library_metadata_path: &str,
-    game_id: &str,
+    _library_metadata_path: &str,
+    _game_id: &str,
 ) -> Option<MaterializedPatchSummary> {
-    let inventory =
-        crate::patches::storage::load_inventory(library_metadata_path, game_id).ok()?;
-    let active_id = inventory.active_patch_id.as_deref()?;
-
-    let file = inventory.files.iter().find(|f| f.id == active_id)?;
-    let entries: Vec<MaterializedPatchEntry> = file
-        .entries
-        .iter()
-        .map(|entry| MaterializedPatchEntry {
-            entry_id: entry.id.clone(),
-            title: entry.name.clone(),
-            enabled: entry.enabled,
-        })
-        .collect();
-
-    let active_count = entries.iter().filter(|e| e.enabled).count();
-
-    Some(MaterializedPatchSummary {
-        patch_file_id: file.id.clone(),
-        file_name: file.display_name.clone(),
-        active_entry_count: active_count,
-        entries,
-    })
+    None
 }
 
 fn now_millis() -> u64 {
@@ -210,9 +188,7 @@ mod tests {
     use std::fs;
 
     fn temp_dir(suffix: &str) -> String {
-        let path = env::temp_dir()
-            .join("xlm-profile-materialize")
-            .join(suffix);
+        let path = env::temp_dir().join("xlm-profile-materialize").join(suffix);
         let _ = fs::remove_dir_all(&path);
         fs::create_dir_all(&path).unwrap();
         path.to_string_lossy().to_string()
@@ -308,9 +284,6 @@ mod tests {
         let direct = merge::compute_effective_config(&dir, "game-1", &pid).unwrap();
 
         assert_eq!(materialized.effective_fields, direct.fields);
-        assert_eq!(
-            materialized.changed_setting_count,
-            direct.changed_count
-        );
+        assert_eq!(materialized.changed_setting_count, direct.changed_count);
     }
 }

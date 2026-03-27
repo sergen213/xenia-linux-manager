@@ -1,6 +1,6 @@
 //! Release metadata fetch and Linux asset selection for Xenia Canary.
 //!
-//! Discovers the latest release from the `xenia-canary/xenia-canary-releases`
+//! Discovers the latest release from the `xenia-canary/xenia-canary`
 //! GitHub repository, selects the Linux-compatible archive asset, and returns
 //! a typed release record suitable for the install pipeline.
 
@@ -68,7 +68,7 @@ struct GhAsset {
 
 const GITHUB_API_BASE: &str = "https://api.github.com";
 const DEFAULT_OWNER: &str = "xenia-canary";
-const DEFAULT_REPO: &str = "xenia-canary-releases";
+const DEFAULT_REPO: &str = "xenia-canary";
 
 /// Substrings that indicate a Linux archive asset.
 const LINUX_ASSET_MARKERS: &[&str] = &["linux", "Linux"];

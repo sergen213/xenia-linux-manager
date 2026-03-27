@@ -10,6 +10,22 @@ import {
   TasksContext,
   INITIAL_TASKS_STATE,
 } from "../features/tasks/state/tasksStore";
+import {
+  LibraryContext,
+  INITIAL_LIBRARY_STATE,
+} from "../features/library/state/libraryStore";
+import {
+  XeniaContext,
+  INITIAL_XENIA_STATE,
+} from "../features/xenia/state/xeniaStore";
+import {
+  SavesContext,
+  INITIAL_SAVES_STATE,
+} from "../features/saves/state/savesStore";
+import {
+  ProfilesContext,
+  INITIAL_PROFILES_STATE,
+} from "../features/profiles/state/profilesStore";
 
 // Mock Tauri invoke
 vi.mock("@tauri-apps/api/core", () => ({
@@ -26,18 +42,46 @@ const mockTasksCtx = {
   dispatch: vi.fn(),
 };
 
+const mockLibraryCtx = {
+  state: { ...INITIAL_LIBRARY_STATE, initialized: true },
+  dispatch: vi.fn(),
+};
+
+const mockXeniaCtx = {
+  state: { ...INITIAL_XENIA_STATE, initialized: true },
+  dispatch: vi.fn(),
+};
+
+const mockSavesCtx = {
+  state: INITIAL_SAVES_STATE,
+  dispatch: vi.fn(),
+};
+
+const mockProfilesCtx = {
+  state: INITIAL_PROFILES_STATE,
+  dispatch: vi.fn(),
+};
+
 function renderApp(initialRoute = "/") {
   return render(
     <SettingsContext value={mockSettingsCtx}>
       <TasksContext value={mockTasksCtx}>
-        <MemoryRouter initialEntries={[initialRoute]}>
-          <Routes>
-            {routes.map((route) => (
-              <Route key={route.path} path={route.path} element={route.element} />
-            ))}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </MemoryRouter>
+        <XeniaContext value={mockXeniaCtx}>
+          <LibraryContext value={mockLibraryCtx}>
+            <SavesContext value={mockSavesCtx}>
+              <ProfilesContext value={mockProfilesCtx}>
+                <MemoryRouter initialEntries={[initialRoute]}>
+                  <Routes>
+                    {routes.map((route) => (
+                      <Route key={route.path} path={route.path} element={route.element} />
+                    ))}
+                    <Route path="*" element={<Navigate to="/" replace />} />
+                  </Routes>
+                </MemoryRouter>
+              </ProfilesContext>
+            </SavesContext>
+          </LibraryContext>
+        </XeniaContext>
       </TasksContext>
     </SettingsContext>,
   );
@@ -62,9 +106,11 @@ describe("router", () => {
 
   it("renders Library page at /library", () => {
     renderApp("/library");
-    expect(screen.getByText("Library")).toBeInTheDocument();
     expect(
-      screen.getByText("Your Xbox 360 game collection"),
+      screen.getByRole("heading", { name: "Library" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Curate your Xbox 360 collection/i),
     ).toBeInTheDocument();
   });
 

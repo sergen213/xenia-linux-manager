@@ -6,6 +6,7 @@ interface LaunchPreflightPanelProps {
   preflight: LaunchPreflight | null;
   launchPending: boolean;
   onLaunch: () => Promise<void>;
+  onConfirmWarningLaunch: () => Promise<void>;
   profileInventory: ProfileInventory | null;
   profileEffectiveConfig: EffectiveConfig | null;
   profileEffectiveLoading: boolean;
@@ -15,6 +16,7 @@ export function LaunchPreflightPanel({
   preflight,
   launchPending,
   onLaunch,
+  onConfirmWarningLaunch,
   profileInventory,
   profileEffectiveConfig,
   profileEffectiveLoading,
@@ -30,9 +32,17 @@ export function LaunchPreflightPanel({
         <button
           type="button"
           disabled={!preflight.can_launch || launchPending}
-          onClick={() => void onLaunch()}
+          onClick={() =>
+            void (preflight.requires_confirmation
+              ? onConfirmWarningLaunch()
+              : onLaunch())
+          }
         >
-          {launchPending ? "Launching..." : "Launch in Xenia"}
+          {launchPending
+            ? "Launching..."
+            : preflight.requires_confirmation
+              ? "Launch anyway"
+              : "Launch in Xenia"}
         </button>
       </div>
 

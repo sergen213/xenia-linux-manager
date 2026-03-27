@@ -5,6 +5,8 @@ import { SettingsProvider } from "./features/settings/state/SettingsProvider";
 import { TasksProvider } from "./features/tasks/state/TasksProvider";
 import { XeniaProvider } from "./features/xenia/state/XeniaProvider";
 import { LibraryProvider } from "./features/library/state/LibraryProvider";
+import { SavesProvider } from "./features/saves/state/SavesProvider";
+import { ProfilesProvider } from "./features/profiles/state/ProfilesProvider";
 import { FirstRunSetup } from "./features/settings/components/FirstRunSetup";
 import { useSettings } from "./features/settings/state/settingsStore";
 import { useRouteRestore } from "./features/settings/state/useRouteRestore";
@@ -12,9 +14,15 @@ import { useRouteRestore } from "./features/settings/state/useRouteRestore";
 function AppContent() {
   const { state } = useSettings();
 
-  // While loading, show nothing (fast -- single invoke round-trip).
+  // While loading, show a loading indicator.
+  // This improves perceived performance even if load time is the same.
   if (!state.initialized) {
-    return null;
+    return (
+      <div className="app-loading">
+        <div className="app-loading__spinner" />
+        <p>Loading...</p>
+      </div>
+    );
   }
 
   // Gate: first-run setup must be completed before accessing the shell.
@@ -47,7 +55,11 @@ function App() {
       <TasksProvider>
         <XeniaProvider>
           <LibraryProvider>
-            <AppContent />
+            <SavesProvider>
+              <ProfilesProvider>
+                <AppContent />
+              </ProfilesProvider>
+            </SavesProvider>
           </LibraryProvider>
         </XeniaProvider>
       </TasksProvider>

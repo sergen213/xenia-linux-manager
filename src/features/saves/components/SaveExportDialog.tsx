@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { ExportPreflight } from "../../library/model/saveTypes";
+import type { ExportPreflight } from "../model/saveTypes";
 
 interface SaveExportDialogProps {
   preflight: ExportPreflight;

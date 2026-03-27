@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { useTasks } from "../tasks/state/tasksStore";
 import { useLibrary } from "../library/state/libraryStore";
 import { TaskStatusStrip } from "../tasks/components/TaskStatusStrip";
@@ -6,19 +7,27 @@ import { XeniaLifecycleCard } from "../xenia/components/XeniaLifecycleCard";
 import "./DashboardHome.css";
 
 export function DashboardHome() {
+  const navigate = useNavigate();
   const { state: tasksState } = useTasks();
   const { state: libraryState } = useLibrary();
 
   const libraryCounts = useMemo(() => {
-    let found = 0;
-    let sources = libraryState.sources.length;
-    for (const cat of libraryState.catalogs) {
-      if (cat.last_scan_summary) {
-        found += cat.last_scan_summary.found;
-      }
-    }
-    return { found, sources };
-  }, [libraryState.catalogs, libraryState.sources]);
+    return {
+      found: libraryState.browse?.cards.length ?? 0,
+      sources: libraryState.sources.length,
+      review: libraryState.reviewInbox?.items.length ?? 0,
+      running: libraryState.browse?.cards.filter(
+        (card) =>
+          libraryState.selectedGame?.game_id === card.game_id &&
+          libraryState.selectedGame.running_session_started_at,
+      ).length ?? 0,
+    };
+  }, [
+    libraryState.browse,
+    libraryState.reviewInbox,
+    libraryState.selectedGame,
+    libraryState.sources.length,
+  ]);
 
   const lastScanStatus = useMemo(() => {
     let latest: { status: string; completedAt: number } | null = null;
@@ -46,11 +55,15 @@ export function DashboardHome() {
       </header>
 
       <div className="dashboard__grid">
-        <div className="dashboard__card">
+        <button
+          type="button"
+          className="dashboard__card dashboard__card--interactive"
+          onClick={() => navigate("/library")}
+        >
           <h3 className="dashboard__card-title">Library</h3>
           <p className="dashboard__card-value">{libraryCounts.found}</p>
           <p className="dashboard__card-label">
-            Games detected
+            Resolved games
             {libraryCounts.sources > 0
               ? ` across ${libraryCounts.sources} source${libraryCounts.sources !== 1 ? "s" : ""}`
               : ""}
@@ -60,7 +73,12 @@ export function DashboardHome() {
               Last scan: {lastScanStatus.status}
             </p>
           )}
-        </div>
+          {libraryCounts.review > 0 && (
+            <p className="dashboard__card-meta">
+              {libraryCounts.review} item{libraryCounts.review !== 1 ? "s" : ""} still need review
+            </p>
+          )}
+        </button>
 
         <XeniaLifecycleCard />
 

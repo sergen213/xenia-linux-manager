@@ -1,4 +1,4 @@
-import type { ConflictAction, ConflictPlan } from "../../library/model/saveTypes";
+import type { ConflictAction, ConflictPlan } from "../model/saveTypes";
 
 interface SaveConflictPreviewProps {
   plan: ConflictPlan;

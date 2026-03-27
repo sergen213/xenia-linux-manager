@@ -40,6 +40,7 @@ export const INITIAL_XENIA_STATE: XeniaState = {
   installState: {
     status: "not_installed",
     manifest: null,
+    installed_builds: [],
     failure: null,
   },
   latestRelease: null,

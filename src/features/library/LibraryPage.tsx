@@ -1,163 +1,65 @@
 import { useEffect } from "react";
 import { useSettings } from "../settings/state/settingsStore";
+import { useSaves } from "../saves/state/savesStore";
+import { useSaveExportActions } from "../saves/state/useSaveExportActions";
 import { useNavigate } from "react-router-dom";
 import {
-  browseLibrary,
-  createManualGame,
-  createGameProfile,
-  deleteGameProfile,
-  fetchGamePatch,
-  getExportPreflight,
-  exportSaveArchive,
-  getLaunchPreflight,
-  getLibraryGameDetails,
-  getProfileEffectiveConfig,
-  importGamePatch,
-  listGamePatches,
-  getReviewInbox,
-  launchLibraryGame,
-  renameGameProfile,
-  saveProfileOverrides,
-  selectActiveGameProfile,
-  selectActivePatchFile,
-  setPatchEntryEnabled,
-  updateLibraryGameIdentity,
-  resolveDuplicateReview,
-  listGameProfiles,
-  checkRecommendationAvailability,
-  applyRecommendedProfile,
+  importXeniaPatchFile,
 } from "./api/libraryClient";
 import { LibrarySourcesPanel } from "./components/LibrarySourcesPanel";
 import { LibraryFiltersBar } from "./components/LibraryFiltersBar";
 import { LibraryGrid } from "./components/LibraryGrid";
 import { ManualGameForm } from "./components/ManualGameForm";
-import { ReviewInboxPanel } from "./components/ReviewInboxPanel";
 import { GameDetailsPanel } from "./components/GameDetailsPanel";
 import {
   selectVisibleLibraryCards,
   useLibrary,
 } from "./state/libraryStore";
-import type { DuplicateResolutionKind } from "./model/libraryTypes";
+import { useLibraryBrowse } from "./state/useLibraryBrowse";
+import { useGameDetails } from "./state/useGameDetails";
+import { useLaunchActions } from "./state/useLaunchActions";
+import { useProfileActions } from "../profiles/state/useProfileActions";
 import "./LibraryPage.css";
 
 export function LibraryPage() {
   const { state, dispatch } = useLibrary();
+  const { dispatch: savesDispatch } = useSaves();
   const { state: settingsState } = useSettings();
   const navigate = useNavigate();
+
   const libPath = settingsState.settings?.library_metadata_path ?? "";
   const appDataPath = settingsState.settings?.app_data_path ?? "";
   const xeniaPath = settingsState.settings?.xenia_path ?? "";
+
+  // Hooks for encapsulated functionality
+  const { refreshLibrary, addManualGame } = useLibraryBrowse();
+  const { saveIdentity } = useGameDetails();
+  const launchActions = useLaunchActions();
+  const profileActions = useProfileActions();
+  const saveExportActions = useSaveExportActions({
+    libPath,
+    xeniaPath,
+    appDataPath,
+    getSelectedGameId: () => state.selectedGameId,
+    onError: (message) => dispatch({ type: "SET_ERROR", error: message }),
+  });
+
   const visibleCards = selectVisibleLibraryCards(state);
 
-  async function refreshResolvedLibrary(selectGameId?: string | null) {
-    if (!libPath) {
-      return;
-    }
-    const [browse, reviewInbox] = await Promise.all([
-      browseLibrary(libPath),
-      getReviewInbox(libPath),
-    ]);
-    dispatch({ type: "BROWSE_LOADED", browse });
-    dispatch({ type: "REVIEW_INBOX_LOADED", reviewInbox });
-    if (selectGameId !== undefined) {
-      dispatch({ type: "SELECT_GAME", gameId: selectGameId });
-    }
-  }
-
-  async function refreshProfileState() {
-    if (!libPath || !state.selectedGameId) return;
-    const profiles = await listGameProfiles(libPath, state.selectedGameId);
-    dispatch({ type: "PROFILES_LOADED", inventory: profiles });
-    dispatch({ type: "RESET_PROFILE_DRAFT" });
-    // Reload effective config for the active profile.
-    const active = profiles.profiles.find((p) => p.active);
-    if (active) {
-      dispatch({ type: "PROFILE_EFFECTIVE_LOADING" });
-      try {
-        const config = await getProfileEffectiveConfig(
-          libPath,
-          state.selectedGameId,
-          active.id,
-        );
-        dispatch({ type: "PROFILE_EFFECTIVE_LOADED", config });
-      } catch {
-        // Non-blocking: effective config can fail without breaking the flow.
-      }
-    }
-  }
-
+  // Sync selected game to saves store
   useEffect(() => {
-    if (!libPath || !state.initialized) {
-      return;
-    }
-    void refreshResolvedLibrary();
-  }, [libPath, state.initialized]);
+    savesDispatch({ type: "SET_ACTIVE_GAME", gameId: state.selectedGameId });
+  }, [state.selectedGameId, savesDispatch]);
 
+  // Sync selected game to profiles store
   useEffect(() => {
-    if (!libPath || !state.selectedGameId) {
-      return;
-    }
+    profileActions.setActiveGame(state.selectedGameId);
+  }, [state.selectedGameId]);
 
-    let cancelled = false;
-
-    async function loadDetails() {
-      try {
-        dispatch({ type: "PATCHES_LOADING" });
-        dispatch({ type: "PROFILES_LOADING" });
-        dispatch({ type: "RECOMMENDATION_LOADING" });
-        const [details, preflight, patches, profiles, recommendation] =
-          await Promise.all([
-            getLibraryGameDetails(libPath, state.selectedGameId!),
-            getLaunchPreflight(appDataPath, libPath, state.selectedGameId!),
-            listGamePatches(libPath, state.selectedGameId!),
-            listGameProfiles(libPath, state.selectedGameId!),
-            checkRecommendationAvailability(state.selectedGameId!),
-          ]);
-        if (cancelled) {
-          return;
-        }
-        dispatch({ type: "GAME_DETAILS_LOADED", details: { ...details, patches } });
-        dispatch({ type: "PATCHES_LOADED", inventory: patches });
-        dispatch({ type: "SET_LAUNCH_PREFLIGHT", preflight });
-        dispatch({ type: "PROFILES_LOADED", inventory: profiles });
-        dispatch({ type: "RECOMMENDATION_LOADED", availability: recommendation });
-
-        // Load effective config for the active profile.
-        const active = profiles.profiles.find((p) => p.active);
-        if (active && !cancelled) {
-          try {
-            const config = await getProfileEffectiveConfig(
-              libPath,
-              state.selectedGameId!,
-              active.id,
-            );
-            if (!cancelled) {
-              dispatch({ type: "PROFILE_EFFECTIVE_LOADED", config });
-            }
-          } catch {
-            // Non-blocking.
-          }
-        }
-      } catch (error) {
-        if (cancelled) {
-          return;
-        }
-        dispatch({
-          type: "SET_ERROR",
-          error: error instanceof Error ? error.message : "Failed to load game details",
-        });
-        dispatch({
-          type: "PATCHES_ERROR",
-          error: error instanceof Error ? error.message : "Failed to load patch inventory",
-        });
-      }
-    }
-
-    void loadDetails();
-    return () => {
-      cancelled = true;
-    };
-  }, [appDataPath, libPath, state.selectedGameId]);
+  // Clear status message when game changes
+  useEffect(() => {
+    launchActions.clearStatusMessage();
+  }, [state.selectedGameId, launchActions.clearStatusMessage]);
 
   return (
     <div className="library-page">
@@ -165,8 +67,8 @@ export function LibraryPage() {
         <div>
           <h2 className="library-page__title">Library</h2>
           <p className="library-page__subtitle">
-            Curate your Xbox 360 collection, resolve scan uncertainty, and
-            launch safely from a detail-first workflow.
+            Manage your Xbox 360 collection — organize games, configure
+            patches and profiles, and launch from here.
           </p>
         </div>
         <div className="library-page__tabs">
@@ -179,67 +81,67 @@ export function LibraryPage() {
           </button>
           <button
             type="button"
-            className={state.selectedView === "review" ? "is-active" : ""}
-            onClick={() => dispatch({ type: "SET_VIEW", view: "review" })}
+            className={state.selectedView === "sources" ? "is-active" : ""}
+            onClick={() => dispatch({ type: "SET_VIEW", view: "sources" })}
           >
-            Review Inbox
+            Sources &amp; Scan
           </button>
         </div>
       </header>
 
-      <div className="library-page__section">
-        <LibrarySourcesPanel />
-      </div>
+      {state.selectedView === "sources" && (
+        <>
+          <div className="library-page__section">
+            <LibrarySourcesPanel onRefreshLibrary={() => refreshLibrary()} appDataPath={appDataPath} />
+          </div>
 
-      <div className="library-page__section">
-        <ManualGameForm
-          onSubmit={async (payload) => {
-            const created = await createManualGame(libPath, payload);
-            await refreshResolvedLibrary(created.game_id);
-          }}
-        />
-      </div>
+          <div className="library-page__section">
+            <ManualGameForm
+              onSubmit={async (payload) => {
+                await addManualGame(payload);
+                dispatch({ type: "SET_VIEW", view: "library" });
+              }}
+            />
+          </div>
+        </>
+      )}
 
-      <div className="library-page__section">
-        <LibraryFiltersBar
-          search={state.search}
-          sortMode={state.sortMode}
-          filterMode={state.filterMode}
-          reviewCount={state.reviewInbox?.items.length ?? 0}
-          onSearchChange={(search) => dispatch({ type: "SET_SEARCH", search })}
-          onSortChange={(sortMode) => dispatch({ type: "SET_SORT", sortMode })}
-          onFilterChange={(filterMode) => dispatch({ type: "SET_FILTER", filterMode })}
-        />
-      </div>
+      {state.selectedView === "library" && (
+        <div className="library-page__section">
+          <LibraryFiltersBar
+            search={state.search}
+            sortMode={state.sortMode}
+            filterMode={state.filterMode}
+            onSearchChange={(search) => dispatch({ type: "SET_SEARCH", search })}
+            onSortChange={(sortMode) => dispatch({ type: "SET_SORT", sortMode })}
+            onFilterChange={(filterMode) => dispatch({ type: "SET_FILTER", filterMode })}
+          />
+        </div>
+      )}
 
-      <div className="library-page__workspace">
+      {state.selectedView !== "sources" && <div className="library-page__workspace">
         <div className="library-page__main">
-          {state.selectedView === "library" ? (
+          {state.selectedView === "library" && (
             <LibraryGrid
               cards={visibleCards}
               selectedGameId={state.selectedGameId}
+              clickBehavior={settingsState.settings?.click_behavior ?? "single"}
               onSelectGame={(gameId) => {
-                if (state.profileDirty && gameId !== state.selectedGameId) {
-                  dispatch({ type: "SHOW_UNSAVED_DIALOG", target: gameId });
+                if (profileActions.profileDirty && gameId !== state.selectedGameId) {
+                  profileActions.showUnsavedDialog(gameId);
                   return;
                 }
                 dispatch({ type: "SELECT_GAME", gameId });
               }}
-            />
-          ) : (
-            <ReviewInboxPanel
-              reviewInbox={state.reviewInbox}
-              onSelectReviewGame={(gameId) =>
-                gameId && dispatch({ type: "SELECT_GAME", gameId })
-              }
-              onResolve={async (reviewId, kind: DuplicateResolutionKind) => {
-                await resolveDuplicateReview(libPath, {
-                  review_key: reviewId,
-                  kind,
-                  primary_game_id: state.selectedGameId,
-                  alternate_game_ids: [],
-                });
-                await refreshResolvedLibrary(state.selectedGameId);
+              onActivateGame={async (gameId) => {
+                // Activate means launch the game directly
+                if (profileActions.profileDirty && gameId !== state.selectedGameId) {
+                  profileActions.showUnsavedDialog(gameId);
+                  return;
+                }
+                // Select the game first, then launch
+                dispatch({ type: "SELECT_GAME", gameId });
+                await launchActions.launch(false);
               }}
             />
           )}
@@ -248,353 +150,140 @@ export function LibraryPage() {
         <GameDetailsPanel
           details={state.selectedGame}
           preflight={state.launchPreflight}
-          launchPending={state.launchPending}
+          launchPending={launchActions.launchPending}
+          shortcutExportPending={launchActions.shortcutExportPending}
+          shortcutStatusMessage={launchActions.shortcutStatusMessage}
+          contentRefreshToken={launchActions.contentRefreshToken}
+          appDataPath={appDataPath}
+          libraryMetadataPath={libPath}
           managePatchesOpen={state.managePatchesOpen}
-          patchInventoryLoading={state.patchInventoryLoading}
-          patchOperationPending={state.patchOperationPending}
-          chooserOpen={state.activePatchChooserOpen}
-          chooserReason={state.chooserReason}
-          patchUnsupportedMessage={state.patchUnsupportedMessage}
+          patchImportPending={state.patchImportPending}
           onSaveIdentity={async (payload) => {
-            await updateLibraryGameIdentity(libPath, payload);
-            await refreshResolvedLibrary(payload.game_id);
-            const details = await getLibraryGameDetails(libPath, payload.game_id);
-            dispatch({
-              type: "GAME_DETAILS_LOADED",
-              details: { ...details, patches: state.patchInventory },
-            });
+            await saveIdentity(payload);
+            await refreshLibrary(payload.game_id);
           }}
-          onLaunch={async () => {
-            if (!state.selectedGameId) {
-              return;
-            }
-            dispatch({ type: "SET_LAUNCH_PENDING", pending: true });
-            try {
-              await launchLibraryGame(appDataPath, libPath, state.selectedGameId, false);
-              await refreshResolvedLibrary(state.selectedGameId);
-            } finally {
-              dispatch({ type: "SET_LAUNCH_PENDING", pending: false });
-            }
+          onLaunch={() => launchActions.launch(false)}
+          onExportDesktopShortcut={(target) => launchActions.exportShortcut(target)}
+          onOpenShortcutFolder={(target) => launchActions.openShortcutFolder(target)}
+          onOpenContentFolder={() => launchActions.openContentFolder()}
+          onImportContent={(contentType) => launchActions.importContent(contentType)}
+          onRemoveContentEntry={(entryPath) => launchActions.removeContentEntry(entryPath)}
+          installedXeniaBuildTags={launchActions.installedXeniaBuildTags}
+          onPreferredXeniaBuildChange={async (tag) => {
+            if (tag === null) return;
+            await launchActions.changePreferredXeniaBuild(tag);
           }}
-          onConfirmWarningLaunch={async () => {
-            if (!state.selectedGameId) {
-              return;
-            }
-            dispatch({ type: "SET_LAUNCH_PENDING", pending: true });
-            try {
-              await launchLibraryGame(appDataPath, libPath, state.selectedGameId, true);
-              await refreshResolvedLibrary(state.selectedGameId);
-            } finally {
-              dispatch({ type: "SET_LAUNCH_PENDING", pending: false });
-            }
-          }}
+          onConfirmWarningLaunch={() => launchActions.launch(true)}
           onManagePatchesToggle={() =>
             dispatch({ type: "SET_MANAGE_PATCHES_OPEN", open: !state.managePatchesOpen })
           }
           onImportPatch={async (input) => {
-            if (!state.selectedGameId) {
-              return;
-            }
-            dispatch({ type: "SET_PATCH_OPERATION", kind: "import", pending: true });
+            dispatch({ type: "SET_PATCH_IMPORT_PENDING", pending: true });
             try {
-              const inventory = await importGamePatch(libPath, state.selectedGameId, input);
-              dispatch({ type: "PATCHES_LOADED", inventory });
-              dispatch({
-                type: "SET_PATCH_CHOOSER",
-                open: true,
-                reason: "after-import",
-              });
+              await importXeniaPatchFile(appDataPath, input);
               dispatch({ type: "SET_MANAGE_PATCHES_OPEN", open: true });
             } finally {
-              dispatch({ type: "SET_PATCH_OPERATION", kind: null, pending: false });
+              dispatch({ type: "SET_PATCH_IMPORT_PENDING", pending: false });
             }
           }}
-          onFetchPatch={async (confirmReplace = false) => {
-            if (!state.selectedGameId) {
-              return;
-            }
-            dispatch({ type: "SET_PATCH_OPERATION", kind: "fetch", pending: true });
-            try {
-              const result = await fetchGamePatch(libPath, state.selectedGameId, confirmReplace);
-              dispatch({ type: "PATCHES_LOADED", inventory: result.inventory });
-              dispatch({
-                type: "SET_PATCH_UNSUPPORTED_MESSAGE",
-                message: result.unsupported_message,
-              });
-              dispatch({ type: "SET_MANAGE_PATCHES_OPEN", open: true });
-              if (result.requires_confirmation) {
-                if (
-                  window.confirm(
-                    "A community patch is already installed for this game. Replace it with the newer remote copy?",
-                  )
-                ) {
-                  const confirmed = await fetchGamePatch(libPath, state.selectedGameId, true);
-                  dispatch({ type: "PATCHES_LOADED", inventory: confirmed.inventory });
-                  dispatch({
-                    type: "SET_PATCH_CHOOSER",
-                    open: true,
-                    reason: "after-fetch",
-                  });
-                }
-              } else if (!result.unsupported_message) {
-                dispatch({
-                  type: "SET_PATCH_CHOOSER",
-                  open: true,
-                  reason: "after-fetch",
-                });
-              }
-            } finally {
-              dispatch({ type: "SET_PATCH_OPERATION", kind: null, pending: false });
-            }
-          }}
-          onSelectActivePatch={async (patchFileId) => {
-            if (!state.selectedGameId) {
-              return;
-            }
-            dispatch({ type: "SET_PATCH_OPERATION", kind: "select_active", pending: true });
-            try {
-              const inventory = await selectActivePatchFile(
-                libPath,
-                state.selectedGameId,
-                patchFileId,
-              );
-              dispatch({ type: "PATCHES_LOADED", inventory });
-              dispatch({ type: "SET_PATCH_CHOOSER", open: false, reason: null });
-            } finally {
-              dispatch({ type: "SET_PATCH_OPERATION", kind: null, pending: false });
-            }
-          }}
-          onTogglePatchEntry={async (patchFileId, entryId, enabled) => {
-            if (!state.selectedGameId) {
-              return;
-            }
-            dispatch({ type: "SET_PATCH_OPERATION", kind: "toggle", pending: true });
-            try {
-              const inventory = await setPatchEntryEnabled(
-                libPath,
-                state.selectedGameId,
-                patchFileId,
-                entryId,
-                enabled,
-              );
-              dispatch({ type: "PATCHES_LOADED", inventory });
-            } finally {
-              dispatch({ type: "SET_PATCH_OPERATION", kind: null, pending: false });
-            }
-          }}
-          onOpenPatchChooser={() =>
-            dispatch({ type: "SET_PATCH_CHOOSER", open: true, reason: "manual" })
-          }
-          onClosePatchChooser={() =>
-            dispatch({ type: "SET_PATCH_CHOOSER", open: false, reason: null })
-          }
-          profileInventory={state.profileInventory}
-          profileEffectiveConfig={state.profileEffectiveConfig}
-          profileEffectiveLoading={state.profileEffectiveLoading}
-          profileEditorOpen={state.profileEditorOpen}
-          profileDraft={state.profileDraft}
-          profileDirty={state.profileDirty}
-          profileSavePending={state.profileSavePending}
-          unsavedDialogVisible={state.unsavedDialogVisible}
-          recommendationAvailability={state.recommendationAvailability}
-          applyRecommendationPending={state.applyRecommendationPending}
+          profileInventory={profileActions.profileInventory}
+          profileEffectiveConfig={profileActions.profileEffectiveConfig}
+          profileEffectiveLoading={profileActions.profileEffectiveLoading}
+          profileEditorOpen={profileActions.profileEditorOpen}
+          profileDraft={profileActions.profileDraft}
+          profileDirty={profileActions.profileDirty}
+          profileSavePending={profileActions.profileSavePending}
+          unsavedDialogVisible={profileActions.unsavedDialogVisible}
+          recommendationAvailability={profileActions.recommendationAvailability}
+          applyRecommendationPending={profileActions.applyRecommendationPending}
           onApplyRecommendation={async () => {
-            if (!state.selectedGameId) {
-              return;
-            }
-            dispatch({ type: "APPLY_RECOMMENDATION_PENDING", pending: true });
-            try {
-              const inventory = await applyRecommendedProfile(
-                libPath,
-                state.selectedGameId,
-              );
-              dispatch({ type: "PROFILES_LOADED", inventory });
-            } catch (error) {
-              dispatch({
-                type: "SET_ERROR",
-                error: error instanceof Error ? error.message : String(error),
-              });
-            } finally {
-              dispatch({ type: "APPLY_RECOMMENDATION_PENDING", pending: false });
+            if (state.selectedGameId) {
+              await profileActions.applyRecommendation(state.selectedGameId);
             }
           }}
           onProfileEditorToggle={() => {
-            if (state.profileEditorOpen && state.profileDirty) {
-              dispatch({ type: "SHOW_UNSAVED_DIALOG", target: null });
+            if (!state.selectedGameId) {
               return;
             }
-            dispatch({
-              type: "SET_PROFILE_EDITOR_OPEN",
-              open: !state.profileEditorOpen,
-            });
+            profileActions.setProfileEditorOpen(!profileActions.profileEditorOpen);
           }}
           onProfileDraftChange={(draft) =>
-            dispatch({ type: "SET_PROFILE_DRAFT", draft })
+            profileActions.setProfileDraft(draft)
           }
           onProfileSave={async (profileId, overrides) => {
-            if (!state.selectedGameId) return;
-            dispatch({ type: "SET_PROFILE_SAVE_PENDING", pending: true });
-            try {
-              await saveProfileOverrides(libPath, state.selectedGameId, profileId, overrides);
-              await refreshProfileState();
-            } catch (error) {
-              dispatch({
-                type: "SET_ERROR",
-                error: error instanceof Error ? error.message : String(error),
-              });
-            } finally {
-              dispatch({ type: "SET_PROFILE_SAVE_PENDING", pending: false });
+            if (state.selectedGameId) {
+              await profileActions.saveOverrides(state.selectedGameId, profileId, overrides);
             }
           }}
           onProfileDiscard={() =>
-            dispatch({ type: "RESET_PROFILE_DRAFT" })
+            profileActions.resetProfileDraft()
           }
           onProfileCreate={async (name) => {
-            if (!state.selectedGameId) return;
-            const inventory = await createGameProfile(libPath, state.selectedGameId, name);
-            dispatch({ type: "PROFILES_LOADED", inventory });
-            dispatch({ type: "RESET_PROFILE_DRAFT" });
+            if (state.selectedGameId) {
+              await profileActions.createProfile(state.selectedGameId, name);
+            }
           }}
           onProfileDelete={async (profileId) => {
-            if (!state.selectedGameId) return;
-            const inventory = await deleteGameProfile(libPath, state.selectedGameId, profileId);
-            dispatch({ type: "PROFILES_LOADED", inventory });
-            dispatch({ type: "RESET_PROFILE_DRAFT" });
+            if (state.selectedGameId) {
+              await profileActions.deleteProfile(state.selectedGameId, profileId);
+            }
           }}
           onProfileRename={async (profileId, newName) => {
-            if (!state.selectedGameId) return;
-            const inventory = await renameGameProfile(
-              libPath,
-              state.selectedGameId,
-              profileId,
-              newName,
-            );
-            dispatch({ type: "PROFILES_LOADED", inventory });
+            if (state.selectedGameId) {
+              await profileActions.renameProfile(state.selectedGameId, profileId, newName);
+            }
           }}
           onProfileSelect={async (profileId) => {
-            if (!state.selectedGameId) return;
-            if (state.profileDirty) {
-              dispatch({ type: "SHOW_UNSAVED_DIALOG", target: profileId });
+            if (!profileId) return;
+            if (profileActions.profileDirty) {
+              profileActions.showUnsavedDialog(profileId);
               return;
             }
-            const inventory = await selectActiveGameProfile(
-              libPath,
-              state.selectedGameId,
-              profileId,
-            );
-            dispatch({ type: "PROFILES_LOADED", inventory });
-            dispatch({ type: "RESET_PROFILE_DRAFT" });
-          }}
-          onLoadEffective={async (profileId) => {
             if (!state.selectedGameId) return;
-            dispatch({ type: "PROFILE_EFFECTIVE_LOADING" });
-            try {
-              const config = await getProfileEffectiveConfig(
-                libPath,
-                state.selectedGameId,
-                profileId,
-              );
-              dispatch({ type: "PROFILE_EFFECTIVE_LOADED", config });
-            } catch (error) {
-              dispatch({
-                type: "PROFILE_EFFECTIVE_ERROR",
-                error: error instanceof Error ? error.message : String(error),
-              });
+            await profileActions.selectProfile(state.selectedGameId, profileId);
+            profileActions.resetProfileDraft();
+          }}
+          onLoadEffective={(profileId) => {
+            if (state.selectedGameId) {
+              profileActions.loadEffectiveConfig(state.selectedGameId, profileId);
             }
           }}
           onUnsavedDialogSave={async () => {
-            const activeProfile = state.profileInventory?.profiles.find((p) => p.active);
+            const activeProfile = profileActions.profileInventory?.profiles.find((p) => p.active);
             if (!activeProfile || !state.selectedGameId) return;
-            dispatch({ type: "SET_PROFILE_SAVE_PENDING", pending: true });
-            try {
-              await saveProfileOverrides(
-                libPath,
-                state.selectedGameId,
-                activeProfile.id,
-                state.profileDraft,
-              );
-              dispatch({ type: "RESET_PROFILE_DRAFT" });
-              dispatch({ type: "HIDE_UNSAVED_DIALOG" });
-              // Complete the navigation that triggered the dialog.
-              if (state.unsavedDialogTarget !== null) {
-                dispatch({ type: "SELECT_GAME", gameId: state.unsavedDialogTarget });
-              } else {
-                dispatch({ type: "SET_PROFILE_EDITOR_OPEN", open: false });
-              }
-            } catch (error) {
-              dispatch({
-                type: "SET_ERROR",
-                error: error instanceof Error ? error.message : String(error),
-              });
-            } finally {
-              dispatch({ type: "SET_PROFILE_SAVE_PENDING", pending: false });
+            await profileActions.saveOverrides(state.selectedGameId, activeProfile.id, profileActions.profileDraft);
+            profileActions.hideUnsavedDialog();
+            // Complete the navigation that triggered the dialog.
+            if (profileActions.unsavedDialogTarget !== null) {
+              dispatch({ type: "SELECT_GAME", gameId: profileActions.unsavedDialogTarget });
+            } else {
+              profileActions.setProfileEditorOpen(false);
             }
           }}
           onUnsavedDialogDiscard={() => {
-            dispatch({ type: "RESET_PROFILE_DRAFT" });
-            dispatch({ type: "HIDE_UNSAVED_DIALOG" });
-            if (state.unsavedDialogTarget !== null) {
-              dispatch({ type: "SELECT_GAME", gameId: state.unsavedDialogTarget });
+            profileActions.resetProfileDraft();
+            profileActions.hideUnsavedDialog();
+            if (profileActions.unsavedDialogTarget !== null) {
+              dispatch({ type: "SELECT_GAME", gameId: profileActions.unsavedDialogTarget });
             } else {
-              dispatch({ type: "SET_PROFILE_EDITOR_OPEN", open: false });
+              profileActions.setProfileEditorOpen(false);
             }
           }}
           onUnsavedDialogCancel={() =>
-            dispatch({ type: "HIDE_UNSAVED_DIALOG" })
+            profileActions.hideUnsavedDialog()
           }
-          saveQuickActionsOpen={state.saveQuickActionsOpen}
-          exportPreflight={state.exportPreflight}
-          exportPreflightLoading={state.exportPreflightLoading}
-          exportPending={state.exportPending}
-          lastExportResult={state.lastExportResult}
-          onSaveQuickActionsToggle={() =>
-            dispatch({
-              type: "SET_SAVE_QUICK_ACTIONS_OPEN",
-              open: !state.saveQuickActionsOpen,
-            })
-          }
-          onLoadExportPreflight={async () => {
-            if (!state.selectedGameId || !libPath || !xeniaPath) return;
-            dispatch({ type: "EXPORT_PREFLIGHT_LOADING" });
-            try {
-              const preflight = await getExportPreflight(
-                libPath,
-                xeniaPath,
-                state.selectedGameId,
-              );
-              dispatch({ type: "EXPORT_PREFLIGHT_LOADED", preflight });
-            } catch (error) {
-              dispatch({
-                type: "EXPORT_PREFLIGHT_ERROR",
-                error: error instanceof Error ? error.message : String(error),
-              });
-            }
-          }}
-          onExport={async (selectedLabels) => {
-            if (!state.selectedGameId || !libPath || !xeniaPath || !appDataPath) return;
-            dispatch({ type: "EXPORT_PENDING", pending: true });
-            try {
-              const result = await exportSaveArchive(
-                appDataPath,
-                libPath,
-                xeniaPath,
-                state.selectedGameId,
-                appDataPath,
-                selectedLabels ?? undefined,
-              );
-              dispatch({ type: "EXPORT_COMPLETE", result });
-            } catch (error) {
-              dispatch({
-                type: "SET_ERROR",
-                error: error instanceof Error ? error.message : String(error),
-              });
-              dispatch({ type: "EXPORT_PENDING", pending: false });
-            }
-          }}
+          saveQuickActionsOpen={saveExportActions.saveQuickActionsOpen}
+          exportPreflight={saveExportActions.exportPreflight}
+          exportPreflightLoading={saveExportActions.exportPreflightLoading}
+          exportPending={saveExportActions.exportPending}
+          lastExportResult={saveExportActions.lastExportResult}
+          onSaveQuickActionsToggle={saveExportActions.toggleQuickActions}
+          onLoadExportPreflight={saveExportActions.loadExportPreflight}
+          onExport={saveExportActions.exportSaves}
           onImportNavigate={() => navigate("/saves")}
-          onClearSaveResults={() => dispatch({ type: "CLEAR_SAVE_STATE" })}
+          onClearSaveResults={saveExportActions.clearSaveResults}
         />
-      </div>
+      </div>}
     </div>
   );
 }

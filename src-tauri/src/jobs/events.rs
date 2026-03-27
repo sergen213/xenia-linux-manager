@@ -85,10 +85,7 @@ pub fn emit_job_log(app: &AppHandle, job_id: &str, message: &str, level: &str, t
 
 /// Emit a job-completed event.
 pub fn emit_job_completed(app: &AppHandle, job: &Job) {
-    let _ = app.emit(
-        EVENT_JOB_COMPLETED,
-        JobFinishedPayload { job: job.clone() },
-    );
+    let _ = app.emit(EVENT_JOB_COMPLETED, JobFinishedPayload { job: job.clone() });
 }
 
 /// Emit a job-failed event.

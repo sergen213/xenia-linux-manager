@@ -31,6 +31,8 @@ function renderRecovery(xeniaState: XeniaState = INITIAL_XENIA_STATE) {
         library_metadata_path: "/home/test/.local/share/xlm/library",
         setup_complete: true,
         last_active_route: null,
+        gamer_tag: null,
+        click_behavior: "single" as const,
       },
     },
     dispatch: settingsDispatch,
@@ -76,6 +78,7 @@ describe("XeniaRecoveryActions", () => {
       installState: {
         status: "install_failed",
         manifest: null,
+        installed_builds: [],
         failure: {
           retry_mode: "install",
           error: "Download failed: connection reset",
@@ -106,6 +109,7 @@ describe("XeniaRecoveryActions", () => {
           install_dir: "/opt/xenia",
           installed_at: 1000,
         },
+        installed_builds: [],
         failure: {
           retry_mode: "update",
           error: "Promotion failed: disk full",
@@ -126,6 +130,7 @@ describe("XeniaRecoveryActions", () => {
       installState: {
         status: "install_failed",
         manifest: null,
+        installed_builds: [],
         failure: {
           retry_mode: "install",
           error: "Download failed",
@@ -150,6 +155,7 @@ describe("XeniaRecoveryActions", () => {
       installState: {
         status: "install_failed",
         manifest: null,
+        installed_builds: [],
         failure: {
           retry_mode: "install",
           error: "Download failed",
@@ -171,6 +177,7 @@ describe("XeniaRecoveryActions", () => {
       installState: {
         status: "install_failed",
         manifest: null,
+        installed_builds: [],
         failure: {
           retry_mode: "install",
           error: "Download failed",
@@ -190,6 +197,7 @@ describe("XeniaRecoveryActions", () => {
       installState: {
         status: "install_failed",
         manifest: null,
+        installed_builds: [],
         failure: {
           retry_mode: "install",
           error: "Download failed",

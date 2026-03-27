@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useSettings } from "../state/settingsStore";
 import { getReleaseMetadata } from "../api/releaseClient";
 import "./ReleaseChannelCard.css";
@@ -13,26 +13,28 @@ import "./ReleaseChannelCard.css";
  */
 export function ReleaseChannelCard() {
   const { state, dispatch } = useSettings();
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true); // Start with loading=true to avoid setState in effect
   const [error, setError] = useState<string | null>(null);
   const metadata = state.releaseMetadata;
 
+  const loadAttemptedRef = useRef(false);
   useEffect(() => {
-    if (!metadata && !loading && !error) {
-      setLoading(true);
-      getReleaseMetadata()
-        .then((m) => {
-          dispatch({ type: "SET_RELEASE_METADATA", metadata: m });
-          setLoading(false);
-        })
-        .catch((err) => {
-          setError(
-            err instanceof Error ? err.message : "Failed to load release info",
-          );
-          setLoading(false);
-        });
-    }
-  }, [metadata, loading, error, dispatch]);
+    if (metadata || loadAttemptedRef.current) return;
+
+    loadAttemptedRef.current = true;
+
+    getReleaseMetadata()
+      .then((m) => {
+        dispatch({ type: "SET_RELEASE_METADATA", metadata: m });
+        setLoading(false);
+      })
+      .catch((err) => {
+        setError(
+          err instanceof Error ? err.message : "Failed to load release info",
+        );
+        setLoading(false);
+      });
+  }, [metadata, dispatch]);
 
   if (loading) {
     return (

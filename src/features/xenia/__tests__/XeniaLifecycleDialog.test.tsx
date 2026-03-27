@@ -36,6 +36,8 @@ function renderDialog(
         library_metadata_path: "/home/test/.local/share/xlm/library",
         setup_complete: true,
         last_active_route: null,
+        gamer_tag: null,
+        click_behavior: "single" as const,
       },
     },
     dispatch: settingsDispatch,
@@ -99,6 +101,7 @@ describe("XeniaLifecycleDialog", () => {
       installState: {
         status: "install_failed",
         manifest: null,
+        installed_builds: [],
         failure: {
           retry_mode: "install",
           error: "Connection reset by peer",

@@ -124,7 +124,14 @@ where
     };
 
     let mut seen_in_scan: HashSet<PathBuf> = HashSet::new();
-    walk_directory(root, source_id, existing_paths, &mut seen_in_scan, &mut results, &cancel_check);
+    walk_directory(
+        root,
+        source_id,
+        existing_paths,
+        &mut seen_in_scan,
+        &mut results,
+        &cancel_check,
+    );
 
     results
 }
@@ -137,8 +144,7 @@ fn walk_directory<F>(
     seen_in_scan: &mut HashSet<PathBuf>,
     results: &mut DiscoveryResults,
     cancel_check: &F,
-)
-where
+) where
     F: Fn() -> bool,
 {
     if cancel_check() {
@@ -149,11 +155,9 @@ where
     let entries = match fs::read_dir(dir) {
         Ok(e) => e,
         Err(err) => {
-            results.errors.push(format!(
-                "Cannot read directory {}: {}",
-                dir.display(),
-                err
-            ));
+            results
+                .errors
+                .push(format!("Cannot read directory {}: {}", dir.display(), err));
             return;
         }
     };
@@ -167,11 +171,9 @@ where
         let entry = match entry_result {
             Ok(e) => e,
             Err(err) => {
-                results.errors.push(format!(
-                    "Error reading entry in {}: {}",
-                    dir.display(),
-                    err
-                ));
+                results
+                    .errors
+                    .push(format!("Error reading entry in {}: {}", dir.display(), err));
                 continue;
             }
         };
@@ -190,7 +192,14 @@ where
         };
 
         if file_type.is_dir() {
-            walk_directory(&path, source_id, existing_paths, seen_in_scan, results, cancel_check);
+            walk_directory(
+                &path,
+                source_id,
+                existing_paths,
+                seen_in_scan,
+                results,
+                cancel_check,
+            );
             if results.was_cancelled {
                 return;
             }
@@ -351,20 +360,17 @@ fn evaluate_iso_candidate(
         };
     }
 
-    // Generic .iso: use size heuristic for confidence
+    // Generic .iso: use size heuristic for confidence.
+    // ISOs found in the user's configured source directories within the
+    // expected size range are very likely Xbox 360 disc images.
     let (confidence, status, warning) = if size >= ISO_MIN_SIZE && size <= ISO_MAX_SIZE {
-        // Plausible Xbox 360 ISO size range
-        (
-            Confidence::Low,
-            CandidateStatus::Found,
-            Some("Generic ISO file; may not be an Xbox 360 disc image".into()),
-        )
+        (Confidence::Medium, CandidateStatus::Found, None)
     } else {
         (
             Confidence::Low,
             CandidateStatus::Warning,
             Some(format!(
-                "Generic ISO outside typical Xbox 360 size range ({} bytes); may not be Xbox 360 content",
+                "ISO outside typical Xbox 360 size range ({} bytes); may not be Xbox 360 content",
                 size
             )),
         )
@@ -416,10 +422,7 @@ pub fn derive_label(path: &Path) -> String {
 
     if XEX_EXTENSIONS.contains(&ext.as_str()) {
         // For xex, use parent folder name if the file is named default.xex
-        let filename = path
-            .file_stem()
-            .and_then(|s| s.to_str())
-            .unwrap_or("");
+        let filename = path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
         if filename.eq_ignore_ascii_case("default") {
             if let Some(parent) = path.parent() {
                 if let Some(name) = parent.file_name().and_then(|n| n.to_str()) {
@@ -476,8 +479,18 @@ mod tests {
 
         assert_eq!(results.found_count, 2);
         assert_eq!(results.candidates.len(), 2);
-        assert!(results.candidates.iter().all(|c| c.kind == CandidateKind::Xex));
-        assert!(results.candidates.iter().all(|c| c.confidence == Confidence::High));
+        assert!(
+            results
+                .candidates
+                .iter()
+                .all(|c| c.kind == CandidateKind::Xex)
+        );
+        assert!(
+            results
+                .candidates
+                .iter()
+                .all(|c| c.confidence == Confidence::High)
+        );
     }
 
     #[test]

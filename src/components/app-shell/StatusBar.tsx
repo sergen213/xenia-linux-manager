@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef } from "react";
 import { useSettings } from "../../features/settings/state/settingsStore";
+import { useTasks, selectTaskSummary } from "../../features/tasks/state/tasksStore";
 import type { ReleaseMetadata } from "../../features/settings/model/releaseTypes";
 import { getReleaseMetadata } from "../../features/settings/api/releaseClient";
+import { useXenia } from "../../features/xenia/state/xeniaStore";
 import "./StatusBar.css";
 
 export interface StatusItem {
@@ -17,22 +19,26 @@ export interface StatusItem {
  */
 export function StatusBar() {
   const { state, dispatch } = useSettings();
-  const [loadAttempted, setLoadAttempted] = useState(false);
+  const { state: tasksState } = useTasks();
+  const { state: xeniaState } = useXenia();
   const metadata = state.releaseMetadata;
+  const taskSummary = selectTaskSummary(tasksState);
 
   // Fetch release metadata once on mount if not already loaded
+  // Use ref to track if we've attempted to load, avoiding setState in effect
+  const loadAttemptedRef = useRef(false);
   useEffect(() => {
-    if (!metadata && !loadAttempted) {
-      setLoadAttempted(true);
+    if (!metadata && !loadAttemptedRef.current) {
+      loadAttemptedRef.current = true;
       getReleaseMetadata()
         .then((m) => dispatch({ type: "SET_RELEASE_METADATA", metadata: m }))
         .catch(() => {
           // Not in Tauri runtime -- leave metadata null
         });
     }
-  }, [metadata, loadAttempted, dispatch]);
+  }, [metadata, dispatch]);
 
-  const items = buildStatusItems(metadata);
+  const items = buildStatusItems(metadata, xeniaState.installState.status, taskSummary.running);
 
   return (
     <div className="status-bar" role="status" aria-label="System status">
@@ -60,20 +66,41 @@ export function StatusBar() {
   );
 }
 
-function buildStatusItems(metadata: ReleaseMetadata | null): StatusItem[] {
+function buildStatusItems(
+  metadata: ReleaseMetadata | null,
+  xeniaStatus: "not_installed" | "installed" | "install_failed" | "update_failed",
+  runningTasks: number,
+): StatusItem[] {
+  const xeniaItem: StatusItem = (() => {
+    switch (xeniaStatus) {
+      case "installed":
+        return { id: "xenia", label: "Xenia", value: "Installed", status: "success" };
+      case "install_failed":
+      case "update_failed":
+        return { id: "xenia", label: "Xenia", value: "Needs attention", status: "error" };
+      default:
+        return { id: "xenia", label: "Xenia", value: "Not installed", status: "idle" };
+    }
+  })();
+
+  const tasksItem: StatusItem =
+    runningTasks > 0
+      ? {
+          id: "tasks",
+          label: "Tasks",
+          value: `${runningTasks} active`,
+          status: "active",
+        }
+      : {
+          id: "tasks",
+          label: "Tasks",
+          value: "None active",
+          status: "idle",
+        };
+
   const items: StatusItem[] = [
-    {
-      id: "xenia",
-      label: "Xenia",
-      value: "Not installed",
-      status: "idle",
-    },
-    {
-      id: "tasks",
-      label: "Tasks",
-      value: "None active",
-      status: "idle",
-    },
+    xeniaItem,
+    tasksItem,
   ];
 
   if (metadata) {

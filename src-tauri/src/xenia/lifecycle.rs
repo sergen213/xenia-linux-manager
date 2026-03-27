@@ -87,6 +87,7 @@ pub fn primary_action(state: &InstallState, latest: Option<&LinuxRelease>) -> &'
 ///
 /// On failure, the previous build (if any) remains untouched.
 pub async fn promote_staged_build(
+    xenia_path: &str,
     app_data_path: &str,
     release: &LinuxRelease,
     staged_exec_path: &Path,
@@ -101,7 +102,7 @@ pub async fn promote_staged_build(
         ));
     }
 
-    let target_dir = install_state::install_dir(app_data_path);
+    let target_dir = install_state::install_dir(xenia_path);
     let backup_dir = PathBuf::from(app_data_path).join("xenia-backup");
 
     // Step 1: If a current install exists, back it up.
@@ -139,8 +140,8 @@ pub async fn promote_staged_build(
 }
 
 /// Rollback a failed promotion by restoring the backup.
-pub async fn rollback_promotion(app_data_path: &str) -> Result<bool, LifecycleError> {
-    let target_dir = install_state::install_dir(app_data_path);
+pub async fn rollback_promotion(app_data_path: &str, xenia_path: &str) -> Result<bool, LifecycleError> {
+    let target_dir = install_state::install_dir(xenia_path);
     let backup_dir = PathBuf::from(app_data_path).join("xenia-backup");
 
     if !backup_dir.exists() {
@@ -157,8 +158,8 @@ pub async fn rollback_promotion(app_data_path: &str) -> Result<bool, LifecycleEr
 }
 
 /// Remove the active Xenia installation entirely.
-pub async fn remove_install(app_data_path: &str) -> Result<(), LifecycleError> {
-    let target_dir = install_state::install_dir(app_data_path);
+pub async fn remove_install(app_data_path: &str, xenia_path: &str) -> Result<(), LifecycleError> {
+    let target_dir = install_state::install_dir(xenia_path);
     if target_dir.exists() {
         tokio::fs::remove_dir_all(&target_dir).await?;
     }
@@ -335,7 +336,7 @@ mod tests {
 
         let release = sample_release();
         let (final_exec, install_dir) =
-            promote_staged_build(&dir, &release, &exec).await.unwrap();
+            promote_staged_build(&format!("{}/xenia", dir), &dir, &release, &exec).await.unwrap();
 
         assert!(final_exec.exists());
         assert_eq!(final_exec.file_name().unwrap(), "xenia_canary");
@@ -349,7 +350,7 @@ mod tests {
         let dir = temp_dir("promote-update");
 
         // Simulate existing install.
-        let install = install_state::install_dir(&dir);
+        let install = install_state::install_dir(&format!("{}/xenia", dir));
         fs::create_dir_all(&install).unwrap();
         fs::write(install.join("xenia_canary"), "old build").unwrap();
         fs::write(install.join("old_file.txt"), "should be gone").unwrap();
@@ -361,13 +362,13 @@ mod tests {
         fs::write(&exec, "new build").unwrap();
 
         let release = newer_release();
-        let (final_exec, _) = promote_staged_build(&dir, &release, &exec).await.unwrap();
+        let (final_exec, _) = promote_staged_build(&format!("{}/xenia", dir), &dir, &release, &exec).await.unwrap();
 
         // New build is active.
         let content = fs::read_to_string(&final_exec).unwrap();
         assert_eq!(content, "new build");
         // Old file should not exist (entire dir was replaced).
-        assert!(!install_state::install_dir(&dir).join("old_file.txt").exists());
+        assert!(!install_state::install_dir(&format!("{}/xenia", dir)).join("old_file.txt").exists());
         // Backup should be cleaned up.
         assert!(!PathBuf::from(&dir).join("xenia-backup").exists());
     }
@@ -381,7 +382,7 @@ mod tests {
         // Don't create the file.
 
         let release = sample_release();
-        let result = promote_staged_build(&dir, &release, &exec).await;
+        let result = promote_staged_build(&format!("{}/xenia", dir), &dir, &release, &exec).await;
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("missing"));
     }
@@ -395,10 +396,10 @@ mod tests {
         fs::create_dir_all(&backup).unwrap();
         fs::write(backup.join("xenia_canary"), "backup build").unwrap();
 
-        let result = rollback_promotion(&dir).await.unwrap();
+        let result = rollback_promotion(&dir, &format!("{}/xenia", dir)).await.unwrap();
         assert!(result);
 
-        let install = install_state::install_dir(&dir);
+        let install = install_state::install_dir(&format!("{}/xenia", dir));
         assert!(install.join("xenia_canary").exists());
         let content = fs::read_to_string(install.join("xenia_canary")).unwrap();
         assert_eq!(content, "backup build");
@@ -408,7 +409,7 @@ mod tests {
     #[tokio::test]
     async fn rollback_returns_false_when_no_backup() {
         let dir = temp_dir("rollback-none");
-        let result = rollback_promotion(&dir).await.unwrap();
+        let result = rollback_promotion(&dir, &format!("{}/xenia", dir)).await.unwrap();
         assert!(!result);
     }
 
@@ -417,13 +418,13 @@ mod tests {
     #[tokio::test]
     async fn remove_install_cleans_up() {
         let dir = temp_dir("remove");
-        let install = install_state::install_dir(&dir);
+        let install = install_state::install_dir(&format!("{}/xenia", dir));
         fs::create_dir_all(&install).unwrap();
         fs::write(install.join("xenia_canary"), "build").unwrap();
         let backup = PathBuf::from(&dir).join("xenia-backup");
         fs::create_dir_all(&backup).unwrap();
 
-        remove_install(&dir).await.unwrap();
+        remove_install(&dir, &format!("{}/xenia", dir)).await.unwrap();
 
         assert!(!install.exists());
         assert!(!backup.exists());
@@ -432,7 +433,7 @@ mod tests {
     #[tokio::test]
     async fn remove_install_noop_if_missing() {
         let dir = temp_dir("remove-noop");
-        remove_install(&dir).await.unwrap(); // Should not error.
+        remove_install(&dir, &format!("{}/xenia", dir)).await.unwrap(); // Should not error.
     }
 
     // -- Cleanup artifacts tests --

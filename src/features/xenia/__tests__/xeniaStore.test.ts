@@ -16,6 +16,7 @@ function makeInstallState(overrides: Partial<InstallState> = {}): InstallState {
   return {
     status: "not_installed",
     manifest: null,
+    installed_builds: [],
     failure: null,
     ...overrides,
   };
@@ -155,14 +156,12 @@ describe("selectors", () => {
     expect(selectPrimaryAction(state)).toBe("update");
   });
 
-  it("selectPrimaryAction returns install when installed but no update", () => {
+  it("selectPrimaryAction returns check_update when installed but no update", () => {
     const state: XeniaState = {
       ...INITIAL_XENIA_STATE,
       installState: makeInstallState({ status: "installed" }),
     };
-    // When installed with no update, the card shows install details,
-    // but the action is re-install (same as install).
-    expect(selectPrimaryAction(state)).toBe("install");
+    expect(selectPrimaryAction(state)).toBe("check_update");
   });
 
   it("selectPrimaryAction returns retry when install failed", () => {
@@ -249,7 +248,7 @@ describe("type helpers", () => {
   it("derivePrimaryAction handles all status combinations", () => {
     expect(derivePrimaryAction("not_installed", false)).toBe("install");
     expect(derivePrimaryAction("not_installed", true)).toBe("install");
-    expect(derivePrimaryAction("installed", false)).toBe("install");
+    expect(derivePrimaryAction("installed", false)).toBe("check_update");
     expect(derivePrimaryAction("installed", true)).toBe("update");
     expect(derivePrimaryAction("install_failed", false)).toBe("retry");
     expect(derivePrimaryAction("update_failed", false)).toBe("retry");

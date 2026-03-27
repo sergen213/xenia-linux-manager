@@ -7,9 +7,7 @@ use crate::jobs::store;
 /// Load persisted task history, recovering any interrupted jobs from
 /// unclean shutdowns.
 #[tauri::command]
-pub fn load_task_history(
-    app_data_path: String,
-) -> Result<store::TaskHistory, String> {
+pub fn load_task_history(app_data_path: String) -> Result<store::TaskHistory, String> {
     let (history, interrupted_count) = store::recover_interrupted_jobs(&app_data_path)?;
     if interrupted_count > 0 {
         eprintln!(

@@ -6,6 +6,7 @@ import {
   selectRunningJobs,
   selectHistoryJobs,
   selectInterruptedJobs,
+  selectLatestTerminalJobByCategory,
   selectTaskSummary,
   type TasksState,
 } from "../state/tasksStore";
@@ -182,5 +183,36 @@ describe("selectors", () => {
       interrupted: 1,
       total: 4,
     });
+  });
+
+  it("selectLatestTerminalJobByCategory returns newest terminal job in category", () => {
+    const categoryState: TasksState = {
+      ...INITIAL_TASKS_STATE,
+      jobs: {
+        "scan-old": makeJob({
+          id: "scan-old",
+          category: "scan",
+          status: "completed",
+          created_at: 100,
+          finished_at: 150,
+        }),
+        "scan-new": makeJob({
+          id: "scan-new",
+          category: "scan",
+          status: "failed",
+          created_at: 200,
+          finished_at: 300,
+        }),
+        "scan-running": makeJob({
+          id: "scan-running",
+          category: "scan",
+          status: "running",
+          created_at: 400,
+        }),
+      },
+    };
+
+    const latest = selectLatestTerminalJobByCategory(categoryState, "scan");
+    expect(latest?.id).toBe("scan-new");
   });
 });

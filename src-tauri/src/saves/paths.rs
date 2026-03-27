@@ -149,21 +149,13 @@ fn resolve_profile_root(library_metadata_path: &str, game_id: &str) -> Option<Pa
     let root = PathBuf::from(library_metadata_path)
         .join("profiles")
         .join(game_id);
-    if root.is_dir() {
-        Some(root)
-    } else {
-        None
-    }
+    if root.is_dir() { Some(root) } else { None }
 }
 
 /// Resolve the app-managed patch storage root for a game.
 fn resolve_patch_root(library_metadata_path: &str, game_id: &str) -> Option<PathBuf> {
     let root = patch_storage::patch_root_dir(library_metadata_path, game_id);
-    if root.is_dir() {
-        Some(root)
-    } else {
-        None
-    }
+    if root.is_dir() { Some(root) } else { None }
 }
 
 // ---------------------------------------------------------------------------
@@ -325,9 +317,7 @@ fn chrono_like_timestamp() -> String {
     // Simplified date calculation from epoch days.
     let (year, month, day) = days_to_ymd(days);
 
-    format!(
-        "{year:04}-{month:02}-{day:02}-{hours:02}{minutes:02}{seconds:02}"
-    )
+    format!("{year:04}-{month:02}-{day:02}-{hours:02}{minutes:02}{seconds:02}")
 }
 
 /// Convert days since epoch to (year, month, day).
@@ -431,10 +421,12 @@ mod tests {
                 issue_notes: vec![],
                 review_state: identity::ReviewState::Clean,
                 artwork_path: None,
+                title_id: None,
                 last_played_at: None,
                 running_session: None,
                 created_at: 0,
                 updated_at: 0,
+                preferred_xenia_tag: None,
             }],
             duplicate_resolutions: vec![],
         };
@@ -463,10 +455,12 @@ mod tests {
                 issue_notes: vec![],
                 review_state: identity::ReviewState::Clean,
                 artwork_path: None,
+                title_id: None,
                 last_played_at: None,
                 running_session: None,
                 created_at: 0,
                 updated_at: 0,
+                preferred_xenia_tag: None,
             }],
             duplicate_resolutions: vec![],
         };
@@ -497,10 +491,12 @@ mod tests {
                 issue_notes: vec![],
                 review_state: identity::ReviewState::Clean,
                 artwork_path: None,
+                title_id: None,
                 last_played_at: None,
                 running_session: None,
                 created_at: 0,
                 updated_at: 0,
+                preferred_xenia_tag: None,
             }],
             duplicate_resolutions: vec![],
         };
@@ -527,10 +523,12 @@ mod tests {
                 issue_notes: vec![],
                 review_state: identity::ReviewState::Clean,
                 artwork_path: None,
+                title_id: None,
                 last_played_at: None,
                 running_session: None,
                 created_at: 0,
                 updated_at: 0,
+                preferred_xenia_tag: None,
             }],
             duplicate_resolutions: vec![],
         };

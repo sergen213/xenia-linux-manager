@@ -4,8 +4,8 @@ import type {
   ImportApplyResult,
   ImportInspection,
   ImportWizardStep,
-} from "../../library/model/saveTypes";
-import type { LibraryAction } from "../../library/state/libraryStore";
+} from "../model/saveTypes";
+import type { SavesAction } from "../state/savesStore";
 import { SaveConflictPreview } from "./SaveConflictPreview";
 import { BackupFailureDialog } from "./BackupFailureDialog";
 import { SaveResultsPanel } from "./SaveResultsPanel";
@@ -20,7 +20,7 @@ interface SaveImportWizardProps {
   backupFailureError: string | null;
   backupFailureAccepted: boolean;
   lastImportResult: ImportApplyResult | null;
-  dispatch: Dispatch<LibraryAction>;
+  dispatch: Dispatch<SavesAction>;
 }
 
 const STEP_LABELS: { key: ImportWizardStep; label: string }[] = [

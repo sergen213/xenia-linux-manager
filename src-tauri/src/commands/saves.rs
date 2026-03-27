@@ -25,13 +25,9 @@ pub async fn export_save_archive(
     output_dir: String,
     selected_labels: Option<Vec<String>>,
 ) -> Result<ExportResult, String> {
-    let preflight =
-        paths::build_export_preflight(&library_metadata_path, &xenia_path, &game_id)?;
+    let preflight = paths::build_export_preflight(&library_metadata_path, &xenia_path, &game_id)?;
     if !preflight.can_export {
-        return Err(format!(
-            "Cannot export: {}",
-            preflight.blockers.join("; ")
-        ));
+        return Err(format!("Cannot export: {}", preflight.blockers.join("; ")));
     }
 
     // Filter items if specific labels were selected.
@@ -52,15 +48,9 @@ pub async fn export_save_archive(
 
     let filename = paths::generate_archive_filename(&preflight.game_title);
 
-    archive::create_export_archive(
-        &app_data_path,
-        &output_dir,
-        &filename,
-        &preflight,
-        &items,
-    )
-    .await
-    .map_err(|e| e.to_string())
+    archive::create_export_archive(&app_data_path, &output_dir, &filename, &preflight, &items)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 /// Inspect an archive for import: extract, read manifest, detect target game.
@@ -129,9 +119,7 @@ pub async fn apply_save_import(
 
 /// Clean up import staging directory.
 #[tauri::command]
-pub async fn cleanup_save_import_staging(
-    app_data_path: String,
-) -> Result<(), String> {
+pub async fn cleanup_save_import_staging(app_data_path: String) -> Result<(), String> {
     archive::cleanup_import_staging(&app_data_path)
         .await
         .map_err(|e| e.to_string())
@@ -139,8 +127,6 @@ pub async fn cleanup_save_import_staging(
 
 /// List existing backup archives.
 #[tauri::command]
-pub fn list_save_backups(
-    app_data_path: String,
-) -> Vec<storage::BackupEntry> {
+pub fn list_save_backups(app_data_path: String) -> Vec<storage::BackupEntry> {
     storage::list_backups(&app_data_path)
 }

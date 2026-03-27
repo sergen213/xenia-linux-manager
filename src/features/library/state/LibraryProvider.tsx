@@ -44,7 +44,7 @@ export function LibraryProvider({ children }: LibraryProviderProps) {
         } catch {
           // Catalogs are best-effort; status already loaded
         }
-      } catch (err) {
+      } catch {
         if (cancelled) return;
         // Outside Tauri (dev mode), initialize with empty state
         dispatch({

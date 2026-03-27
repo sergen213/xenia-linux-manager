@@ -13,6 +13,8 @@ const mockSettings: AppSettings = {
   library_metadata_path: "/home/test/.local/share/xenia-linux-manager/library",
   setup_complete: false,
   last_active_route: null,
+  gamer_tag: null,
+  click_behavior: "single" as const,
 };
 
 const mockValidation: SettingsValidation = {

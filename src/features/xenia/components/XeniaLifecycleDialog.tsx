@@ -33,19 +33,20 @@ export function XeniaLifecycleDialog({
   const [jobId, setJobId] = useState<string | null>(null);
 
   const appDataPath = settingsState.settings?.app_data_path ?? "";
+  const xeniaPath = settingsState.settings?.xenia_path ?? "";
   const release = state.latestRelease ?? state.availableUpdate;
 
   const actionLabel =
-    action === "install" ? "Install" : action === "update" ? "Update" : "Retry";
+    action === "install" ? "Install" : action === "update" ? "Update" : action === "retry" ? "Retry" : "Check";
 
   const handleConfirm = async () => {
     setPhase("progress");
     try {
       let id: string;
       if (action === "retry") {
-        id = await retryLastOperation(appDataPath);
+        id = await retryLastOperation(appDataPath, xeniaPath);
       } else if (action === "update" && release) {
-        id = await startUpdate(appDataPath, release);
+        id = await startUpdate(appDataPath, xeniaPath, release);
       } else {
         // Install -- fetch release if not already available
         let installRelease = release;
@@ -53,7 +54,7 @@ export function XeniaLifecycleDialog({
           installRelease = await fetchLatestRelease();
           dispatch({ type: "FETCH_RELEASE_SUCCESS", release: installRelease });
         }
-        id = await startInstall(appDataPath, installRelease);
+        id = await startInstall(appDataPath, xeniaPath, installRelease);
       }
       setJobId(id);
       // We do not wait for the job to finish -- the task subsystem

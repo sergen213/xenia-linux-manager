@@ -1,9 +1,18 @@
 import type { ReactNode } from "react";
-import { DashboardHome } from "../features/dashboard/DashboardHome";
-import { TasksPage } from "../features/tasks/TasksPage";
-import { SettingsPage } from "../features/settings/SettingsPage";
-import { LibraryPage } from "../features/library/LibraryPage";
-import { SavesPage } from "../features/saves/SavesPage";
+import { lazy, Suspense } from "react";
+
+// Lazy load all page components for better initial bundle size
+// This significantly reduces the initial JS payload
+// eslint-disable-next-line react-refresh/only-export-components
+const DashboardHome = lazy(() => import("../features/dashboard/DashboardHome").then(m => ({ default: m.DashboardHome })));
+// eslint-disable-next-line react-refresh/only-export-components
+const TasksPage = lazy(() => import("../features/tasks/TasksPage").then(m => ({ default: m.TasksPage })));
+// eslint-disable-next-line react-refresh/only-export-components
+const SettingsPage = lazy(() => import("../features/settings/SettingsPage").then(m => ({ default: m.SettingsPage })));
+// eslint-disable-next-line react-refresh/only-export-components
+const LibraryPage = lazy(() => import("../features/library/LibraryPage").then(m => ({ default: m.LibraryPage })));
+// eslint-disable-next-line react-refresh/only-export-components
+const SavesPage = lazy(() => import("../features/saves/SavesPage").then(m => ({ default: m.SavesPage })));
 
 export interface AppRoute {
   path: string;
@@ -12,6 +21,16 @@ export interface AppRoute {
   element: ReactNode;
   /** Whether this route appears in the sidebar navigation */
   showInSidebar: boolean;
+}
+
+// Lazy loading wrapper with simple fallback
+// eslint-disable-next-line react-refresh/only-export-components
+function RouteLoader({ children }: { children: ReactNode }) {
+  return (
+    <Suspense fallback={<div className="route-loader-loading">Loading...</div>}>
+      {children}
+    </Suspense>
+  );
 }
 
 /**
@@ -23,40 +42,40 @@ export const routes: AppRoute[] = [
     path: "/",
     label: "Dashboard",
     icon: "dashboard",
-    element: <DashboardHome />,
+    element: <RouteLoader><DashboardHome /></RouteLoader>,
     showInSidebar: true,
   },
   {
     path: "/library",
     label: "Library",
     icon: "library",
-    element: <LibraryPage />,
+    element: <RouteLoader><LibraryPage /></RouteLoader>,
     showInSidebar: true,
   },
   {
     path: "/saves",
     label: "Saves",
     icon: "save",
-    element: <SavesPage />,
+    element: <RouteLoader><SavesPage /></RouteLoader>,
     showInSidebar: true,
   },
   {
     path: "/tasks",
     label: "Tasks",
     icon: "tasks",
-    element: <TasksPage />,
+    element: <RouteLoader><TasksPage /></RouteLoader>,
     showInSidebar: true,
   },
   {
     path: "/settings",
     label: "Settings",
     icon: "settings",
-    element: <SettingsPage />,
+    element: <RouteLoader><SettingsPage /></RouteLoader>,
     showInSidebar: true,
   },
 ];
 
-/** Get only routes that should appear in sidebar navigation */
+/** Get routes that should appear in the sidebar navigation */
 export function getSidebarRoutes(): AppRoute[] {
   return routes.filter((route) => route.showInSidebar);
 }

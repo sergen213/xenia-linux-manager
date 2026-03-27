@@ -150,8 +150,7 @@ pub struct ReleaseMetadata {
 pub fn get_release_metadata() -> ReleaseMetadata {
     let build_kind = detect_build_kind();
     let updater = check_updater_readiness();
-    let release_notes_url =
-        RELEASE_NOTES_URL_TEMPLATE.replace("{version}", APP_VERSION);
+    let release_notes_url = RELEASE_NOTES_URL_TEMPLATE.replace("{version}", APP_VERSION);
 
     ReleaseMetadata {
         version: APP_VERSION.to_string(),
@@ -224,11 +223,7 @@ pub fn run_environment_diagnostics() -> Vec<EnvironmentDiagnostic> {
     // 2. XDG_DATA_HOME availability (desktop integration)
     let has_xdg_data = std::env::var("XDG_DATA_HOME").is_ok()
         || std::env::var("HOME")
-            .map(|h| {
-                std::path::Path::new(&h)
-                    .join(".local/share")
-                    .is_dir()
-            })
+            .map(|h| std::path::Path::new(&h).join(".local/share").is_dir())
             .unwrap_or(false);
 
     if !has_xdg_data {

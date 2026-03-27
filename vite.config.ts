@@ -7,6 +7,27 @@ const host = process.env.TAURI_DEV_HOST;
 export default defineConfig({
   plugins: [react()],
 
+  // Build optimizations for faster startup
+  build: {
+    rollupOptions: {
+      output: {
+        // Manual chunks function for vendor splitting
+        manualChunks(id: string) {
+          if (id.includes("node_modules")) {
+            if (id.includes("react") || id.includes("react-dom") || id.includes("react-router")) {
+              return "vendor-react";
+            }
+            if (id.includes("@tauri-apps")) {
+              return "vendor-tauri";
+            }
+          }
+        },
+      },
+    },
+    minify: "esbuild",
+    sourcemap: false,
+  },
+
   // Vite options tailored for Tauri development
   clearScreen: false,
   server: {

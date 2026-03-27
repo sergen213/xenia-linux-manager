@@ -23,8 +23,9 @@ use commands::xenia as xenia_commands;
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
-        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_dialog::init())
         .manage(Arc::new(jobs::JobRegistry::new()))
         .manage(Arc::new(library::scan_jobs::ScanCoordinator::new()))
         .invoke_handler(tauri::generate_handler![
@@ -60,14 +61,18 @@ pub fn run() {
             library_commands::create_manual_game,
             library_commands::update_library_game_identity,
             library_commands::resolve_duplicate_review,
+            library_commands::fetch_game_artwork,
+            library_commands::fetch_all_artwork,
             library_commands::get_launch_preflight,
             library_commands::get_launch_preflight_with_profile,
             library_commands::launch_library_game,
-            patches_commands::list_game_patches,
-            patches_commands::import_game_patch,
-            patches_commands::fetch_game_patch,
-            patches_commands::select_active_patch_file,
-            patches_commands::set_patch_entry_enabled,
+            patches_commands::check_patches_status,
+            patches_commands::deploy_game_patches,
+            patches_commands::get_game_xenia_patches,
+            patches_commands::toggle_xenia_patch_entry,
+            patches_commands::list_xenia_community_patch_candidates,
+            patches_commands::fetch_xenia_community_patch,
+            patches_commands::import_xenia_patch_file,
             profiles_commands::list_game_profiles,
             profiles_commands::create_game_profile,
             profiles_commands::rename_game_profile,

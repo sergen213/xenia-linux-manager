@@ -31,6 +31,23 @@
   padding: 20px;
 }
 
+.dashboard__card--interactive {
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.dashboard__card--interactive:hover {
+  border-color: var(--color-accent, var(--color-border));
+  transform: translateY(-1px);
+}
+
+.dashboard__card--interactive:focus-visible {
+  outline: 2px solid var(--color-accent, #6ea8fe);
+  outline-offset: 2px;
+}
+
 .dashboard__card-title {
   font-size: var(--font-size-xs);
   font-weight: 600;

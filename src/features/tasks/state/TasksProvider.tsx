@@ -48,7 +48,7 @@ export function TasksProvider({ children }: TasksProviderProps) {
           jobs: history.jobs,
           interruptedCount,
         });
-      } catch (err) {
+      } catch {
         if (cancelled) return;
         // In dev mode outside Tauri, history loading will fail gracefully.
         // Mark initialized with empty state so UI still renders.

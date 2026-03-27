@@ -49,6 +49,7 @@ export interface FailureContext {
 export interface InstallState {
   status: LifecycleStatus;
   manifest: InstallManifest | null;
+  installed_builds: InstallManifest[];
   failure: FailureContext | null;
 }
 
@@ -57,7 +58,7 @@ export interface InstallState {
 // ---------------------------------------------------------------------------
 
 /** The primary action the dashboard should present based on lifecycle state. */
-export type PrimaryAction = "install" | "update" | "retry";
+export type PrimaryAction = "install" | "update" | "retry" | "check_update";
 
 /** Human-readable label for the primary action. */
 export function primaryActionLabel(action: PrimaryAction): string {
@@ -68,6 +69,8 @@ export function primaryActionLabel(action: PrimaryAction): string {
       return "Update";
     case "retry":
       return "Retry";
+    case "check_update":
+      return "Check for updates";
   }
 }
 
@@ -80,7 +83,7 @@ export function derivePrimaryAction(
     case "not_installed":
       return "install";
     case "installed":
-      return updateAvailable ? "update" : "install";
+      return updateAvailable ? "update" : "check_update";
     case "install_failed":
     case "update_failed":
       return "retry";

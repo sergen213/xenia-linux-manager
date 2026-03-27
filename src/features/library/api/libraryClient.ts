@@ -8,7 +8,10 @@ import type {
   BrowseLibraryPayload,
   DuplicateResolutionInput,
   DuplicateResolutionRecord,
+  ContentImportResult,
+  ContentRemoveResult,
   GameIdentityRecord,
+  GameInstalledContent,
   LaunchPreflight,
   LaunchResult,
   LibraryGameDetails,
@@ -20,8 +23,6 @@ import type {
   UpdateGameIdentityInput,
 } from "../model/libraryTypes";
 import type {
-  FetchRemotePatchResult,
-  GamePatchInventory,
   ImportPatchInput,
 } from "../model/patchTypes";
 import type {
@@ -149,6 +150,48 @@ export async function getLibraryGameDetails(
   });
 }
 
+export async function inspectGameContent(
+  appDataPath: string,
+  libraryMetadataPath: string,
+  gameId: string,
+): Promise<GameInstalledContent> {
+  return invoke<GameInstalledContent>("inspect_game_content", {
+    appDataPath,
+    libraryMetadataPath,
+    gameId,
+  });
+}
+
+export async function importGameContent(
+  appDataPath: string,
+  libraryMetadataPath: string,
+  gameId: string,
+  sourcePath: string,
+  contentType: string,
+): Promise<ContentImportResult> {
+  return invoke<ContentImportResult>("import_game_content", {
+    appDataPath,
+    libraryMetadataPath,
+    gameId,
+    sourcePath,
+    contentType,
+  });
+}
+
+export async function removeGameContent(
+  appDataPath: string,
+  libraryMetadataPath: string,
+  gameId: string,
+  entryPath: string,
+): Promise<ContentRemoveResult> {
+  return invoke<ContentRemoveResult>("remove_game_content", {
+    appDataPath,
+    libraryMetadataPath,
+    gameId,
+    entryPath,
+  });
+}
+
 export async function createManualGame(
   libraryMetadataPath: string,
   input: ManualGameInput,
@@ -164,6 +207,16 @@ export async function updateLibraryGameIdentity(
   input: UpdateGameIdentityInput,
 ): Promise<GameIdentityRecord> {
   return invoke<GameIdentityRecord>("update_library_game_identity", {
+    libraryMetadataPath,
+    input,
+  });
+}
+
+export async function updatePreferredXeniaBuild(
+  libraryMetadataPath: string,
+  input: { game_id: string; preferred_xenia_tag: string | null },
+): Promise<GameIdentityRecord> {
+  return invoke<GameIdentityRecord>("update_preferred_xenia_build", {
     libraryMetadataPath,
     input,
   });
@@ -205,66 +258,176 @@ export async function launchLibraryGame(
   });
 }
 
-export async function listGamePatches(
+export interface DesktopShortcutExportResult {
+  desktop_file_path: string;
+  desktop_entry_name: string;
+  target: string;
+  overwritten: boolean;
+}
+
+export interface DesktopShortcutLocations {
+  applications_dir: string;
+  desktop_dir: string;
+}
+
+export async function exportGameDesktopShortcut(
+  appDataPath: string,
   libraryMetadataPath: string,
   gameId: string,
-): Promise<GamePatchInventory> {
-  return invoke<GamePatchInventory>("list_game_patches", {
+  target: "applications" | "desktop" = "applications",
+): Promise<DesktopShortcutExportResult> {
+  return invoke<DesktopShortcutExportResult>("export_game_desktop_shortcut", {
+    appDataPath,
+    libraryMetadataPath,
+    gameId,
+    target,
+  });
+}
+
+export async function getShortcutLocations(): Promise<DesktopShortcutLocations> {
+  return invoke<DesktopShortcutLocations>("get_shortcut_locations");
+}
+
+// ---------------------------------------------------------------------------
+// Artwork commands
+// ---------------------------------------------------------------------------
+
+export interface ArtworkResult {
+  game_id: string;
+  artwork_path: string | null;
+  already_cached: boolean;
+  error: string | null;
+}
+
+export async function fetchGameArtwork(
+  libraryMetadataPath: string,
+  gameId: string,
+): Promise<ArtworkResult> {
+  return invoke<ArtworkResult>("fetch_game_artwork", {
     libraryMetadataPath,
     gameId,
   });
 }
 
-export async function importGamePatch(
+export async function fetchAllArtwork(
   libraryMetadataPath: string,
-  gameId: string,
+): Promise<ArtworkResult[]> {
+  return invoke<ArtworkResult[]>("fetch_all_artwork", {
+    libraryMetadataPath,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Game patches deploy commands
+// ---------------------------------------------------------------------------
+
+export interface PatchesVersionInfo {
+  local_version: string | null;
+  remote_version: string | null;
+  update_available: boolean;
+  patches_dir: string;
+  patch_count: number;
+}
+
+export interface DeployPatchesResult {
+  patches_dir: string;
+  patch_count: number;
+  version: string | null;
+  error: string | null;
+}
+
+export async function checkPatchesStatus(appDataPath: string): Promise<PatchesVersionInfo> {
+  return invoke<PatchesVersionInfo>("check_patches_status", { appDataPath });
+}
+
+export async function deployGamePatches(appDataPath: string): Promise<DeployPatchesResult> {
+  return invoke<DeployPatchesResult>("deploy_game_patches", { appDataPath });
+}
+
+// ---------------------------------------------------------------------------
+// Xenia patch file commands (direct file I/O)
+// ---------------------------------------------------------------------------
+
+export interface XeniaPatchEntry {
+  name: string;
+  description: string | null;
+  author: string | null;
+  is_enabled: boolean;
+}
+
+export interface XeniaPatchFile {
+  file_name: string;
+  file_path: string;
+  title_name: string | null;
+  title_id: string | null;
+  entries: XeniaPatchEntry[];
+}
+
+export interface GameXeniaPatches {
+  title_id: string;
+  patches_dir: string;
+  files: XeniaPatchFile[];
+}
+
+export interface CommunityXeniaPatchCandidate {
+  remote_key: string;
+  file_name: string;
+  download_url: string;
+  installed_file_path: string | null;
+  title_name: string | null;
+  title_id: string | null;
+  version: string | null;
+  entry_count: number;
+  update_available: boolean;
+}
+
+export interface FetchCommunityXeniaPatchResult {
+  file_name: string;
+  file_path: string;
+  overwritten: boolean;
+}
+
+export async function getGameXeniaPatches(
+  appDataPath: string,
+  titleId: string,
+): Promise<GameXeniaPatches> {
+  return invoke<GameXeniaPatches>("get_game_xenia_patches", { appDataPath, titleId });
+}
+
+export async function listXeniaCommunityPatchCandidates(
+  appDataPath: string,
+  titleId: string,
+): Promise<CommunityXeniaPatchCandidate[]> {
+  return invoke<CommunityXeniaPatchCandidate[]>("list_xenia_community_patch_candidates", {
+    appDataPath,
+    titleId,
+  });
+}
+
+export async function fetchXeniaCommunityPatch(
+  appDataPath: string,
+  remoteKey: string,
+): Promise<FetchCommunityXeniaPatchResult> {
+  return invoke<FetchCommunityXeniaPatchResult>("fetch_xenia_community_patch", {
+    appDataPath,
+    remoteKey,
+  });
+}
+
+export async function importXeniaPatchFile(
+  appDataPath: string,
   input: ImportPatchInput,
-): Promise<GamePatchInventory> {
-  return invoke<GamePatchInventory>("import_game_patch", {
-    libraryMetadataPath,
-    gameId,
-    input,
-  });
+): Promise<void> {
+  return invoke<void>("import_xenia_patch_file", { appDataPath, input });
 }
 
-export async function fetchGamePatch(
-  libraryMetadataPath: string,
-  gameId: string,
-  confirmReplace = false,
-): Promise<FetchRemotePatchResult> {
-  return invoke<FetchRemotePatchResult>("fetch_game_patch", {
-    libraryMetadataPath,
-    gameId,
-    confirmReplace,
-  });
-}
-
-export async function selectActivePatchFile(
-  libraryMetadataPath: string,
-  gameId: string,
-  patchFileId: string | null,
-): Promise<GamePatchInventory> {
-  return invoke<GamePatchInventory>("select_active_patch_file", {
-    libraryMetadataPath,
-    gameId,
-    patchFileId,
-  });
-}
-
-export async function setPatchEntryEnabled(
-  libraryMetadataPath: string,
-  gameId: string,
-  patchFileId: string,
-  entryId: string,
+export async function toggleXeniaPatchEntry(
+  appDataPath: string,
+  filePath: string,
+  entryName: string,
   enabled: boolean,
-): Promise<GamePatchInventory> {
-  return invoke<GamePatchInventory>("set_patch_entry_enabled", {
-    libraryMetadataPath,
-    gameId,
-    patchFileId,
-    entryId,
-    enabled,
-  });
+): Promise<void> {
+  return invoke<void>("toggle_xenia_patch_entry", { appDataPath, filePath, entryName, enabled });
 }
 
 // ---------------------------------------------------------------------------
@@ -494,4 +657,54 @@ export async function listSaveBackups(
   return invoke<BackupEntry[]>("list_save_backups", {
     appDataPath,
   });
+}
+
+// ---------------------------------------------------------------------------
+// Steam export commands
+// ---------------------------------------------------------------------------
+
+export interface SteamInstallInfo {
+  steam_root: string;
+  user_ids: string[];
+}
+
+export interface SteamExportResult {
+  game_id: string;
+  game_title: string;
+  steam_app_id: number;
+  shortcuts_vdf_path: string;
+  grid_dir: string;
+  artwork_copied: string[];
+  already_existed: boolean;
+  error: string | null;
+}
+
+export async function detectSteamInstall(): Promise<SteamInstallInfo> {
+  return invoke<SteamInstallInfo>("detect_steam_install");
+}
+
+export async function exportGameToSteam(
+  libraryMetadataPath: string,
+  appDataPath: string,
+  gameId: string,
+  steamUserId: string,
+): Promise<SteamExportResult> {
+  return invoke<SteamExportResult>("export_game_to_steam", {
+    libraryMetadataPath,
+    appDataPath,
+    gameId,
+    steamUserId,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Shell commands
+// ---------------------------------------------------------------------------
+
+/** Open a file or directory in the system's default handler (xdg-open). */
+export async function openPath(
+  path: string,
+  allowedRoots: string[] = [path],
+): Promise<void> {
+  return invoke<void>("open_path", { path, allowedRoots });
 }

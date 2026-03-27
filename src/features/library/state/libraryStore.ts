@@ -10,29 +10,12 @@ import type {
   SourceCatalog,
 } from "../model/libraryTypes";
 import type {
-  GamePatchInventory,
-  PatchChooserReason,
-  PatchOperationKind,
-} from "../model/patchTypes";
-import type {
-  EffectiveConfig,
   MaterializedLaunchConfig,
-  ProfileInventory,
-  RecommendationAvailability,
 } from "../model/profileTypes";
-import type {
-  BackupEntry,
-  ConflictPlan,
-  ExportPreflight,
-  ExportResult,
-  ImportApplyResult,
-  ImportInspection,
-  ImportWizardStep,
-} from "../model/saveTypes";
 
-export type LibraryViewMode = "library" | "review";
+export type LibraryViewMode = "library" | "sources";
 export type LibrarySortMode = "recent" | "title" | "source";
-export type LibraryFilterMode = "all" | "manual" | "needs_review";
+export type LibraryFilterMode = "all" | "manual";
 
 export interface LibraryState {
   sources: LibrarySource[];
@@ -53,52 +36,10 @@ export interface LibraryState {
   filterMode: LibraryFilterMode;
   launchPreflight: LaunchPreflight | null;
   launchPending: boolean;
-  patchInventory: GamePatchInventory | null;
-  patchInventoryLoading: boolean;
   managePatchesOpen: boolean;
-  patchOperation: PatchOperationKind;
-  patchOperationPending: boolean;
-  activePatchChooserOpen: boolean;
-  chooserReason: PatchChooserReason;
-  patchUnsupportedMessage: string | null;
-  profileInventory: ProfileInventory | null;
-  profileInventoryLoading: boolean;
-  profileEffectiveConfig: EffectiveConfig | null;
-  profileEffectiveLoading: boolean;
-  recommendationAvailability: RecommendationAvailability | null;
-  recommendationLoading: boolean;
-  applyRecommendationPending: boolean;
-  profileDraft: Record<string, unknown>;
-  profileDirty: boolean;
-  profileSavePending: boolean;
-  profileEditorOpen: boolean;
-  unsavedDialogVisible: boolean;
-  unsavedDialogTarget: string | null;
+  patchImportPending: boolean;
   materializedLaunchConfig: MaterializedLaunchConfig | null;
   materializedLoading: boolean;
-  // Save portability state
-  exportPreflight: ExportPreflight | null;
-  exportPreflightLoading: boolean;
-  exportPending: boolean;
-  lastExportResult: ExportResult | null;
-  importInspection: ImportInspection | null;
-  importInspectionLoading: boolean;
-  importConflictPlan: ConflictPlan | null;
-  importApplyPending: boolean;
-  lastImportResult: ImportApplyResult | null;
-  saveBackups: BackupEntry[];
-  /** Which labels are selected for export (null = all). */
-  exportSelectedLabels: string[] | null;
-  /** The archive file path chosen for import. */
-  importArchivePath: string | null;
-  /** Current step in the import wizard flow. */
-  importWizardStep: ImportWizardStep;
-  /** Whether the user accepted backup failure risk. */
-  backupFailureAccepted: boolean;
-  /** Error from a failed backup attempt during import. */
-  backupFailureError: string | null;
-  /** Quick-actions panel open state. */
-  saveQuickActionsOpen: boolean;
 }
 
 export const INITIAL_LIBRARY_STATE: LibraryState = {
@@ -120,46 +61,10 @@ export const INITIAL_LIBRARY_STATE: LibraryState = {
   filterMode: "all",
   launchPreflight: null,
   launchPending: false,
-  patchInventory: null,
-  patchInventoryLoading: false,
   managePatchesOpen: false,
-  patchOperation: null,
-  patchOperationPending: false,
-  activePatchChooserOpen: false,
-  chooserReason: null,
-  patchUnsupportedMessage: null,
-  profileInventory: null,
-  profileInventoryLoading: false,
-  profileEffectiveConfig: null,
-  profileEffectiveLoading: false,
-  recommendationAvailability: null,
-  recommendationLoading: false,
-  applyRecommendationPending: false,
-  profileDraft: {},
-  profileDirty: false,
-  profileSavePending: false,
-  profileEditorOpen: false,
-  unsavedDialogVisible: false,
-  unsavedDialogTarget: null,
+  patchImportPending: false,
   materializedLaunchConfig: null,
   materializedLoading: false,
-  // Save portability state
-  exportPreflight: null,
-  exportPreflightLoading: false,
-  exportPending: false,
-  lastExportResult: null,
-  importInspection: null,
-  importInspectionLoading: false,
-  importConflictPlan: null,
-  importApplyPending: false,
-  lastImportResult: null,
-  saveBackups: [],
-  exportSelectedLabels: null,
-  importArchivePath: null,
-  importWizardStep: "idle",
-  backupFailureAccepted: false,
-  backupFailureError: null,
-  saveQuickActionsOpen: false,
 };
 
 export type LibraryAction =
@@ -189,52 +94,11 @@ export type LibraryAction =
   | { type: "SET_FILTER"; filterMode: LibraryFilterMode }
   | { type: "SET_LAUNCH_PREFLIGHT"; preflight: LaunchPreflight | null }
   | { type: "SET_LAUNCH_PENDING"; pending: boolean }
-  | { type: "PATCHES_LOADING" }
-  | { type: "PATCHES_LOADED"; inventory: GamePatchInventory }
-  | { type: "PATCHES_ERROR"; error: string }
   | { type: "SET_MANAGE_PATCHES_OPEN"; open: boolean }
-  | { type: "SET_PATCH_OPERATION"; kind: PatchOperationKind; pending: boolean }
-  | { type: "SET_PATCH_CHOOSER"; open: boolean; reason: PatchChooserReason }
-  | { type: "SET_PATCH_UNSUPPORTED_MESSAGE"; message: string | null }
-  | { type: "PROFILES_LOADING" }
-  | { type: "PROFILES_LOADED"; inventory: ProfileInventory }
-  | { type: "PROFILES_ERROR"; error: string }
-  | { type: "PROFILE_EFFECTIVE_LOADING" }
-  | { type: "PROFILE_EFFECTIVE_LOADED"; config: EffectiveConfig }
-  | { type: "PROFILE_EFFECTIVE_ERROR"; error: string }
-  | { type: "RECOMMENDATION_LOADING" }
-  | { type: "RECOMMENDATION_LOADED"; availability: RecommendationAvailability }
-  | { type: "RECOMMENDATION_ERROR"; error: string }
-  | { type: "APPLY_RECOMMENDATION_PENDING"; pending: boolean }
-  | { type: "SET_PROFILE_DRAFT"; draft: Record<string, unknown> }
-  | { type: "SET_PROFILE_DIRTY"; dirty: boolean }
-  | { type: "SET_PROFILE_SAVE_PENDING"; pending: boolean }
-  | { type: "SET_PROFILE_EDITOR_OPEN"; open: boolean }
-  | { type: "SHOW_UNSAVED_DIALOG"; target: string | null }
-  | { type: "HIDE_UNSAVED_DIALOG" }
-  | { type: "RESET_PROFILE_DRAFT" }
+  | { type: "SET_PATCH_IMPORT_PENDING"; pending: boolean }
   | { type: "MATERIALIZED_LOADING" }
   | { type: "MATERIALIZED_LOADED"; config: MaterializedLaunchConfig }
-  | { type: "MATERIALIZED_ERROR"; error: string }
-  // Save portability actions
-  | { type: "EXPORT_PREFLIGHT_LOADING" }
-  | { type: "EXPORT_PREFLIGHT_LOADED"; preflight: ExportPreflight }
-  | { type: "EXPORT_PREFLIGHT_ERROR"; error: string }
-  | { type: "EXPORT_PENDING"; pending: boolean }
-  | { type: "EXPORT_COMPLETE"; result: ExportResult }
-  | { type: "IMPORT_INSPECTION_LOADING" }
-  | { type: "IMPORT_INSPECTION_LOADED"; inspection: ImportInspection }
-  | { type: "IMPORT_INSPECTION_ERROR"; error: string }
-  | { type: "SET_IMPORT_CONFLICT_PLAN"; plan: ConflictPlan | null }
-  | { type: "IMPORT_APPLY_PENDING"; pending: boolean }
-  | { type: "IMPORT_APPLY_COMPLETE"; result: ImportApplyResult }
-  | { type: "SAVE_BACKUPS_LOADED"; backups: BackupEntry[] }
-  | { type: "SET_EXPORT_SELECTED_LABELS"; labels: string[] | null }
-  | { type: "SET_IMPORT_ARCHIVE_PATH"; path: string | null }
-  | { type: "SET_IMPORT_WIZARD_STEP"; step: ImportWizardStep }
-  | { type: "SET_BACKUP_FAILURE"; error: string | null; accepted: boolean }
-  | { type: "SET_SAVE_QUICK_ACTIONS_OPEN"; open: boolean }
-  | { type: "CLEAR_SAVE_STATE" };
+  | { type: "MATERIALIZED_ERROR"; error: string };
 
 export function libraryReducer(
   state: LibraryState,
@@ -301,29 +165,11 @@ export function libraryReducer(
         selectedGameId: action.gameId,
         selectedGame: action.gameId === state.selectedGameId ? state.selectedGame : null,
         launchPreflight: action.gameId === state.selectedGameId ? state.launchPreflight : null,
-        patchInventory: action.gameId === state.selectedGameId ? state.patchInventory : null,
-        patchUnsupportedMessage:
-          action.gameId === state.selectedGameId ? state.patchUnsupportedMessage : null,
         managePatchesOpen: action.gameId === state.selectedGameId ? state.managePatchesOpen : false,
-        activePatchChooserOpen:
-          action.gameId === state.selectedGameId ? state.activePatchChooserOpen : false,
-        profileInventory:
-          action.gameId === state.selectedGameId ? state.profileInventory : null,
-        profileEffectiveConfig:
-          action.gameId === state.selectedGameId ? state.profileEffectiveConfig : null,
-        recommendationAvailability:
-          action.gameId === state.selectedGameId ? state.recommendationAvailability : null,
-        profileDraft: action.gameId === state.selectedGameId ? state.profileDraft : {},
-        profileDirty: action.gameId === state.selectedGameId ? state.profileDirty : false,
-        profileEditorOpen: action.gameId === state.selectedGameId ? state.profileEditorOpen : false,
+        patchImportPending:
+          action.gameId === state.selectedGameId ? state.patchImportPending : false,
         materializedLaunchConfig:
           action.gameId === state.selectedGameId ? state.materializedLaunchConfig : null,
-        exportPreflight:
-          action.gameId === state.selectedGameId ? state.exportPreflight : null,
-        lastExportResult:
-          action.gameId === state.selectedGameId ? state.lastExportResult : null,
-        saveQuickActionsOpen:
-          action.gameId === state.selectedGameId ? state.saveQuickActionsOpen : false,
       };
     case "GAME_DETAILS_LOADED":
       return { ...state, selectedGame: action.details };
@@ -339,165 +185,16 @@ export function libraryReducer(
       return { ...state, launchPreflight: action.preflight };
     case "SET_LAUNCH_PENDING":
       return { ...state, launchPending: action.pending };
-    case "PATCHES_LOADING":
-      return {
-        ...state,
-        patchInventoryLoading: true,
-        patchUnsupportedMessage: null,
-      };
-    case "PATCHES_LOADED":
-      return {
-        ...state,
-        patchInventoryLoading: false,
-        patchInventory: action.inventory,
-        selectedGame: state.selectedGame
-          ? { ...state.selectedGame, patches: action.inventory }
-          : state.selectedGame,
-      };
-    case "PATCHES_ERROR":
-      return {
-        ...state,
-        patchInventoryLoading: false,
-        error: action.error,
-      };
     case "SET_MANAGE_PATCHES_OPEN":
       return { ...state, managePatchesOpen: action.open };
-    case "SET_PATCH_OPERATION":
-      return {
-        ...state,
-        patchOperation: action.kind,
-        patchOperationPending: action.pending,
-      };
-    case "SET_PATCH_CHOOSER":
-      return {
-        ...state,
-        activePatchChooserOpen: action.open,
-        chooserReason: action.reason,
-      };
-    case "SET_PATCH_UNSUPPORTED_MESSAGE":
-      return { ...state, patchUnsupportedMessage: action.message };
-    case "PROFILES_LOADING":
-      return { ...state, profileInventoryLoading: true };
-    case "PROFILES_LOADED":
-      return {
-        ...state,
-        profileInventoryLoading: false,
-        profileInventory: action.inventory,
-      };
-    case "PROFILES_ERROR":
-      return {
-        ...state,
-        profileInventoryLoading: false,
-        error: action.error,
-      };
-    case "PROFILE_EFFECTIVE_LOADING":
-      return { ...state, profileEffectiveLoading: true };
-    case "PROFILE_EFFECTIVE_LOADED":
-      return {
-        ...state,
-        profileEffectiveLoading: false,
-        profileEffectiveConfig: action.config,
-      };
-    case "PROFILE_EFFECTIVE_ERROR":
-      return {
-        ...state,
-        profileEffectiveLoading: false,
-        error: action.error,
-      };
-    case "RECOMMENDATION_LOADING":
-      return { ...state, recommendationLoading: true };
-    case "RECOMMENDATION_LOADED":
-      return {
-        ...state,
-        recommendationLoading: false,
-        recommendationAvailability: action.availability,
-      };
-    case "RECOMMENDATION_ERROR":
-      return {
-        ...state,
-        recommendationLoading: false,
-        error: action.error,
-      };
-    case "APPLY_RECOMMENDATION_PENDING":
-      return { ...state, applyRecommendationPending: action.pending };
-    case "SET_PROFILE_DRAFT":
-      return { ...state, profileDraft: action.draft, profileDirty: true };
-    case "SET_PROFILE_DIRTY":
-      return { ...state, profileDirty: action.dirty };
-    case "SET_PROFILE_SAVE_PENDING":
-      return { ...state, profileSavePending: action.pending };
-    case "SET_PROFILE_EDITOR_OPEN":
-      return { ...state, profileEditorOpen: action.open };
-    case "SHOW_UNSAVED_DIALOG":
-      return { ...state, unsavedDialogVisible: true, unsavedDialogTarget: action.target };
-    case "HIDE_UNSAVED_DIALOG":
-      return { ...state, unsavedDialogVisible: false, unsavedDialogTarget: null };
-    case "RESET_PROFILE_DRAFT":
-      return { ...state, profileDraft: {}, profileDirty: false, profileSavePending: false };
+    case "SET_PATCH_IMPORT_PENDING":
+      return { ...state, patchImportPending: action.pending };
     case "MATERIALIZED_LOADING":
       return { ...state, materializedLoading: true };
     case "MATERIALIZED_LOADED":
       return { ...state, materializedLoading: false, materializedLaunchConfig: action.config };
     case "MATERIALIZED_ERROR":
       return { ...state, materializedLoading: false, error: action.error };
-    // Save portability reducers
-    case "EXPORT_PREFLIGHT_LOADING":
-      return { ...state, exportPreflightLoading: true };
-    case "EXPORT_PREFLIGHT_LOADED":
-      return { ...state, exportPreflightLoading: false, exportPreflight: action.preflight };
-    case "EXPORT_PREFLIGHT_ERROR":
-      return { ...state, exportPreflightLoading: false, error: action.error };
-    case "EXPORT_PENDING":
-      return { ...state, exportPending: action.pending };
-    case "EXPORT_COMPLETE":
-      return { ...state, exportPending: false, lastExportResult: action.result };
-    case "IMPORT_INSPECTION_LOADING":
-      return { ...state, importInspectionLoading: true };
-    case "IMPORT_INSPECTION_LOADED":
-      return { ...state, importInspectionLoading: false, importInspection: action.inspection };
-    case "IMPORT_INSPECTION_ERROR":
-      return { ...state, importInspectionLoading: false, error: action.error };
-    case "SET_IMPORT_CONFLICT_PLAN":
-      return { ...state, importConflictPlan: action.plan };
-    case "IMPORT_APPLY_PENDING":
-      return { ...state, importApplyPending: action.pending };
-    case "IMPORT_APPLY_COMPLETE":
-      return { ...state, importApplyPending: false, lastImportResult: action.result };
-    case "SAVE_BACKUPS_LOADED":
-      return { ...state, saveBackups: action.backups };
-    case "SET_EXPORT_SELECTED_LABELS":
-      return { ...state, exportSelectedLabels: action.labels };
-    case "SET_IMPORT_ARCHIVE_PATH":
-      return { ...state, importArchivePath: action.path };
-    case "SET_IMPORT_WIZARD_STEP":
-      return { ...state, importWizardStep: action.step };
-    case "SET_BACKUP_FAILURE":
-      return {
-        ...state,
-        backupFailureError: action.error,
-        backupFailureAccepted: action.accepted,
-      };
-    case "SET_SAVE_QUICK_ACTIONS_OPEN":
-      return { ...state, saveQuickActionsOpen: action.open };
-    case "CLEAR_SAVE_STATE":
-      return {
-        ...state,
-        exportPreflight: null,
-        exportPreflightLoading: false,
-        exportPending: false,
-        lastExportResult: null,
-        importInspection: null,
-        importInspectionLoading: false,
-        importConflictPlan: null,
-        importApplyPending: false,
-        lastImportResult: null,
-        exportSelectedLabels: null,
-        importArchivePath: null,
-        importWizardStep: "idle",
-        backupFailureAccepted: false,
-        backupFailureError: null,
-        saveQuickActionsOpen: false,
-      };
     default:
       return state;
   }
@@ -509,9 +206,6 @@ export function selectVisibleLibraryCards(state: LibraryState): LibraryBrowseCar
 
   const filtered = cards.filter((card) => {
     if (state.filterMode === "manual" && !card.manual) {
-      return false;
-    }
-    if (state.filterMode === "needs_review" && !card.review_flag) {
       return false;
     }
     if (!search) {

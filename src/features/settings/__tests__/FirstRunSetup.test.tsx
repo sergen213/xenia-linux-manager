@@ -1,9 +1,10 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import { FirstRunSetup } from "../components/FirstRunSetup";
 import { SettingsContext, type SettingsState } from "../state/settingsStore";
 import type { AppSettings, SettingsValidation } from "../model/settingsSchema";
+import { invoke } from "@tauri-apps/api/core";
 
 // Mock Tauri invoke so settingsClient calls don't fail in test env
 vi.mock("@tauri-apps/api/core", () => ({
@@ -16,6 +17,8 @@ const mockSettings: AppSettings = {
   library_metadata_path: "/home/test/.local/share/xenia-linux-manager/library",
   setup_complete: false,
   last_active_route: null,
+  gamer_tag: null,
+  click_behavior: "single" as const,
 };
 
 const mockValidation: SettingsValidation = {
@@ -151,5 +154,33 @@ describe("FirstRunSetup", () => {
       error: "Something went wrong",
     });
     expect(screen.getByText("Something went wrong")).toBeInTheDocument();
+  });
+
+  it("debounces path validation while typing", async () => {
+    vi.useFakeTimers();
+    vi.mocked(invoke).mockResolvedValue(mockValidation);
+
+    renderWithContext({
+      settings: mockSettings,
+      validation: mockValidation,
+    });
+
+    const xeniaInput = screen.getByLabelText("Xenia Emulator");
+    fireEvent.change(xeniaInput, { target: { value: "/tmp/x" } });
+    fireEvent.change(xeniaInput, { target: { value: "/tmp/xenia" } });
+
+    expect(vi.mocked(invoke)).toHaveBeenCalledTimes(0);
+
+    await vi.advanceTimersByTimeAsync(300);
+
+    expect(vi.mocked(invoke)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(invoke)).toHaveBeenCalledWith("validate_paths", {
+      settings: {
+        ...mockSettings,
+        xenia_path: "/tmp/xenia",
+      },
+    });
+
+    vi.useRealTimers();
   });
 });

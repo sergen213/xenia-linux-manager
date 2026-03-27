@@ -11,6 +11,7 @@ use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 const PROFILES_DIRNAME: &str = "profiles";
+const SHARED_DIRNAME: &str = "_shared_";
 const MANIFEST_FILENAME: &str = "manifest.json";
 const STORE_VERSION: u32 = 1;
 
@@ -89,15 +90,19 @@ pub struct ProfileInventory {
 // Public API
 // ---------------------------------------------------------------------------
 
-/// List all profiles for a game with summary data.
+/// List all shared profiles with per-game active selection.
 pub fn load_inventory(
     library_metadata_path: &str,
     game_id: &str,
 ) -> Result<ProfileInventory, String> {
-    let manifest = load_manifest(library_metadata_path, game_id)?;
-    let mut summaries = Vec::with_capacity(manifest.profiles.len());
+    // Migrate any legacy per-game profiles to shared catalog.
+    migrate_legacy_profiles(library_metadata_path, game_id);
 
-    for record in &manifest.profiles {
+    let catalog = load_shared_catalog(library_metadata_path);
+    let manifest = load_manifest(library_metadata_path, game_id)?;
+    let mut summaries = Vec::with_capacity(catalog.len());
+
+    for record in &catalog {
         let doc = load_profile_document(library_metadata_path, game_id, &record.id)?;
         summaries.push(ProfileSummary {
             id: record.id.clone(),
@@ -118,8 +123,73 @@ pub fn load_inventory(
     })
 }
 
-/// Create a new blank profile for a game.
-/// Returns error if the name is already taken within this game.
+/// Load the shared profile catalog (all profile records).
+fn load_shared_catalog(library_metadata_path: &str) -> Vec<ProfileRecord> {
+    let path = shared_catalog_path(library_metadata_path);
+    match fs::read_to_string(&path) {
+        Ok(contents) => serde_json::from_str(&contents).unwrap_or_default(),
+        Err(_) => Vec::new(),
+    }
+}
+
+/// Save the shared profile catalog.
+fn save_shared_catalog(
+    library_metadata_path: &str,
+    catalog: &[ProfileRecord],
+) -> Result<(), String> {
+    let path = shared_catalog_path(library_metadata_path);
+    write_json_atomic(&path, &catalog.to_vec())
+}
+
+/// Migrate legacy per-game profiles to the shared catalog (one-time).
+fn migrate_legacy_profiles(library_metadata_path: &str, game_id: &str) {
+    let manifest = match load_manifest(library_metadata_path, game_id) {
+        Ok(m) => m,
+        Err(_) => return,
+    };
+    if manifest.profiles.is_empty() {
+        return;
+    }
+
+    let mut catalog = load_shared_catalog(library_metadata_path);
+    let mut migrated = false;
+
+    for record in &manifest.profiles {
+        // Skip if already in shared catalog.
+        if catalog.iter().any(|r| r.id == record.id) {
+            continue;
+        }
+
+        // Move the document file to shared location.
+        let legacy_path = legacy_profile_document_path(library_metadata_path, game_id, &record.id);
+        if legacy_path.exists() {
+            let shared_path = profile_document_path(library_metadata_path, game_id, &record.id);
+            if let Some(parent) = shared_path.parent() {
+                let _ = fs::create_dir_all(parent);
+            }
+            let _ = fs::copy(&legacy_path, &shared_path);
+            let _ = fs::remove_file(&legacy_path);
+        }
+
+        catalog.push(record.clone());
+        migrated = true;
+    }
+
+    if migrated {
+        let _ = save_shared_catalog(library_metadata_path, &catalog);
+        // Clear profiles from per-game manifest (keep only active_profile_id).
+        let cleaned = ProfileManifest {
+            version: manifest.version,
+            game_id: game_id.to_string(),
+            active_profile_id: manifest.active_profile_id,
+            profiles: Vec::new(),
+        };
+        let _ = save_manifest(library_metadata_path, game_id, &cleaned);
+    }
+}
+
+/// Create a new blank shared profile.
+/// Returns error if the name is already taken.
 pub fn create_profile(
     library_metadata_path: &str,
     game_id: &str,
@@ -130,12 +200,9 @@ pub fn create_profile(
         return Err("Profile name cannot be empty".to_string());
     }
 
-    let mut manifest = load_manifest(library_metadata_path, game_id)?;
-    if manifest.profiles.iter().any(|p| p.name == trimmed) {
-        return Err(format!(
-            "A profile named \"{}\" already exists for this game",
-            trimmed
-        ));
+    let mut catalog = load_shared_catalog(library_metadata_path);
+    if catalog.iter().any(|p| p.name == trimmed) {
+        return Err(format!("A profile named \"{}\" already exists", trimmed));
     }
 
     ensure_profile_dirs(library_metadata_path, game_id)?;
@@ -160,14 +227,16 @@ pub fn create_profile(
     };
 
     save_profile_document(library_metadata_path, game_id, &doc)?;
-    manifest.profiles.push(record);
+    catalog.push(record);
+    save_shared_catalog(library_metadata_path, &catalog)?;
 
-    // Auto-select the first profile created for a game.
+    // Auto-select for this game if no profile is active.
+    let mut manifest = load_manifest(library_metadata_path, game_id)?;
     if manifest.active_profile_id.is_none() {
         manifest.active_profile_id = Some(profile_id);
+        save_manifest(library_metadata_path, game_id, &manifest)?;
     }
 
-    save_manifest(library_metadata_path, game_id, &manifest)?;
     load_inventory(library_metadata_path, game_id)
 }
 
@@ -183,21 +252,15 @@ pub fn rename_profile(
         return Err("Profile name cannot be empty".to_string());
     }
 
-    let mut manifest = load_manifest(library_metadata_path, game_id)?;
-    // Check uniqueness (excluding the profile being renamed).
-    if manifest
-        .profiles
+    let mut catalog = load_shared_catalog(library_metadata_path);
+    if catalog
         .iter()
         .any(|p| p.name == trimmed && p.id != profile_id)
     {
-        return Err(format!(
-            "A profile named \"{}\" already exists for this game",
-            trimmed
-        ));
+        return Err(format!("A profile named \"{}\" already exists", trimmed));
     }
 
-    let record = manifest
-        .profiles
+    let record = catalog
         .iter_mut()
         .find(|p| p.id == profile_id)
         .ok_or_else(|| format!("Profile not found: {}", profile_id))?;
@@ -205,7 +268,7 @@ pub fn rename_profile(
     record.name = trimmed.to_string();
     record.updated_at = now_millis();
 
-    save_manifest(library_metadata_path, game_id, &manifest)?;
+    save_shared_catalog(library_metadata_path, &catalog)?;
     load_inventory(library_metadata_path, game_id)
 }
 
@@ -216,16 +279,19 @@ pub fn delete_profile(
     game_id: &str,
     profile_id: &str,
 ) -> Result<ProfileInventory, String> {
-    let mut manifest = load_manifest(library_metadata_path, game_id)?;
-    let original_len = manifest.profiles.len();
-    manifest.profiles.retain(|p| p.id != profile_id);
+    let mut catalog = load_shared_catalog(library_metadata_path);
+    let original_len = catalog.len();
+    catalog.retain(|p| p.id != profile_id);
 
-    if manifest.profiles.len() == original_len {
+    if catalog.len() == original_len {
         return Err(format!("Profile not found: {}", profile_id));
     }
 
+    // Clear active selection if the deleted profile was active for this game.
+    let mut manifest = load_manifest(library_metadata_path, game_id)?;
     if manifest.active_profile_id.as_deref() == Some(profile_id) {
         manifest.active_profile_id = None;
+        save_manifest(library_metadata_path, game_id, &manifest)?;
     }
 
     // Remove the profile document file.
@@ -234,7 +300,7 @@ pub fn delete_profile(
         let _ = fs::remove_file(&doc_path);
     }
 
-    save_manifest(library_metadata_path, game_id, &manifest)?;
+    save_shared_catalog(library_metadata_path, &catalog)?;
     load_inventory(library_metadata_path, game_id)
 }
 
@@ -247,7 +313,8 @@ pub fn select_active_profile(
     let mut manifest = load_manifest(library_metadata_path, game_id)?;
 
     if let Some(pid) = profile_id {
-        if !manifest.profiles.iter().any(|p| p.id == pid) {
+        let catalog = load_shared_catalog(library_metadata_path);
+        if !catalog.iter().any(|p| p.id == pid) {
             return Err(format!("Profile not found: {}", pid));
         }
         manifest.active_profile_id = Some(pid.to_string());
@@ -266,8 +333,8 @@ pub fn save_profile_overrides(
     profile_id: &str,
     overrides: HashMap<String, serde_json::Value>,
 ) -> Result<ProfileDocument, String> {
-    let mut manifest = load_manifest(library_metadata_path, game_id)?;
-    if !manifest.profiles.iter().any(|p| p.id == profile_id) {
+    let mut catalog = load_shared_catalog(library_metadata_path);
+    if !catalog.iter().any(|p| p.id == profile_id) {
         return Err(format!("Profile not found: {}", profile_id));
     }
 
@@ -281,11 +348,11 @@ pub fn save_profile_overrides(
     doc.overrides = clean_overrides;
     save_profile_document(library_metadata_path, game_id, &doc)?;
 
-    // Update the manifest timestamp.
-    if let Some(r) = manifest.profiles.iter_mut().find(|p| p.id == profile_id) {
+    // Update the catalog timestamp.
+    if let Some(r) = catalog.iter_mut().find(|p| p.id == profile_id) {
         r.updated_at = now_millis();
     }
-    save_manifest(library_metadata_path, game_id, &manifest)?;
+    save_shared_catalog(library_metadata_path, &catalog)?;
 
     Ok(doc)
 }
@@ -326,12 +393,9 @@ pub fn create_recommended_profile(
         return Err("Profile name cannot be empty".to_string());
     }
 
-    let mut manifest = load_manifest(library_metadata_path, game_id)?;
-    if manifest.profiles.iter().any(|p| p.name == trimmed) {
-        return Err(format!(
-            "A profile named \"{}\" already exists for this game",
-            trimmed
-        ));
+    let mut catalog = load_shared_catalog(library_metadata_path);
+    if catalog.iter().any(|p| p.name == trimmed) {
+        return Err(format!("A profile named \"{}\" already exists", trimmed));
     }
 
     ensure_profile_dirs(library_metadata_path, game_id)?;
@@ -349,10 +413,8 @@ pub fn create_recommended_profile(
     };
 
     // Filter null values from baseline, same as save_profile_overrides.
-    let clean_overrides: HashMap<String, serde_json::Value> = baseline
-        .into_iter()
-        .filter(|(_, v)| !v.is_null())
-        .collect();
+    let clean_overrides: HashMap<String, serde_json::Value> =
+        baseline.into_iter().filter(|(_, v)| !v.is_null()).collect();
 
     let doc = ProfileDocument {
         version: STORE_VERSION,
@@ -362,14 +424,16 @@ pub fn create_recommended_profile(
     };
 
     save_profile_document(library_metadata_path, game_id, &doc)?;
-    manifest.profiles.push(record);
+    catalog.push(record);
+    save_shared_catalog(library_metadata_path, &catalog)?;
 
-    // Auto-select the first profile created for a game.
+    // Auto-select for this game if no profile is active.
+    let mut manifest = load_manifest(library_metadata_path, game_id)?;
     if manifest.active_profile_id.is_none() {
         manifest.active_profile_id = Some(profile_id);
+        save_manifest(library_metadata_path, game_id, &manifest)?;
     }
 
-    save_manifest(library_metadata_path, game_id, &manifest)?;
     load_inventory(library_metadata_path, game_id)
 }
 
@@ -430,8 +494,7 @@ fn write_json_atomic<T: Serialize>(path: &Path, value: &T) -> Result<(), String>
         .map_err(|e| format!("Failed to serialize profile metadata: {}", e))?;
     fs::write(&temp_path, &contents)
         .map_err(|e| format!("Failed to write profile metadata: {}", e))?;
-    fs::rename(&temp_path, path)
-        .map_err(|e| format!("Failed to finalize profile metadata: {}", e))
+    fs::rename(&temp_path, path).map_err(|e| format!("Failed to finalize profile metadata: {}", e))
 }
 
 fn profiles_root(library_metadata_path: &str, game_id: &str) -> PathBuf {
@@ -440,20 +503,44 @@ fn profiles_root(library_metadata_path: &str, game_id: &str) -> PathBuf {
         .join(game_id)
 }
 
-fn profiles_dir(library_metadata_path: &str, game_id: &str) -> PathBuf {
-    profiles_root(library_metadata_path, game_id).join("profiles")
+fn shared_profiles_root(library_metadata_path: &str) -> PathBuf {
+    PathBuf::from(library_metadata_path)
+        .join(PROFILES_DIRNAME)
+        .join(SHARED_DIRNAME)
+}
+
+fn profiles_dir(library_metadata_path: &str, _game_id: &str) -> PathBuf {
+    // All profile documents live in the shared directory.
+    shared_profiles_root(library_metadata_path).join("profiles")
 }
 
 fn manifest_path(library_metadata_path: &str, game_id: &str) -> PathBuf {
     profiles_root(library_metadata_path, game_id).join(MANIFEST_FILENAME)
 }
 
-fn profile_document_path(
+/// Shared catalog storing all profile records across all games.
+fn shared_catalog_path(library_metadata_path: &str) -> PathBuf {
+    shared_profiles_root(library_metadata_path).join("catalog.json")
+}
+
+fn profile_document_path(library_metadata_path: &str, _game_id: &str, profile_id: &str) -> PathBuf {
+    // Profile documents are in the shared directory.
+    shared_profiles_root(library_metadata_path)
+        .join("profiles")
+        .join(format!("{}.json", profile_id))
+}
+
+/// Legacy per-game profile document path (for migration).
+fn legacy_profile_document_path(
     library_metadata_path: &str,
     game_id: &str,
     profile_id: &str,
 ) -> PathBuf {
-    profiles_dir(library_metadata_path, game_id).join(format!("{}.json", profile_id))
+    PathBuf::from(library_metadata_path)
+        .join(PROFILES_DIRNAME)
+        .join(game_id)
+        .join("profiles")
+        .join(format!("{}.json", profile_id))
 }
 
 fn generate_profile_id(name: &str, timestamp: u64) -> String {
@@ -482,9 +569,7 @@ mod tests {
     use std::env;
 
     fn temp_dir(suffix: &str) -> String {
-        let path = env::temp_dir()
-            .join("xlm-profile-storage")
-            .join(suffix);
+        let path = env::temp_dir().join("xlm-profile-storage").join(suffix);
         let _ = fs::remove_dir_all(&path);
         fs::create_dir_all(&path).unwrap();
         path.to_string_lossy().to_string()
@@ -614,12 +699,16 @@ mod tests {
     }
 
     #[test]
-    fn profiles_are_isolated_per_game() {
-        let dir = temp_dir("isolation");
+    fn profiles_are_shared_across_games() {
+        let dir = temp_dir("shared");
         create_profile(&dir, "game-1", "Shared Name").unwrap();
-        let inv2 = create_profile(&dir, "game-2", "Shared Name").unwrap();
-        assert_eq!(inv2.profiles.len(), 1);
-        assert_eq!(inv2.profiles[0].name, "Shared Name");
+        // Same name should fail since profiles are now shared.
+        let result = create_profile(&dir, "game-2", "Shared Name");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("already exists"));
+        // But a different name works and both games see both profiles.
+        let inv2 = create_profile(&dir, "game-2", "Another Name").unwrap();
+        assert_eq!(inv2.profiles.len(), 2);
     }
 
     #[test]
