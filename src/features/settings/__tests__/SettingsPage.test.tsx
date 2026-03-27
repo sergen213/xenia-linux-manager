@@ -18,6 +18,8 @@ const mockSettings: AppSettings = {
   last_active_route: null,
   gamer_tag: null,
   click_behavior: "single" as const,
+  launch_environment: "MANGOHUD=1",
+  launch_wrapper: "gamemoderun",
 };
 
 function renderWithContext(state: Partial<SettingsState>) {
@@ -60,6 +62,16 @@ describe("SettingsPage", () => {
     expect(
       screen.getByText("Settings have not been loaded yet."),
     ).toBeInTheDocument();
+  });
+
+  it("shows launch environment and wrapper sections", () => {
+    renderWithContext({ settings: mockSettings });
+    expect(screen.getByText("Launch Environment Variables")).toBeInTheDocument();
+    expect(screen.getByText("Launch Wrapper / Prefix")).toBeInTheDocument();
+    expect(screen.getByText("Effective Global Launch Environment")).toBeInTheDocument();
+    expect(screen.getByText("Effective Global Launch Wrapper")).toBeInTheDocument();
+    expect(screen.getAllByText("MANGOHUD=1").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("gamemoderun").length).toBeGreaterThan(0);
   });
 
   it("renders the release information section", () => {

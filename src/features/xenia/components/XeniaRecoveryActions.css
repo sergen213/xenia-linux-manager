@@ -33,6 +33,10 @@
   color: var(--color-text-primary);
 }
 
+.xenia-recovery__header .ui-button {
+  text-decoration: none;
+}
+
 .xenia-recovery__summary {
   font-size: var(--font-size-sm);
   color: var(--color-text-primary);

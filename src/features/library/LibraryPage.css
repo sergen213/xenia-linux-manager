@@ -749,6 +749,19 @@
   color: var(--color-text-secondary);
 }
 
+.profile-raw-editor__hint {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.profile-raw-editor__add {
+  align-items: stretch;
+}
+
+.profile-raw-editor__add input {
+  min-width: 220px;
+}
+
 @media (max-width: 1080px) {
   .library-page__workspace {
     grid-template-columns: 1fr;

@@ -203,14 +203,14 @@ function ConfirmPhase({
 
       <div className="xenia-dialog__actions">
         <button
-          className="xenia-dialog__cancel-btn"
+          className="xenia-dialog__cancel-btn ui-button"
           onClick={onCancel}
           data-testid="dialog-cancel"
         >
           Cancel
         </button>
         <button
-          className="xenia-dialog__confirm-btn"
+          className="xenia-dialog__confirm-btn ui-button ui-button--primary"
           onClick={onConfirm}
           data-testid="dialog-confirm"
         >
@@ -267,7 +267,7 @@ function SuccessPhase({
 
       <div className="xenia-dialog__actions">
         <button
-          className="xenia-dialog__confirm-btn"
+          className="xenia-dialog__confirm-btn ui-button ui-button--primary"
           onClick={onClose}
           data-testid="dialog-close"
         >
@@ -295,14 +295,14 @@ function ErrorPhase({
       <p className="xenia-dialog__error-text">{error ?? "Unknown error"}</p>
       <div className="xenia-dialog__actions">
         <button
-          className="xenia-dialog__cancel-btn"
+          className="xenia-dialog__cancel-btn ui-button"
           onClick={onClose}
           data-testid="dialog-error-close"
         >
           Close
         </button>
         <button
-          className="xenia-dialog__confirm-btn"
+          className="xenia-dialog__confirm-btn ui-button ui-button--primary"
           onClick={onRetry}
           data-testid="dialog-error-retry"
         >

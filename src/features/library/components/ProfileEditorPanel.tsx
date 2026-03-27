@@ -238,6 +238,7 @@ export function ProfileEditorPanel({
           />
           <button
             type="button"
+            className="ui-button ui-button--primary ui-button--small"
             disabled={!newProfileName.trim()}
             onClick={() => void handleCreateProfile()}
           >
@@ -258,10 +259,10 @@ export function ProfileEditorPanel({
                     if (e.key === "Escape") setRenamingId(null);
                   }}
                 />
-                <button type="button" onClick={() => void handleFinishRename()}>
+                <button type="button" className="ui-button ui-button--primary ui-button--small" onClick={() => void handleFinishRename()}>
                   Confirm
                 </button>
-                <button type="button" onClick={() => setRenamingId(null)}>
+                <button type="button" className="ui-button ui-button--small" onClick={() => setRenamingId(null)}>
                   Cancel
                 </button>
               </>
@@ -269,12 +270,14 @@ export function ProfileEditorPanel({
               <>
                 <button
                   type="button"
+                  className="ui-button ui-button--small"
                   onClick={() => handleStartRename(activeProfile)}
                 >
                   Rename
                 </button>
                 <button
                   type="button"
+                  className="ui-button ui-button--danger ui-button--small"
                   onClick={() => void onDeleteProfile(activeProfile.id)}
                 >
                   Delete
@@ -298,14 +301,14 @@ export function ProfileEditorPanel({
             <div className="profile-editor__view-toggle">
               <button
                 type="button"
-                className={viewMode === "explicit" ? "is-active" : ""}
+                className={`ui-button ui-button--small ${viewMode === "explicit" ? "is-active" : ""}`}
                 onClick={() => setViewMode("explicit")}
               >
                 Explicit values
               </button>
               <button
                 type="button"
-                className={viewMode === "effective" ? "is-active" : ""}
+                className={`ui-button ui-button--small ${viewMode === "effective" ? "is-active" : ""}`}
                 onClick={() => setViewMode("effective")}
               >
                 Full effective config
@@ -314,14 +317,14 @@ export function ProfileEditorPanel({
             <div className="profile-editor__tab-toggle">
               <button
                 type="button"
-                className={tabMode === "standard" ? "is-active" : ""}
+                className={`ui-button ui-button--small ${tabMode === "standard" ? "is-active" : ""}`}
                 onClick={() => setTabMode("standard")}
               >
                 Standard
               </button>
               <button
                 type="button"
-                className={tabMode === "raw" ? "is-active" : ""}
+                className={`ui-button ui-button--small ${tabMode === "raw" ? "is-active" : ""}`}
                 onClick={() => setTabMode("raw")}
               >
                 Raw
@@ -393,6 +396,7 @@ export function ProfileEditorPanel({
           <div className="profile-editor__save-bar">
             <button
               type="button"
+              className="ui-button ui-button--primary ui-button--small"
               disabled={!dirty || savePending}
               onClick={() => void handleSave()}
             >
@@ -400,6 +404,7 @@ export function ProfileEditorPanel({
             </button>
             <button
               type="button"
+              className="ui-button ui-button--small"
               disabled={!dirty}
               onClick={onDiscard}
             >

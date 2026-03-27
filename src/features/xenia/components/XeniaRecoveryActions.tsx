@@ -64,7 +64,7 @@ export function XeniaRecoveryActions() {
           {retryModeLabel} Failed
         </h4>
         <button
-          className="xenia-recovery__details-toggle"
+          className="xenia-recovery__details-toggle ui-button ui-button--small"
           onClick={() => setShowDetails(!showDetails)}
           data-testid="recovery-toggle-details"
         >
@@ -93,7 +93,7 @@ export function XeniaRecoveryActions() {
 
       <div className="xenia-recovery__actions">
         <button
-          className="xenia-recovery__action-btn xenia-recovery__action-btn--cleanup"
+          className="xenia-recovery__action-btn xenia-recovery__action-btn--cleanup ui-button ui-button--small"
           onClick={handleCleanup}
           disabled={cleaning}
           data-testid="recovery-cleanup"
@@ -103,7 +103,7 @@ export function XeniaRecoveryActions() {
 
         {state.installState.manifest && (
           <button
-            className="xenia-recovery__action-btn xenia-recovery__action-btn--remove"
+            className="xenia-recovery__action-btn xenia-recovery__action-btn--remove ui-button ui-button--small ui-button--danger"
             onClick={handleRemove}
             disabled={removing}
             data-testid="recovery-remove"

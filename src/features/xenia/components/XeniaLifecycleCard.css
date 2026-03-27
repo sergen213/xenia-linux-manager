@@ -38,6 +38,13 @@
   margin-bottom: 8px;
 }
 
+.xenia-card__build-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
 .xenia-card__detail {
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
@@ -103,4 +110,9 @@
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
   font-style: italic;
+}
+
+.xenia-card__actions .ui-button,
+.xenia-card__build-actions .ui-button {
+  font-size: var(--font-size-xs);
 }

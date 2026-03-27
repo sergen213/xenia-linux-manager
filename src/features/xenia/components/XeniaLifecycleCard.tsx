@@ -139,21 +139,22 @@ export function XeniaLifecycleCard() {
         {state.installState.installed_builds.length > 1 && (
           <div className="xenia-card__details">
             <span className="xenia-card__detail">Installed builds:</span>
-            {state.installState.installed_builds.map((build) => (
-              <button
-                key={build.tag}
-                className="xenia-card__secondary-btn"
-                disabled={switchingBuild !== null || build.tag === manifest?.tag}
-                onClick={() => void handleSwitchBuild(build.tag)}
-                style={{ marginTop: "6px" }}
-              >
-                {switchingBuild === build.tag
-                  ? "Switching..."
-                  : build.tag === manifest?.tag
-                    ? `${build.tag} (active)`
-                    : `Use ${build.tag}`}
-              </button>
-            ))}
+            <div className="xenia-card__build-actions">
+              {state.installState.installed_builds.map((build) => (
+                <button
+                  key={build.tag}
+                  className="xenia-card__secondary-btn ui-button ui-button--small"
+                  disabled={switchingBuild !== null || build.tag === manifest?.tag}
+                  onClick={() => void handleSwitchBuild(build.tag)}
+                >
+                  {switchingBuild === build.tag
+                    ? "Switching..."
+                    : build.tag === manifest?.tag
+                      ? `${build.tag} (active)`
+                      : `Use ${build.tag}`}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
@@ -171,7 +172,7 @@ export function XeniaLifecycleCard() {
 
         <div className="xenia-card__actions">
           <button
-            className={`xenia-card__primary-btn xenia-card__primary-btn--${primaryAction}`}
+            className={`xenia-card__primary-btn xenia-card__primary-btn--${primaryAction} ui-button ui-button--primary`}
             onClick={handlePrimaryAction}
             disabled={state.checkingForUpdate || uninstalling}
             data-testid="xenia-primary-action"
@@ -181,7 +182,7 @@ export function XeniaLifecycleCard() {
 
           {isInstalled && (
             <button
-              className="xenia-card__secondary-btn xenia-card__secondary-btn--uninstall"
+              className="xenia-card__secondary-btn xenia-card__secondary-btn--uninstall ui-button ui-button--small ui-button--danger"
               onClick={handleUninstall}
               disabled={uninstalling}
               data-testid="xenia-uninstall"

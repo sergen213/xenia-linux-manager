@@ -170,7 +170,7 @@ export function ProfileRawEditor({
               <td>
                 <button
                   type="button"
-                  className="profile-raw-editor__remove"
+                  className="profile-raw-editor__remove ui-button ui-button--danger ui-button--small"
                   title="Remove override (restore default)"
                   onClick={() => handleRemoveKey(entry.key)}
                 >
@@ -214,6 +214,7 @@ export function ProfileRawEditor({
         />
         <button
           type="button"
+          className="ui-button ui-button--primary ui-button--small"
           disabled={!newKey.trim()}
           onClick={handleAddKey}
         >

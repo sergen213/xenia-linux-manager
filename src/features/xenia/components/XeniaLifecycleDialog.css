@@ -122,6 +122,10 @@
   opacity: 0.85;
 }
 
+.xenia-dialog__actions .ui-button {
+  min-width: 96px;
+}
+
 .xenia-dialog__progress-text {
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
