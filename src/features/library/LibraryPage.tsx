@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { useSettings } from "../settings/state/settingsStore";
 import { useSaves } from "../saves/state/savesStore";
 import { useSaveExportActions } from "../saves/state/useSaveExportActions";
@@ -44,7 +44,24 @@ export function LibraryPage() {
     onError: (message) => dispatch({ type: "SET_ERROR", error: message }),
   });
 
-  const visibleCards = selectVisibleLibraryCards(state);
+  const visibleCards = useMemo(() => selectVisibleLibraryCards(state), [state]);
+
+  const handleSelectGame = useCallback((gameId: string) => {
+    if (profileActions.profileDirty && gameId !== state.selectedGameId) {
+      profileActions.showUnsavedDialog(gameId);
+      return;
+    }
+    dispatch({ type: "SELECT_GAME", gameId });
+  }, [profileActions, state.selectedGameId, dispatch]);
+
+  const handleActivateGame = useCallback(async (gameId: string) => {
+    if (profileActions.profileDirty && gameId !== state.selectedGameId) {
+      profileActions.showUnsavedDialog(gameId);
+      return;
+    }
+    dispatch({ type: "SELECT_GAME", gameId });
+    await launchActions.launchGameById(gameId, false);
+  }, [profileActions, state.selectedGameId, dispatch, launchActions]);
 
   // Sync selected game to saves store
   useEffect(() => {
@@ -126,23 +143,8 @@ export function LibraryPage() {
               cards={visibleCards}
               selectedGameId={state.selectedGameId}
               clickBehavior={settingsState.settings?.click_behavior ?? "single"}
-              onSelectGame={(gameId) => {
-                if (profileActions.profileDirty && gameId !== state.selectedGameId) {
-                  profileActions.showUnsavedDialog(gameId);
-                  return;
-                }
-                dispatch({ type: "SELECT_GAME", gameId });
-              }}
-              onActivateGame={async (gameId) => {
-                // Activate means launch the game directly
-                if (profileActions.profileDirty && gameId !== state.selectedGameId) {
-                  profileActions.showUnsavedDialog(gameId);
-                  return;
-                }
-                // Select the game first, then launch
-                dispatch({ type: "SELECT_GAME", gameId });
-                await launchActions.launch(false);
-              }}
+              onSelectGame={handleSelectGame}
+              onActivateGame={handleActivateGame}
             />
           )}
         </div>

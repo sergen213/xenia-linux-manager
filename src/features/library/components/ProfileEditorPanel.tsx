@@ -83,6 +83,16 @@ export function ProfileEditorPanel({
   const [renameValue, setRenameValue] = useState("");
 
   const activeProfile = inventory.profiles.find((p) => p.active);
+  const profileOptions = useMemo(
+    () => [
+      { value: "", label: "None" },
+      ...inventory.profiles.map((p) => ({
+        value: p.id,
+        label: `${p.name}${p.source === "recommended" ? " (Recommended)" : ""}`,
+      })),
+    ],
+    [inventory.profiles],
+  );
 
   // Load effective config when active profile changes.
   useEffect(() => {
@@ -159,13 +169,7 @@ export function ProfileEditorPanel({
         <CustomSelect
           id="profile-select"
           value={activeProfile?.id ?? ""}
-          options={[
-            { value: "", label: "None" },
-            ...inventory.profiles.map((p) => ({
-              value: p.id,
-              label: `${p.name}${p.source === "recommended" ? " (Recommended)" : ""}`,
-            })),
-          ]}
+          options={profileOptions}
           onChange={(v) => void onSelectProfile(v || null)}
         />
       </div>

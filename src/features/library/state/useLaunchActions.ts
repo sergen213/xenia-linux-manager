@@ -29,13 +29,11 @@ export function useLaunchActions() {
   const libPath = settingsState.settings?.library_metadata_path ?? "";
   const appDataPath = settingsState.settings?.app_data_path ?? "";
 
-  const launch = useCallback(
-    async (allowUnsafe: boolean = false) => {
-      if (!state.selectedGameId) return;
-
+  const launchGameById = useCallback(
+    async (gameId: string, allowUnsafe: boolean = false) => {
       dispatch({ type: "SET_LAUNCH_PENDING", pending: true });
       try {
-        await launchLibraryGame(appDataPath, libPath, state.selectedGameId, allowUnsafe);
+        await launchLibraryGame(appDataPath, libPath, gameId, allowUnsafe);
         // Refresh library to update last played times
         const browse = await import("../api/libraryClient").then((m) => m.browseLibrary(libPath));
         dispatch({ type: "BROWSE_LOADED", browse });
@@ -48,7 +46,15 @@ export function useLaunchActions() {
         dispatch({ type: "SET_LAUNCH_PENDING", pending: false });
       }
     },
-    [appDataPath, libPath, state.selectedGameId, dispatch],
+    [appDataPath, libPath, dispatch],
+  );
+
+  const launch = useCallback(
+    async (allowUnsafe: boolean = false) => {
+      if (!state.selectedGameId) return;
+      await launchGameById(state.selectedGameId, allowUnsafe);
+    },
+    [state.selectedGameId, launchGameById],
   );
 
   const exportShortcut = useCallback(
@@ -231,6 +237,7 @@ export function useLaunchActions() {
     installedXeniaBuildTags: xeniaState.installState.installed_builds.map((b) => b.tag),
     // Actions
     launch,
+    launchGameById,
     exportShortcut,
     openShortcutFolder,
     openContentFolder,

@@ -535,6 +535,164 @@
   border-color: var(--color-accent);
 }
 
+.profile-editor,
+.profile-raw-editor {
+  display: grid;
+  gap: 16px;
+}
+
+.profile-editor__selector,
+.profile-editor__create,
+.profile-editor__actions,
+.profile-editor__toggles,
+.profile-editor__view-toggle,
+.profile-editor__tab-toggle,
+.profile-editor__save-bar,
+.profile-raw-editor__add {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.profile-editor__selector,
+.profile-editor__category,
+.profile-editor__loading,
+.profile-editor__hint,
+.profile-raw-editor__table,
+.profile-raw-editor__error {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+}
+
+.profile-editor__selector,
+.profile-editor__loading,
+.profile-editor__hint,
+.profile-raw-editor__error {
+  padding: 12px;
+}
+
+.profile-editor__selector {
+  display: grid;
+  gap: 8px;
+}
+
+.profile-editor input,
+.profile-raw-editor input,
+.profile-raw-editor__value {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+  padding: 10px 12px;
+  font: inherit;
+}
+
+.profile-editor button,
+.profile-raw-editor button {
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-card);
+  color: var(--color-text-primary);
+  border-radius: var(--radius-sm);
+  padding: 9px 12px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.profile-editor button:hover,
+.profile-raw-editor button:hover {
+  border-color: var(--color-accent);
+}
+
+.profile-editor button:disabled,
+.profile-raw-editor button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.profile-editor__save-bar > button:first-child,
+.profile-editor__create button,
+.profile-editor__actions button:first-child {
+  background: color-mix(in srgb, var(--color-accent) 18%, var(--color-bg-card));
+  border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
+}
+
+.profile-editor__actions button:last-child,
+.profile-raw-editor__remove {
+  color: var(--color-error, #ef4444);
+  border-color: color-mix(in srgb, var(--color-error, #ef4444) 35%, var(--color-border));
+}
+
+.profile-editor__fields {
+  display: grid;
+  gap: 16px;
+}
+
+.profile-editor__category {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.profile-editor__category legend {
+  color: var(--color-text-secondary);
+  padding: 0 6px;
+}
+
+.profile-editor__field {
+  display: grid;
+  grid-template-columns: minmax(180px, 220px) minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.profile-editor__field label {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.profile-editor__field--changed {
+  padding: 10px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+}
+
+.profile-editor__dirty-indicator {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.profile-raw-editor__table {
+  width: 100%;
+  border-collapse: collapse;
+  overflow: hidden;
+}
+
+.profile-raw-editor__table th,
+.profile-raw-editor__table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+}
+
+.profile-raw-editor__table th {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.profile-raw-editor__row--changed {
+  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+}
+
+.profile-raw-editor__key {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+}
+
+.profile-raw-editor__empty {
+  color: var(--color-text-secondary);
+}
+
 @media (max-width: 1080px) {
   .library-page__workspace {
     grid-template-columns: 1fr;

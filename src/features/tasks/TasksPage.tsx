@@ -1,9 +1,5 @@
+import { useMemo } from "react";
 import { useTasks } from "./state/tasksStore";
-import {
-  selectRunningJobs,
-  selectHistoryJobs,
-  selectInterruptedJobs,
-} from "./state/tasksStore";
 import { TaskHistoryCard } from "./components/TaskHistoryCard";
 import { XeniaRecoveryActions } from "../xenia/components/XeniaRecoveryActions";
 import { useSettings } from "../settings/state/settingsStore";
@@ -14,9 +10,19 @@ import "./TasksPage.css";
 export function TasksPage() {
   const { state, dispatch } = useTasks();
   const { state: settingsState } = useSettings();
-  const running = selectRunningJobs(state);
-  const history = selectHistoryJobs(state);
-  const interrupted = selectInterruptedJobs(state);
+  const { running, history, interrupted, xeniaRunning, otherRunning } = useMemo(() => {
+    const allJobs = Object.values(state.jobs).sort((a, b) => b.created_at - a.created_at);
+    const runningJobs = allJobs.filter((j) => j.status === "running");
+    const historyJobs = allJobs.filter((j) => j.status !== "running");
+    const interruptedJobs = allJobs.filter((j) => j.status === "interrupted");
+    return {
+      running: runningJobs,
+      history: historyJobs,
+      interrupted: interruptedJobs,
+      xeniaRunning: runningJobs.filter((j) => j.category === "install" || j.category === "update"),
+      otherRunning: runningJobs.filter((j) => j.category !== "install" && j.category !== "update"),
+    };
+  }, [state.jobs]);
 
   const handleClearHistory = () => {
     dispatch({ type: "CLEAR_HISTORY" });
@@ -40,14 +46,6 @@ export function TasksPage() {
 
     dispatch({ type: "DISMISS_INTERRUPTED" });
   };
-
-  // Identify Xenia lifecycle jobs in the running list
-  const xeniaRunning = running.filter(
-    (j) => j.category === "install" || j.category === "update",
-  );
-  const otherRunning = running.filter(
-    (j) => j.category !== "install" && j.category !== "update",
-  );
 
   return (
     <div className="tasks-page">

@@ -288,7 +288,7 @@ export function GameDetailsPanel({
       .then((info) => { if (!cancelled) setPatchInfo(info); })
       .catch(() => { if (!cancelled) setPatchInfo(null); });
     return () => { cancelled = true; };
-  }, [appDataPath, details?.title_id, managePatchesOpen]);
+  }, [appDataPath, details?.title_id]);
 
   if (!details) {
     return (
