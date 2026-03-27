@@ -224,11 +224,6 @@ pub fn load_and_validate() -> Result<(AppSettings, SettingsValidation), Settings
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::env;
-
-    fn temp_settings_dir() -> PathBuf {
-        env::temp_dir().join("xlm-settings-test")
-    }
 
     #[test]
     fn default_settings_have_setup_incomplete() {

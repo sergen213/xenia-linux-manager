@@ -73,6 +73,47 @@ body {
   color: var(--color-text-secondary);
 }
 
+.ui-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0.9rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-card);
+  color: var(--color-text-primary);
+  font: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease, transform 0.15s ease;
+}
+
+.ui-button:hover {
+  border-color: var(--color-accent);
+  background: var(--color-bg-hover);
+}
+
+.ui-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.ui-button--primary {
+  background: color-mix(in srgb, var(--color-accent) 18%, var(--color-bg-card));
+  border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
+}
+
+.ui-button--danger {
+  color: var(--color-error);
+  border-color: color-mix(in srgb, var(--color-error) 35%, var(--color-border));
+}
+
+.ui-button--small {
+  padding: 0.38rem 0.7rem;
+  font-size: var(--font-size-xs);
+}
+
 /* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 6px;

@@ -14,7 +14,7 @@ use crate::jobs::store;
 use crate::jobs::{JobRegistry, LogLevel};
 use crate::xenia::archive;
 use crate::xenia::download;
-use crate::xenia::install_state::{self, InstallState, LifecycleStatus};
+use crate::xenia::install_state::{self, InstallState};
 use crate::xenia::lifecycle;
 use crate::xenia::releases::{self, LinuxRelease};
 
@@ -486,7 +486,7 @@ fn fail_job(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::xenia::install_state::{FailureContext, LifecycleStatus, RetryMode};
+    use crate::xenia::install_state::{LifecycleStatus, RetryMode};
 
     fn sample_release() -> LinuxRelease {
         LinuxRelease {

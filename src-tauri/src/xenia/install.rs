@@ -4,8 +4,6 @@
 //! This module provides testable install-step helpers and the integration
 //! tests the plan verification expects under the `xenia::install` filter.
 
-use crate::jobs::{Job, JobRegistry, JobStatus, LogLevel};
-
 /// Describes the steps in an install pipeline for progress reporting.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InstallStep {
@@ -53,6 +51,7 @@ impl InstallStep {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::jobs::{Job, JobRegistry, JobStatus, LogLevel};
     use crate::jobs::store;
 
     #[test]

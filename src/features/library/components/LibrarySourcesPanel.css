@@ -28,6 +28,16 @@
   gap: 8px;
 }
 
+.sources-panel__add-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.sources-panel__input {
+  flex: 1;
+}
+
 .sources-panel__btn {
   padding: 6px 14px;
   border: 1px solid var(--color-border);
@@ -55,6 +65,14 @@
   opacity: 0.85;
 }
 
+.sources-panel__btn--spaced-top {
+  margin-top: 8px;
+}
+
+.sources-panel__btn--inline-offset {
+  margin-left: 8px;
+}
+
 .sources-panel__btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -71,6 +89,49 @@
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);
   padding: 24px;
+}
+
+.sources-panel__patches {
+  margin-top: 24px;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-bg-card) 75%, var(--color-bg-primary));
+}
+
+.sources-panel__patches-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.sources-panel__badge {
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+.sources-panel__badge--warning {
+  background: rgba(245, 158, 11, 0.18);
+  color: var(--color-warning);
+}
+
+.sources-panel__meta {
+  font-size: 0.85rem;
+  margin-bottom: 8px;
+  color: var(--color-text-secondary);
+}
+
+.sources-panel__meta--loading {
+  opacity: 0.6;
+}
+
+.sources-panel__actions-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .source-item {

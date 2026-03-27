@@ -192,20 +192,19 @@ export function LibrarySourcesPanel({ onRefreshLibrary, appDataPath }: LibrarySo
         </div>
       </div>
 
-      <div className="sources-panel__add-row" style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>
+      <div className="sources-panel__add-row">
         <input
           type="text"
-          className="edit-paths__input"
+          className="edit-paths__input sources-panel__input"
           placeholder="Enter folder path (e.g. /media/games/xbox360)"
           value={newPath}
           onChange={(e) => setNewPath(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter") handleAdd();
           }}
-          style={{ flex: 1 }}
         />
         <button
-          className="sources-panel__btn"
+          className="sources-panel__btn ui-button ui-button--small"
           onClick={handleBrowse}
           disabled={adding}
           title="Browse for folder"
@@ -213,7 +212,7 @@ export function LibrarySourcesPanel({ onRefreshLibrary, appDataPath }: LibrarySo
           Browse
         </button>
         <button
-          className="sources-panel__btn sources-panel__btn--primary"
+          className="sources-panel__btn sources-panel__btn--primary ui-button ui-button--primary ui-button--small"
           onClick={handleAdd}
           disabled={adding || !newPath.trim()}
         >
@@ -240,17 +239,17 @@ export function LibrarySourcesPanel({ onRefreshLibrary, appDataPath }: LibrarySo
       )}
 
       {appDataPath && (
-        <div className="sources-panel__patches" style={{ marginTop: "24px", padding: "12px", border: "1px solid var(--border-color, #444)", borderRadius: "6px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+        <div className="sources-panel__patches">
+          <div className="sources-panel__patches-header">
             <span className="sources-panel__title">Game Patches</span>
             {patchStatus?.update_available && (
-              <span style={{ fontSize: "0.75rem", padding: "2px 8px", borderRadius: "4px", background: "var(--accent-color, #f59e0b)", color: "#000", fontWeight: 600 }}>
+              <span className="sources-panel__badge sources-panel__badge--warning">
                 Update Available
               </span>
             )}
           </div>
           {patchStatus ? (
-            <div style={{ fontSize: "0.85rem", marginBottom: "8px" }}>
+            <div className="sources-panel__meta">
               {patchStatus.patch_count > 0 ? (
                 <>
                   <div>{patchStatus.patch_count} patch files installed</div>
@@ -261,11 +260,11 @@ export function LibrarySourcesPanel({ onRefreshLibrary, appDataPath }: LibrarySo
               )}
             </div>
           ) : (
-            <div style={{ fontSize: "0.85rem", marginBottom: "8px", opacity: 0.6 }}>Checking status…</div>
+            <div className="sources-panel__meta sources-panel__meta--loading">Checking status…</div>
           )}
-          <div style={{ display: "flex", gap: "8px" }}>
+          <div className="sources-panel__actions-row">
             <button
-              className="sources-panel__btn sources-panel__btn--primary"
+              className="sources-panel__btn sources-panel__btn--primary ui-button ui-button--primary ui-button--small"
               onClick={handleDeployPatches}
               disabled={deploying}
             >
@@ -277,7 +276,7 @@ export function LibrarySourcesPanel({ onRefreshLibrary, appDataPath }: LibrarySo
             </button>
             {patchStatus && patchStatus.patch_count > 0 && (
               <button
-                className="sources-panel__btn"
+                className="sources-panel__btn ui-button ui-button--small"
                 onClick={() => {
                   void openPath(patchStatus.patches_dir, [patchStatus.patches_dir]);
                 }}
@@ -303,8 +302,7 @@ export function LibrarySourcesPanel({ onRefreshLibrary, appDataPath }: LibrarySo
             </div>
           ))}
           <button
-            className="sources-panel__btn"
-            style={{ marginTop: "8px" }}
+            className="sources-panel__btn sources-panel__btn--spaced-top ui-button ui-button--small"
             onClick={() => dispatch({ type: "CLEAR_WARNINGS" })}
           >
             Dismiss
@@ -316,8 +314,7 @@ export function LibrarySourcesPanel({ onRefreshLibrary, appDataPath }: LibrarySo
         <div className="sources-panel__error" role="alert">
           {state.error}
           <button
-            className="sources-panel__btn"
-            style={{ marginLeft: "8px" }}
+            className="sources-panel__btn sources-panel__btn--inline-offset ui-button ui-button--small"
             onClick={() => dispatch({ type: "CLEAR_ERROR" })}
           >
             Dismiss

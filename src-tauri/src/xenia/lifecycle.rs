@@ -8,7 +8,7 @@
 use std::path::{Path, PathBuf};
 
 use super::archive;
-use super::install_state::{self, InstallManifest, InstallState, LifecycleStatus};
+use super::install_state::{self, InstallState, LifecycleStatus};
 use super::releases::LinuxRelease;
 
 // ---------------------------------------------------------------------------
@@ -89,7 +89,7 @@ pub fn primary_action(state: &InstallState, latest: Option<&LinuxRelease>) -> &'
 pub async fn promote_staged_build(
     xenia_path: &str,
     app_data_path: &str,
-    release: &LinuxRelease,
+    _release: &LinuxRelease,
     staged_exec_path: &Path,
 ) -> Result<(PathBuf, PathBuf), LifecycleError> {
     let staged_dir = staged_exec_path
