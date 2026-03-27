@@ -61,6 +61,8 @@ pub fn run() {
             library_commands::create_manual_game,
             library_commands::update_library_game_identity,
             library_commands::resolve_duplicate_review,
+            library_commands::update_preferred_xenia_build,
+            library_commands::update_game_launch_environment,
             library_commands::fetch_game_artwork,
             library_commands::fetch_all_artwork,
             library_commands::get_launch_preflight,

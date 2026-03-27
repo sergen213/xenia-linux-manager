@@ -91,6 +91,7 @@ export interface GameIdentityRecord {
   issue_notes: string[];
   review_state: "clean" | "needs_review" | "dismissed";
   artwork_path: string | null;
+  launch_environment?: string | null;
   last_played_at: number | null;
   running_session: RunningSession | null;
   created_at: number;
@@ -199,6 +200,7 @@ export interface LibraryGameDetails {
   artwork_path: string | null;
   title_id: string | null;
   preferred_xenia_tag: string | null;
+  launch_environment: string | null;
   manual: boolean;
   review_flag: boolean;
   duplicate_count: number;

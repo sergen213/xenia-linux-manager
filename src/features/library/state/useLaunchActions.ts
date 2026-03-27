@@ -9,6 +9,7 @@ import {
   importGameContent,
   removeGameContent,
   updatePreferredXeniaBuild,
+  updateGameLaunchEnvironment,
   getLibraryGameDetails,
 } from "../api/libraryClient";
 import { useLibrary } from "./libraryStore";
@@ -175,12 +176,26 @@ export function useLaunchActions() {
   );
 
   const changePreferredXeniaBuild = useCallback(
-    async (tag: string) => {
+    async (tag: string | null) => {
       if (!state.selectedGameId) return;
 
       await updatePreferredXeniaBuild(libPath, {
         game_id: state.selectedGameId,
         preferred_xenia_tag: tag,
+      });
+      const details = await getLibraryGameDetails(libPath, state.selectedGameId);
+      dispatch({ type: "GAME_DETAILS_LOADED", details });
+    },
+    [libPath, state.selectedGameId, dispatch],
+  );
+
+  const changeGameLaunchEnvironment = useCallback(
+    async (launchEnvironment: string | null) => {
+      if (!state.selectedGameId) return;
+
+      await updateGameLaunchEnvironment(libPath, {
+        game_id: state.selectedGameId,
+        launch_environment: launchEnvironment,
       });
       const details = await getLibraryGameDetails(libPath, state.selectedGameId);
       dispatch({ type: "GAME_DETAILS_LOADED", details });
@@ -207,6 +222,7 @@ export function useLaunchActions() {
     importContent,
     removeContentEntry,
     changePreferredXeniaBuild,
+    changeGameLaunchEnvironment,
     clearStatusMessage,
   };
 }

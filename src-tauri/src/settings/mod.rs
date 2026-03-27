@@ -60,6 +60,10 @@ pub struct AppSettings {
     /// Click behavior for game cards: "single" or "double" click to open.
     #[serde(default = "default_click_behavior")]
     pub click_behavior: String,
+    /// Extra environment variables applied when launching Xenia/game processes.
+    /// Stored as newline-delimited KEY=VALUE entries for portability/editability.
+    #[serde(default)]
+    pub launch_environment: String,
 }
 
 fn default_click_behavior() -> String {
@@ -77,6 +81,7 @@ impl Default for AppSettings {
             last_active_route: None,
             gamer_tag: None,
             click_behavior: "single".to_string(),
+            launch_environment: String::new(),
         }
     }
 }

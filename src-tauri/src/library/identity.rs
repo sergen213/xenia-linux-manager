@@ -55,6 +55,10 @@ pub struct GameIdentityRecord {
     /// Optional preferred installed Xenia build tag for this game.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub preferred_xenia_tag: Option<String>,
+    /// Optional per-game launch environment variables stored as newline-delimited
+    /// KEY=VALUE entries.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub launch_environment: Option<String>,
     pub last_played_at: Option<u64>,
     pub running_session: Option<RunningSession>,
     pub created_at: u64,
@@ -113,6 +117,12 @@ pub struct DuplicateResolutionInput {
 pub struct UpdatePreferredXeniaBuildInput {
     pub game_id: String,
     pub preferred_xenia_tag: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct UpdateGameLaunchEnvironmentInput {
+    pub game_id: String,
+    pub launch_environment: Option<String>,
 }
 
 pub fn identity_file_path(library_metadata_path: &str) -> PathBuf {
@@ -199,6 +209,7 @@ pub fn ensure_scan_game_record(
         artwork_path: None,
         title_id: None,
         preferred_xenia_tag: None,
+        launch_environment: None,
         last_played_at: None,
         running_session: None,
         created_at: now,
@@ -232,6 +243,7 @@ pub fn create_manual_game(
         artwork_path: None,
         title_id: None,
         preferred_xenia_tag: None,
+        launch_environment: None,
         last_played_at: None,
         running_session: None,
         created_at: now,
@@ -293,6 +305,27 @@ pub fn update_preferred_xenia_build(
     record.preferred_xenia_tag = input
         .preferred_xenia_tag
         .filter(|tag| !tag.trim().is_empty());
+    record.updated_at = now_millis();
+    let updated = record.clone();
+    save_identity_store(library_metadata_path, &store)?;
+    Ok(updated)
+}
+
+pub fn update_game_launch_environment(
+    library_metadata_path: &str,
+    input: UpdateGameLaunchEnvironmentInput,
+) -> Result<GameIdentityRecord, String> {
+    let mut store = load_identity_store(library_metadata_path);
+    let record = store
+        .games
+        .iter_mut()
+        .find(|game| game.game_id == input.game_id)
+        .ok_or_else(|| format!("Game not found: {}", input.game_id))?;
+
+    record.launch_environment = input
+        .launch_environment
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty());
     record.updated_at = now_millis();
     let updated = record.clone();
     save_identity_store(library_metadata_path, &store)?;

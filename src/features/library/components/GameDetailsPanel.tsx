@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { detectSteamInstall, exportGameToSteam, getGameXeniaPatches, inspectGameContent } from "../api/libraryClient";
 import type { GameXeniaPatches } from "../api/libraryClient";
 import type { GameInstalledContent, LaunchPreflight, LibraryGameDetails } from "../model/libraryTypes";
@@ -17,6 +17,7 @@ import { ProfileEditorPanel } from "./ProfileEditorPanel";
 import { ProfileSummaryCard } from "./ProfileSummaryCard";
 import { SaveQuickActions } from "./SaveQuickActions";
 import { UnsavedProfileChangesDialog } from "./UnsavedProfileChangesDialog";
+import { useSettings } from "../../settings/state/settingsStore";
 
 
 interface GameDetailsPanelProps {
@@ -42,6 +43,7 @@ interface GameDetailsPanelProps {
   onRemoveContentEntry: (entryPath: string) => Promise<void>;
   installedXeniaBuildTags: string[];
   onPreferredXeniaBuildChange: (tag: string | null) => Promise<void>;
+  onGameLaunchEnvironmentChange: (launchEnvironment: string | null) => Promise<void>;
   onConfirmWarningLaunch: () => Promise<void>;
   managePatchesOpen: boolean;
   patchImportPending: boolean;
@@ -89,6 +91,41 @@ function formatTimestamp(timestamp: number | null): string {
   return new Date(timestamp).toLocaleString();
 }
 
+function parseLaunchEnvironment(raw: string): Array<[string, string]> {
+  return raw
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0 && !line.startsWith("#"))
+    .flatMap((line) => {
+      const idx = line.indexOf("=");
+      if (idx <= 0) return [];
+      return [[line.slice(0, idx).trim(), line.slice(idx + 1).trim()] as [string, string]];
+    });
+}
+
+function mergeLaunchEnvironment(globalRaw: string, localRaw: string): string {
+  const merged = new Map<string, string>();
+  for (const [key, value] of parseLaunchEnvironment(globalRaw)) {
+    merged.set(key, value);
+  }
+  for (const [key, value] of parseLaunchEnvironment(localRaw)) {
+    merged.set(key, value);
+  }
+  return Array.from(merged.entries())
+    .map(([key, value]) => `${key}=${value}`)
+    .join("\n");
+}
+
+function applyPreset(raw: string, preset: Record<string, string>): string {
+  const merged = new Map<string, string>(parseLaunchEnvironment(raw));
+  for (const [key, value] of Object.entries(preset)) {
+    merged.set(key, value);
+  }
+  return Array.from(merged.entries())
+    .map(([key, value]) => `${key}=${value}`)
+    .join("\n");
+}
+
 export function GameDetailsPanel({
   details,
   preflight,
@@ -107,6 +144,7 @@ export function GameDetailsPanel({
   onRemoveContentEntry,
   installedXeniaBuildTags,
   onPreferredXeniaBuildChange,
+  onGameLaunchEnvironmentChange,
   onConfirmWarningLaunch,
   managePatchesOpen,
   patchImportPending,
@@ -146,10 +184,30 @@ export function GameDetailsPanel({
   onImportNavigate,
   onClearSaveResults,
 }: GameDetailsPanelProps) {
+  const { state: settingsState } = useSettings();
   const [installedContent, setInstalledContent] = useState<GameInstalledContent | null>(null);
   const [steamExportPending, setSteamExportPending] = useState(false);
   const [steamExportMessage, setSteamExportMessage] = useState<string | null>(null);
   const [patchInfo, setPatchInfo] = useState<GameXeniaPatches | null>(null);
+  const [launchEnvEditing, setLaunchEnvEditing] = useState(false);
+  const [launchEnvValue, setLaunchEnvValue] = useState("");
+  const effectiveLaunchEnv = useMemo(
+    () => mergeLaunchEnvironment(
+      settingsState.settings?.launch_environment || "",
+      `${launchEnvEditing ? launchEnvValue : (details?.launch_environment ?? "")}`,
+    ),
+    [settingsState.settings?.launch_environment, details?.launch_environment, launchEnvEditing, launchEnvValue],
+  );
+
+  useEffect(() => {
+    setLaunchEnvValue(details?.launch_environment ?? "");
+    setLaunchEnvEditing(false);
+  }, [details?.game_id, details?.launch_environment]);
+
+  const handleLaunchEnvSave = useCallback(async () => {
+    await onGameLaunchEnvironmentChange(launchEnvValue.trim() ? launchEnvValue : null);
+    setLaunchEnvEditing(false);
+  }, [launchEnvValue, onGameLaunchEnvironmentChange]);
 
   const handleSteamExport = useCallback(async () => {
     if (!details?.game_id || !libraryMetadataPath || !appDataPath) return;
@@ -272,6 +330,73 @@ export function GameDetailsPanel({
           />
         </div>
       )}
+      <div style={{ marginBottom: "12px" }}>
+        <div style={{ fontSize: "0.85rem", marginBottom: "6px", color: "var(--color-text-secondary)" }}>
+          Per-game launch environment variables
+        </div>
+        <div style={{ fontSize: "0.8rem", marginBottom: "8px", color: "var(--color-text-secondary)" }}>
+          Effective launch environment preview (global + per-game, with per-game overrides winning)
+        </div>
+        {launchEnvEditing ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            <textarea
+              value={launchEnvValue}
+              onChange={(e) => setLaunchEnvValue(e.target.value)}
+              placeholder={"MANGOHUD=1\nMANGOHUD_CONFIG=fps,gpu_temp\n# KEY=VALUE per line"}
+              rows={5}
+            />
+            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+              <button
+                type="button"
+                onClick={() => setLaunchEnvValue((current) => applyPreset(current, { MANGOHUD: "1" }))}
+              >
+                Preset: MangoHud
+              </button>
+              <button
+                type="button"
+                onClick={() => setLaunchEnvValue((current) => applyPreset(current, { LD_PRELOAD: "libgamemodeauto.so.0" }))}
+              >
+                Preset: GameMode
+              </button>
+              <button
+                type="button"
+                title="gamescope is normally a wrapper command; this preset adds common env hints only"
+                onClick={() => setLaunchEnvValue((current) => applyPreset(current, { ENABLE_GAMESCOPE_WSI: "1" }))}
+              >
+                Preset: gamescope
+              </button>
+            </div>
+            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+              <button type="button" onClick={() => void handleLaunchEnvSave()}>
+                Save launch env
+              </button>
+              <button type="button" onClick={() => setLaunchEnvEditing(false)}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            <pre style={{ margin: 0, whiteSpace: "pre-wrap" }}>
+              {details.launch_environment?.trim() || "Not set"}
+            </pre>
+            <div>
+              <button
+                type="button"
+                onClick={() => {
+                  setLaunchEnvValue(details.launch_environment ?? "");
+                  setLaunchEnvEditing(true);
+                }}
+              >
+                Edit launch env
+              </button>
+            </div>
+          </div>
+        )}
+        <pre style={{ marginTop: "8px", marginBottom: 0, whiteSpace: "pre-wrap" }}>
+          {effectiveLaunchEnv || "Not set"}
+        </pre>
+      </div>
       <div style={{ display: "flex", gap: "8px", marginBottom: "8px", flexWrap: "wrap" }}>
         <button
           type="button"

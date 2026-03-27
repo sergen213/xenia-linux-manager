@@ -31,9 +31,7 @@ pub fn export_game_desktop_shortcut(
     }
 
     let details = review::load_game_details(library_metadata_path, game_id)?;
-    let xenia_exec = preflight
-        .xenia_executable_path
-        .ok_or_else(|| "Missing Xenia executable path".to_string())?;
+    let plan = launch::build_launch_plan(app_data_path, library_metadata_path, game_id)?;
 
     let destination_dir = shortcut_target_dir(target)?;
     fs::create_dir_all(&destination_dir)
@@ -53,11 +51,8 @@ pub fn export_game_desktop_shortcut(
         "Comment={}\n",
         escape_desktop_value("Launch this Xbox 360 game with Xenia")
     ));
-    desktop.push_str(&format!(
-        "Exec={} {}\n",
-        shell_escape(&xenia_exec),
-        shell_escape(&details.executable_path)
-    ));
+    let exec_command = desktop_exec_command(&plan);
+    desktop.push_str(&format!("Exec={}\n", exec_command));
     desktop.push_str("Terminal=false\n");
     desktop.push_str("Categories=Game;Emulator;\n");
     desktop.push_str("StartupNotify=true\n");
@@ -191,6 +186,22 @@ fn shell_escape(value: &str) -> String {
     format!("\"{}\"", escaped)
 }
 
+fn desktop_exec_command(plan: &launch::LaunchPlan) -> String {
+    let mut parts = Vec::new();
+    if plan.environment.is_empty() {
+        parts.push(shell_escape(&plan.xenia_executable_path));
+    } else {
+        parts.push(shell_escape("/usr/bin/env"));
+        for (key, value) in &plan.environment {
+            parts.push(shell_escape(&format!("{}={}", key, value)));
+        }
+        parts.push(shell_escape(&plan.xenia_executable_path));
+    }
+    parts.push(shell_escape(&format!("--config={}", plan.config_path)));
+    parts.push(shell_escape(&plan.game_executable_path));
+    parts.join(" ")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -208,5 +219,20 @@ mod tests {
             shell_escape("/path/with space/game.xex"),
             "\"/path/with space/game.xex\""
         );
+    }
+
+    #[test]
+    fn desktop_exec_command_includes_env_and_config() {
+        let plan = launch::LaunchPlan {
+            xenia_executable_path: "/usr/bin/xenia_canary".into(),
+            game_executable_path: "/games/Halo 3.iso".into(),
+            config_path: "/tmp/game.toml".into(),
+            environment: vec![("MANGOHUD".into(), "1".into())],
+        };
+        let command = desktop_exec_command(&plan);
+        assert!(command.contains("/usr/bin/env"));
+        assert!(command.contains("MANGOHUD=1"));
+        assert!(command.contains("--config=/tmp/game.toml"));
+        assert!(command.contains("/games/Halo 3.iso"));
     }
 }

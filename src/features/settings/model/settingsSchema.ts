@@ -9,6 +9,8 @@ export interface AppSettings {
   gamer_tag: string | null;
   /** Click behavior for game cards: "single" or "double" click to open. */
   click_behavior: "single" | "double";
+  /** Extra KEY=VALUE environment variables applied when launching Xenia. */
+  launch_environment?: string | null;
 }
 
 /** Result of validating a single path on the backend. */

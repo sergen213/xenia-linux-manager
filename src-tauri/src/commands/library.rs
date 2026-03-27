@@ -272,6 +272,14 @@ pub fn update_preferred_xenia_build(
 }
 
 #[tauri::command]
+pub fn update_game_launch_environment(
+    library_metadata_path: String,
+    input: identity::UpdateGameLaunchEnvironmentInput,
+) -> Result<identity::GameIdentityRecord, String> {
+    identity::update_game_launch_environment(&library_metadata_path, input)
+}
+
+#[tauri::command]
 pub fn resolve_duplicate_review(
     library_metadata_path: String,
     input: identity::DuplicateResolutionInput,

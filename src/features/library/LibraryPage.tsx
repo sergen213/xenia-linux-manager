@@ -170,8 +170,10 @@ export function LibraryPage() {
           onRemoveContentEntry={(entryPath) => launchActions.removeContentEntry(entryPath)}
           installedXeniaBuildTags={launchActions.installedXeniaBuildTags}
           onPreferredXeniaBuildChange={async (tag) => {
-            if (tag === null) return;
             await launchActions.changePreferredXeniaBuild(tag);
+          }}
+          onGameLaunchEnvironmentChange={async (launchEnvironment) => {
+            await launchActions.changeGameLaunchEnvironment(launchEnvironment);
           }}
           onConfirmWarningLaunch={() => launchActions.launch(true)}
           onManagePatchesToggle={() =>

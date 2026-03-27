@@ -573,6 +573,7 @@ mod tests {
                 created_at: 0,
                 updated_at: 0,
                 preferred_xenia_tag: None,
+                launch_environment: None,
             }],
             duplicate_resolutions: vec![],
         };
@@ -619,6 +620,7 @@ mod tests {
                 created_at: 0,
                 updated_at: 0,
                 preferred_xenia_tag: None,
+                launch_environment: None,
             }],
             duplicate_resolutions: vec![],
         };
@@ -672,6 +674,7 @@ mod tests {
                 created_at: 0,
                 updated_at: 0,
                 preferred_xenia_tag: None,
+                launch_environment: None,
             }],
             duplicate_resolutions: vec![],
         };
@@ -716,6 +719,7 @@ mod tests {
                 created_at: 0,
                 updated_at: 0,
                 preferred_xenia_tag: None,
+                launch_environment: None,
             }],
             duplicate_resolutions: vec![],
         };
@@ -775,6 +779,7 @@ mod tests {
                 created_at: 0,
                 updated_at: 0,
                 preferred_xenia_tag: None,
+                launch_environment: None,
             }],
             duplicate_resolutions: vec![],
         };
@@ -847,6 +852,7 @@ mod tests {
                 created_at: 0,
                 updated_at: 0,
                 preferred_xenia_tag: None,
+                launch_environment: None,
             }],
             duplicate_resolutions: vec![],
         };

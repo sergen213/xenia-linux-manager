@@ -1,15 +1,16 @@
 //! Backend-owned launch preflight and process spawning.
 
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::path::Path;
 use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::library::identity;
 use crate::library::review;
-use crate::xenia::install_state::{self, LifecycleStatus};
-
 use crate::profiles::materialize::{self, MaterializedLaunchConfig};
+use crate::settings;
+use crate::xenia::install_state::{self, LifecycleStatus};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct LaunchPreflight {
@@ -37,6 +38,14 @@ pub struct LaunchResult {
     pub pid: u32,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct LaunchPlan {
+    pub xenia_executable_path: String,
+    pub game_executable_path: String,
+    pub config_path: String,
+    pub environment: Vec<(String, String)>,
+}
+
 pub fn get_launch_preflight(
     app_data_path: &str,
     library_metadata_path: &str,
@@ -44,7 +53,7 @@ pub fn get_launch_preflight(
 ) -> Result<LaunchPreflight, String> {
     let details = review::load_game_details(library_metadata_path, game_id)?;
     let install = install_state::load_state(app_data_path);
-    let xenia_exec = install.manifest.as_ref().map(|manifest| manifest.executable_path.clone());
+    let xenia_exec = resolve_xenia_executable(&install, details.preferred_xenia_tag.as_deref());
 
     let mut blockers = Vec::new();
     let mut warnings = Vec::new();
@@ -87,6 +96,32 @@ pub fn get_launch_preflight(
     })
 }
 
+pub fn build_launch_plan(
+    app_data_path: &str,
+    library_metadata_path: &str,
+    game_id: &str,
+) -> Result<LaunchPlan, String> {
+    let preflight = get_launch_preflight(app_data_path, library_metadata_path, game_id)?;
+    if !preflight.can_launch {
+        return Err(preflight.blockers.join(" "));
+    }
+
+    let xenia_exec = preflight
+        .xenia_executable_path
+        .clone()
+        .ok_or_else(|| "Missing Xenia executable path".to_string())?;
+    let materialized = materialize::materialize_launch_config(library_metadata_path, game_id)?;
+    let launch_config_path = write_launch_config(app_data_path, game_id, &materialized)?;
+    let launch_env = load_launch_environment(library_metadata_path, game_id)?;
+
+    Ok(LaunchPlan {
+        xenia_executable_path: xenia_exec,
+        game_executable_path: preflight.game_executable_path,
+        config_path: launch_config_path.to_string_lossy().to_string(),
+        environment: launch_env,
+    })
+}
+
 pub fn launch_game(
     app_data_path: &str,
     library_metadata_path: &str,
@@ -101,18 +136,21 @@ pub fn launch_game(
         return Err("Launch confirmation required for this title.".to_string());
     }
 
-    let xenia_exec = preflight
-        .xenia_executable_path
-        .clone()
-        .ok_or_else(|| "Missing Xenia executable path".to_string())?;
+    let plan = build_launch_plan(app_data_path, library_metadata_path, game_id)?;
 
-    let child = Command::new(&xenia_exec)
-        .arg(&preflight.game_executable_path)
+    let child = Command::new(&plan.xenia_executable_path)
+        .envs(plan.environment)
+        .arg(format!("--config={}", plan.config_path))
+        .arg(&plan.game_executable_path)
         .spawn()
         .map_err(|e| format!("Failed to launch Xenia: {e}"))?;
 
     let started_at = now_millis();
-    let _ = identity::record_launch_started(library_metadata_path, game_id, &xenia_exec)?;
+    let _ = identity::record_launch_started(
+        library_metadata_path,
+        game_id,
+        &plan.xenia_executable_path,
+    )?;
     Ok(LaunchResult {
         game_id: game_id.to_string(),
         started_at,
@@ -142,6 +180,174 @@ pub fn get_launch_preflight_with_profile(
         preflight,
         materialized_config,
     })
+}
+
+pub fn merged_launch_environment_preview(
+    library_metadata_path: &str,
+    game_id: &str,
+) -> Result<Vec<(String, String)>, String> {
+    load_launch_environment(library_metadata_path, game_id)
+}
+
+fn load_launch_environment(
+    library_metadata_path: &str,
+    game_id: &str,
+) -> Result<Vec<(String, String)>, String> {
+    let settings = settings::load_settings().map_err(|e| e.to_string())?;
+    let mut merged = HashMap::new();
+    for (key, value) in parse_launch_environment(&settings.launch_environment)? {
+        merged.insert(key, value);
+    }
+
+    let store = identity::load_identity_store(library_metadata_path);
+    let game = identity::find_game_by_id(&store, game_id)
+        .ok_or_else(|| format!("Game not found: {}", game_id))?;
+    if let Some(raw) = &game.launch_environment {
+        for (key, value) in parse_launch_environment(raw)? {
+            merged.insert(key, value);
+        }
+    }
+
+    Ok(merged.into_iter().collect())
+}
+
+fn parse_launch_environment(raw: &str) -> Result<Vec<(String, String)>, String> {
+    let mut envs = Vec::new();
+
+    for (index, original_line) in raw.lines().enumerate() {
+        let line = original_line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+
+        let Some((key, value)) = line.split_once('=') else {
+            return Err(format!(
+                "Invalid launch environment entry on line {}: expected KEY=VALUE",
+                index + 1
+            ));
+        };
+
+        let key = key.trim();
+        let value = value.trim();
+        if key.is_empty() {
+            return Err(format!(
+                "Invalid launch environment entry on line {}: variable name is empty",
+                index + 1
+            ));
+        }
+        if !key.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
+            return Err(format!(
+                "Invalid launch environment variable name on line {}: {}",
+                index + 1,
+                key
+            ));
+        }
+
+        envs.push((key.to_string(), value.to_string()));
+    }
+
+    Ok(envs)
+}
+
+fn resolve_xenia_executable(
+    install: &install_state::InstallState,
+    preferred_tag: Option<&str>,
+) -> Option<String> {
+    preferred_tag
+        .and_then(|preferred| {
+            install
+                .installed_builds
+                .iter()
+                .find(|build| build.tag == preferred)
+                .map(|build| build.executable_path.clone())
+        })
+        .or_else(|| install.manifest.as_ref().map(|manifest| manifest.executable_path.clone()))
+}
+
+fn write_launch_config(
+    app_data_path: &str,
+    game_id: &str,
+    materialized: &MaterializedLaunchConfig,
+) -> Result<std::path::PathBuf, String> {
+    let dir = std::path::PathBuf::from(app_data_path).join("launch-configs");
+    std::fs::create_dir_all(&dir)
+        .map_err(|e| format!("Failed to create launch config directory: {e}"))?;
+    let path = dir.join(format!("{game_id}.toml"));
+    let toml = materialized_config_to_toml(materialized)?;
+    std::fs::write(&path, toml).map_err(|e| format!("Failed to write launch config: {e}"))?;
+    Ok(path)
+}
+
+fn materialized_config_to_toml(materialized: &MaterializedLaunchConfig) -> Result<String, String> {
+    let mut root = toml::map::Map::new();
+    for (key, value) in &materialized.explicit_overrides {
+        insert_dotted_toml_value(&mut root, key, json_to_toml_value(value)?);
+    }
+    toml::to_string_pretty(&toml::Value::Table(root))
+        .map_err(|e| format!("Failed to serialize launch config TOML: {e}"))
+}
+
+fn insert_dotted_toml_value(
+    root: &mut toml::map::Map<String, toml::Value>,
+    dotted_key: &str,
+    value: toml::Value,
+) {
+    let parts: Vec<&str> = dotted_key.split('.').collect();
+    insert_dotted_parts(root, &parts, value);
+}
+
+fn insert_dotted_parts(
+    root: &mut toml::map::Map<String, toml::Value>,
+    parts: &[&str],
+    value: toml::Value,
+) {
+    if parts.is_empty() {
+        return;
+    }
+    if parts.len() == 1 {
+        root.insert(parts[0].to_string(), value);
+        return;
+    }
+
+    let entry = root
+        .entry(parts[0].to_string())
+        .or_insert_with(|| toml::Value::Table(toml::map::Map::new()));
+    if !entry.is_table() {
+        *entry = toml::Value::Table(toml::map::Map::new());
+    }
+    let table = entry.as_table_mut().expect("table just inserted");
+    insert_dotted_parts(table, &parts[1..], value);
+}
+
+fn json_to_toml_value(value: &serde_json::Value) -> Result<toml::Value, String> {
+    match value {
+        serde_json::Value::Null => Err("Null values cannot be written to launch config".to_string()),
+        serde_json::Value::Bool(v) => Ok(toml::Value::Boolean(*v)),
+        serde_json::Value::Number(v) => {
+            if let Some(i) = v.as_i64() {
+                Ok(toml::Value::Integer(i))
+            } else if let Some(f) = v.as_f64() {
+                Ok(toml::Value::Float(f))
+            } else {
+                Err(format!("Unsupported numeric value in launch config: {v}"))
+            }
+        }
+        serde_json::Value::String(v) => Ok(toml::Value::String(v.clone())),
+        serde_json::Value::Array(values) => {
+            let mut array = Vec::with_capacity(values.len());
+            for item in values {
+                array.push(json_to_toml_value(item)?);
+            }
+            Ok(toml::Value::Array(array))
+        }
+        serde_json::Value::Object(map) => {
+            let mut table = toml::map::Map::new();
+            for (key, item) in map {
+                table.insert(key.clone(), json_to_toml_value(item)?);
+            }
+            Ok(toml::Value::Table(table))
+        }
+    }
 }
 
 fn now_millis() -> u64 {
@@ -219,6 +425,50 @@ mod tests {
         };
         install_state::save_state(app_dir, &state).unwrap();
         game_id
+    }
+
+    #[test]
+    fn parse_launch_environment_accepts_comments_and_values() {
+        let envs = parse_launch_environment(
+            "# comment\nMANGOHUD=1\nMANGOHUD_CONFIG=fps,gpu_temp\n",
+        )
+        .unwrap();
+        assert_eq!(
+            envs,
+            vec![
+                ("MANGOHUD".to_string(), "1".to_string()),
+                ("MANGOHUD_CONFIG".to_string(), "fps,gpu_temp".to_string()),
+            ]
+        );
+    }
+
+    #[test]
+    fn parse_launch_environment_rejects_invalid_lines() {
+        let err = parse_launch_environment("not-valid").unwrap_err();
+        assert!(err.contains("expected KEY=VALUE"));
+    }
+
+    #[test]
+    fn materialized_config_serializes_explicit_overrides_to_toml() {
+        let mut overrides = HashMap::new();
+        overrides.insert("gpu.vsync".to_string(), serde_json::json!(false));
+        overrides.insert("gpu.framerate_limit".to_string(), serde_json::json!(60));
+        let materialized = MaterializedLaunchConfig {
+            game_id: "game-1".into(),
+            profile_id: Some("profile-1".into()),
+            profile_name: Some("Test".into()),
+            effective_fields: vec![],
+            explicit_overrides: overrides,
+            changed_setting_count: 2,
+            key_changes: vec![],
+            patch_summary: None,
+            materialized_at: 1,
+        };
+
+        let toml = materialized_config_to_toml(&materialized).unwrap();
+        assert!(toml.contains("[gpu]"));
+        assert!(toml.contains("vsync = false"));
+        assert!(toml.contains("framerate_limit = 60"));
     }
 
     #[test]

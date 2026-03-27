@@ -17,6 +17,7 @@ use std::fs;
 
 use std::path::{Path, PathBuf};
 
+use crate::library::launch;
 use crate::library::review;
 
 // ---------------------------------------------------------------------------
@@ -337,7 +338,8 @@ fn build_shortcut_entry(
     index: u32,
     app_name: &str,
     exe_path: &str,
-    game_executable: &str,
+    start_dir: &str,
+    launch_options: &str,
     icon_path: &str,
 ) -> ShortcutEntry {
     let app_id = generate_steam_app_id(exe_path, app_name);
@@ -353,18 +355,13 @@ fn build_shortcut_entry(
             ),
             (
                 "StartDir".to_string(),
-                VdfValue::Str(
-                    Path::new(exe_path)
-                        .parent()
-                        .map(|p| format!("\"{}\"", p.display()))
-                        .unwrap_or_default(),
-                ),
+                VdfValue::Str(format!("\"{}\"", start_dir)),
             ),
             ("icon".to_string(), VdfValue::Str(icon_path.to_string())),
             ("ShortcutPath".to_string(), VdfValue::Str(String::new())),
             (
                 "LaunchOptions".to_string(),
-                VdfValue::Str(format!("\"{}\"", game_executable)),
+                VdfValue::Str(launch_options.to_string()),
             ),
             ("IsHidden".to_string(), VdfValue::U32(0)),
             ("AllowDesktopConfig".to_string(), VdfValue::U32(1)),
@@ -395,6 +392,37 @@ fn find_existing_shortcut(entries: &[ShortcutEntry], app_name: &str) -> Option<u
 
 /// Copy the game's existing artwork into Steam's grid dir as the portrait cover.
 /// Returns the list of files written.
+fn shell_escape(value: &str) -> String {
+    let escaped = value.replace('"', "\\\"");
+    format!("\"{}\"", escaped)
+}
+
+fn steam_launch_components(plan: &launch::LaunchPlan) -> (String, String, String) {
+    let start_dir = Path::new(&plan.xenia_executable_path)
+        .parent()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_default();
+
+    let mut parts = Vec::new();
+    let exe = if plan.environment.is_empty() {
+        plan.xenia_executable_path.clone()
+    } else {
+        "/usr/bin/env".to_string()
+    };
+
+    if !plan.environment.is_empty() {
+        for (key, value) in &plan.environment {
+            parts.push(shell_escape(&format!("{}={}", key, value)));
+        }
+        parts.push(shell_escape(&plan.xenia_executable_path));
+    }
+
+    parts.push(shell_escape(&format!("--config={}", plan.config_path)));
+    parts.push(shell_escape(&plan.game_executable_path));
+
+    (exe, start_dir, parts.join(" "))
+}
+
 fn copy_grid_artwork(
     grid_dir: &Path,
     app_id: u32,
@@ -440,20 +468,7 @@ pub fn export_game_to_steam(
     steam_user_id: &str,
 ) -> Result<SteamExportResult, String> {
     let details = review::load_game_details(library_metadata_path, game_id)?;
-    let install = crate::xenia::install_state::load_state(app_data_path);
-
-    let xenia_exec = details
-        .preferred_xenia_tag
-        .as_ref()
-        .and_then(|preferred| {
-            install
-                .installed_builds
-                .iter()
-                .find(|build| &build.tag == preferred)
-                .map(|build| build.executable_path.clone())
-        })
-        .or_else(|| install.manifest.as_ref().map(|m| m.executable_path.clone()))
-        .ok_or_else(|| "Xenia is not installed".to_string())?;
+    let plan = launch::build_launch_plan(app_data_path, library_metadata_path, game_id)?;
 
     let steam = find_steam_install()?;
     let steam_root = PathBuf::from(&steam.steam_root);
@@ -467,7 +482,8 @@ pub fn export_game_to_steam(
     let grid_dir = user_dir.join("config").join("grid");
 
     let app_name = format!("{} (Xenia)", details.title);
-    let app_id = generate_steam_app_id(&xenia_exec, &app_name);
+    let (steam_exe, steam_start_dir, steam_launch_options) = steam_launch_components(&plan);
+    let app_id = generate_steam_app_id(&steam_exe, &app_name);
 
     // Read existing shortcuts
     let mut entries = if shortcuts_path.exists() {
@@ -487,8 +503,9 @@ pub fn export_game_to_steam(
         entries[idx] = build_shortcut_entry(
             next_index,
             &app_name,
-            &xenia_exec,
-            &details.executable_path,
+            &steam_exe,
+            &steam_start_dir,
+            &steam_launch_options,
             details.artwork_path.as_deref().unwrap_or(""),
         );
     } else {
@@ -501,8 +518,9 @@ pub fn export_game_to_steam(
         entries.push(build_shortcut_entry(
             next_index,
             &app_name,
-            &xenia_exec,
-            &details.executable_path,
+            &steam_exe,
+            &steam_start_dir,
+            &steam_launch_options,
             details.artwork_path.as_deref().unwrap_or(""),
         ));
     }
@@ -577,7 +595,8 @@ mod tests {
             0,
             "Test Game (Xenia)",
             "/usr/bin/xenia",
-            "/games/test.xex",
+            "/usr/bin",
+            "\"--config=/tmp/test.toml\" \"/games/test.xex\"",
             "",
         );
         let data = serialize_shortcuts_vdf(&[entry]);
@@ -601,12 +620,13 @@ mod tests {
     #[test]
     fn vdf_round_trip_multiple_entries() {
         let entries = vec![
-            build_shortcut_entry(0, "Game A (Xenia)", "/usr/bin/xenia", "/games/a.xex", ""),
+            build_shortcut_entry(0, "Game A (Xenia)", "/usr/bin/xenia", "/usr/bin", "\"/games/a.xex\"", ""),
             build_shortcut_entry(
                 1,
                 "Game B (Xenia)",
                 "/usr/bin/xenia",
-                "/games/b.xex",
+                "/usr/bin",
+                "\"/games/b.xex\"",
                 "/art/b.jpg",
             ),
         ];
@@ -618,12 +638,41 @@ mod tests {
     #[test]
     fn find_existing_shortcut_works() {
         let entries = vec![
-            build_shortcut_entry(0, "Game A (Xenia)", "/usr/bin/xenia", "/games/a.xex", ""),
-            build_shortcut_entry(1, "Game B (Xenia)", "/usr/bin/xenia", "/games/b.xex", ""),
+            build_shortcut_entry(
+                0,
+                "Game A (Xenia)",
+                "/usr/bin/xenia",
+                "/usr/bin",
+                "\"/games/a.xex\"",
+                "",
+            ),
+            build_shortcut_entry(
+                1,
+                "Game B (Xenia)",
+                "/usr/bin/xenia",
+                "/usr/bin",
+                "\"/games/b.xex\"",
+                "",
+            ),
         ];
         assert_eq!(find_existing_shortcut(&entries, "Game A (Xenia)"), Some(0));
         assert_eq!(find_existing_shortcut(&entries, "Game B (Xenia)"), Some(1));
         assert_eq!(find_existing_shortcut(&entries, "Game C (Xenia)"), None);
+    }
+
+    #[test]
+    fn steam_launch_components_include_env_and_config() {
+        let plan = launch::LaunchPlan {
+            xenia_executable_path: "/usr/bin/xenia".into(),
+            game_executable_path: "/games/test.iso".into(),
+            config_path: "/tmp/test.toml".into(),
+            environment: vec![("MANGOHUD".into(), "1".into())],
+        };
+        let (exe, start_dir, options) = steam_launch_components(&plan);
+        assert_eq!(exe, "/usr/bin/env");
+        assert_eq!(start_dir, "/usr/bin");
+        assert!(options.contains("MANGOHUD=1"));
+        assert!(options.contains("--config=/tmp/test.toml"));
     }
 
     #[test]
@@ -654,7 +703,8 @@ mod tests {
             0,
             "Test Game (Xenia)",
             "/usr/bin/xenia",
-            "/games/test.xex",
+            "/usr/bin",
+            "\"--config=/tmp/test.toml\" \"/games/test.xex\"",
             "",
         );
         let data = serialize_shortcuts_vdf(&[entry]);

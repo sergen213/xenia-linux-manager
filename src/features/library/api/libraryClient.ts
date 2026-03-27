@@ -222,6 +222,16 @@ export async function updatePreferredXeniaBuild(
   });
 }
 
+export async function updateGameLaunchEnvironment(
+  libraryMetadataPath: string,
+  input: { game_id: string; launch_environment: string | null },
+): Promise<GameIdentityRecord> {
+  return invoke<GameIdentityRecord>("update_game_launch_environment", {
+    libraryMetadataPath,
+    input,
+  });
+}
+
 export async function resolveDuplicateReview(
   libraryMetadataPath: string,
   input: DuplicateResolutionInput,
