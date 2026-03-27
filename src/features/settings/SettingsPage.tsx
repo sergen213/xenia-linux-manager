@@ -39,6 +39,10 @@ function applyPreset(raw: string, preset: Record<string, string>): string {
     .join("\n");
 }
 
+function mergeLaunchWrapper(raw: string): string {
+  return raw.trim().replace(/\s+/g, " ");
+}
+
 export function SettingsPage() {
   const { state, dispatch } = useSettings();
   const { settings } = state;
@@ -47,9 +51,15 @@ export function SettingsPage() {
   const [gamerTagValue, setGamerTagValue] = useState("");
   const [launchEnvEditing, setLaunchEnvEditing] = useState(false);
   const [launchEnvValue, setLaunchEnvValue] = useState("");
+  const [launchWrapperEditing, setLaunchWrapperEditing] = useState(false);
+  const [launchWrapperValue, setLaunchWrapperValue] = useState("");
   const effectiveGlobalLaunchEnv = useMemo(
     () => mergeLaunchEnvironment(settings?.launch_environment || ""),
     [settings?.launch_environment],
+  );
+  const effectiveGlobalLaunchWrapper = useMemo(
+    () => mergeLaunchWrapper(settings?.launch_wrapper || ""),
+    [settings?.launch_wrapper],
   );
 
   const handleGamerTagSave = async () => {
@@ -73,6 +83,14 @@ export function SettingsPage() {
     await saveSettings(updated);
     dispatch({ type: "SET_SETTINGS", settings: updated });
     setLaunchEnvEditing(false);
+  };
+
+  const handleLaunchWrapperSave = async () => {
+    if (!settings) return;
+    const updated = { ...settings, launch_wrapper: launchWrapperValue };
+    await saveSettings(updated);
+    dispatch({ type: "SET_SETTINGS", settings: updated });
+    setLaunchWrapperEditing(false);
   };
 
   return (
@@ -271,6 +289,66 @@ export function SettingsPage() {
                 <div className="settings-page__pref-label">Effective Global Launch Environment</div>
                 <pre className="settings-page__pref-value settings-page__pref-value--multiline">
                   {effectiveGlobalLaunchEnv || "Not set"}
+                </pre>
+              </div>
+            </div>
+
+            <div className="settings-page__pref-row">
+              <label className="settings-page__pref-label">
+                Launch Wrapper / Prefix
+              </label>
+              {launchWrapperEditing ? (
+                <div className="settings-page__pref-edit settings-page__pref-edit--stacked">
+                  <input
+                    className="settings-page__input"
+                    value={launchWrapperValue}
+                    onChange={(e) => setLaunchWrapperValue(e.target.value)}
+                    placeholder="gamemoderun or gamescope --mangoapp --"
+                  />
+                  <div className="settings-page__preset-row">
+                    <button
+                      className="settings-page__edit-small"
+                      onClick={() => setLaunchWrapperValue("gamemoderun")}
+                    >
+                      Preset: GameMode
+                    </button>
+                    <button
+                      className="settings-page__edit-small"
+                      onClick={() => setLaunchWrapperValue("gamescope --mangoapp --")}
+                    >
+                      Preset: gamescope
+                    </button>
+                  </div>
+                  <button className="settings-page__save-btn" onClick={handleLaunchWrapperSave}>
+                    Save
+                  </button>
+                  <button className="settings-page__cancel-btn" onClick={() => setLaunchWrapperEditing(false)}>
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <div className="settings-page__pref-display settings-page__pref-display--stacked">
+                  <span className="settings-page__pref-value settings-page__pref-value--multiline">
+                    {settings.launch_wrapper?.trim() || "Not set"}
+                  </span>
+                  <button
+                    className="settings-page__edit-small"
+                    onClick={() => {
+                      setLaunchWrapperValue(settings.launch_wrapper || "");
+                      setLaunchWrapperEditing(true);
+                    }}
+                  >
+                    Edit
+                  </button>
+                </div>
+              )}
+              <p className="settings-page__pref-help">
+                Wrapper commands run before Xenia, e.g. gamemoderun or gamescope --mangoapp --.
+              </p>
+              <div className="settings-page__effective-env">
+                <div className="settings-page__pref-label">Effective Global Launch Wrapper</div>
+                <pre className="settings-page__pref-value settings-page__pref-value--multiline">
+                  {effectiveGlobalLaunchWrapper || "Not set"}
                 </pre>
               </div>
             </div>

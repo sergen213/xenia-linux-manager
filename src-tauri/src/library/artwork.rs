@@ -517,6 +517,7 @@ mod tests {
             updated_at: 0,
             preferred_xenia_tag: None,
             launch_environment: None,
+            launch_wrapper: None,
         });
         identity::save_identity_store(&lib_path, &store).unwrap();
 

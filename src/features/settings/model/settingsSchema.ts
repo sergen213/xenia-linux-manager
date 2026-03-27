@@ -11,6 +11,8 @@ export interface AppSettings {
   click_behavior: "single" | "double";
   /** Extra KEY=VALUE environment variables applied when launching Xenia. */
   launch_environment?: string | null;
+  /** Optional launch wrapper / prefix like `gamemoderun` or `gamescope --mangoapp --`. */
+  launch_wrapper?: string | null;
 }
 
 /** Result of validating a single path on the backend. */

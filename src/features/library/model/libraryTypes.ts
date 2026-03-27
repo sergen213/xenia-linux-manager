@@ -201,6 +201,7 @@ export interface LibraryGameDetails {
   title_id: string | null;
   preferred_xenia_tag: string | null;
   launch_environment: string | null;
+  launch_wrapper?: string | null;
   manual: boolean;
   review_flag: boolean;
   duplicate_count: number;

@@ -44,6 +44,7 @@ pub struct LaunchPlan {
     pub game_executable_path: String,
     pub config_path: String,
     pub environment: Vec<(String, String)>,
+    pub wrapper: Vec<String>,
 }
 
 pub fn get_launch_preflight(
@@ -114,11 +115,14 @@ pub fn build_launch_plan(
     let launch_config_path = write_launch_config(app_data_path, game_id, &materialized)?;
     let launch_env = load_launch_environment(library_metadata_path, game_id)?;
 
+    let launch_wrapper = load_launch_wrapper(library_metadata_path, game_id)?;
+
     Ok(LaunchPlan {
         xenia_executable_path: xenia_exec,
         game_executable_path: preflight.game_executable_path,
         config_path: launch_config_path.to_string_lossy().to_string(),
         environment: launch_env,
+        wrapper: launch_wrapper,
     })
 }
 
@@ -138,8 +142,17 @@ pub fn launch_game(
 
     let plan = build_launch_plan(app_data_path, library_metadata_path, game_id)?;
 
-    let child = Command::new(&plan.xenia_executable_path)
-        .envs(plan.environment)
+    let mut command = if let Some(program) = plan.wrapper.first() {
+        let mut cmd = Command::new(program);
+        cmd.args(&plan.wrapper[1..]);
+        cmd.arg(&plan.xenia_executable_path);
+        cmd
+    } else {
+        Command::new(&plan.xenia_executable_path)
+    };
+
+    let child = command
+        .envs(plan.environment.clone())
         .arg(format!("--config={}", plan.config_path))
         .arg(&plan.game_executable_path)
         .spawn()
@@ -187,6 +200,13 @@ pub fn merged_launch_environment_preview(
     game_id: &str,
 ) -> Result<Vec<(String, String)>, String> {
     load_launch_environment(library_metadata_path, game_id)
+}
+
+pub fn merged_launch_wrapper_preview(
+    library_metadata_path: &str,
+    game_id: &str,
+) -> Result<Vec<String>, String> {
+    load_launch_wrapper(library_metadata_path, game_id)
 }
 
 fn load_launch_environment(
@@ -247,6 +267,52 @@ fn parse_launch_environment(raw: &str) -> Result<Vec<(String, String)>, String> 
     }
 
     Ok(envs)
+}
+
+fn load_launch_wrapper(
+    library_metadata_path: &str,
+    game_id: &str,
+) -> Result<Vec<String>, String> {
+    let settings = settings::load_settings().map_err(|e| e.to_string())?;
+    let mut tokens = parse_launch_wrapper(&settings.launch_wrapper)?;
+
+    let store = identity::load_identity_store(library_metadata_path);
+    let game = identity::find_game_by_id(&store, game_id)
+        .ok_or_else(|| format!("Game not found: {}", game_id))?;
+    if let Some(raw) = &game.launch_wrapper {
+        tokens.extend(parse_launch_wrapper(raw)?);
+    }
+
+    Ok(tokens)
+}
+
+fn parse_launch_wrapper(raw: &str) -> Result<Vec<String>, String> {
+    let mut tokens = Vec::new();
+    let mut current = String::new();
+    let mut quote: Option<char> = None;
+    let mut chars = raw.trim().chars().peekable();
+
+    while let Some(ch) = chars.next() {
+        match quote {
+            Some(q) if ch == q => quote = None,
+            Some(_) => current.push(ch),
+            None if ch == '\'' || ch == '"' => quote = Some(ch),
+            None if ch.is_whitespace() => {
+                if !current.is_empty() {
+                    tokens.push(std::mem::take(&mut current));
+                }
+            }
+            None => current.push(ch),
+        }
+    }
+
+    if quote.is_some() {
+        return Err("Invalid launch wrapper: unmatched quote".to_string());
+    }
+    if !current.is_empty() {
+        tokens.push(current);
+    }
+    Ok(tokens)
 }
 
 fn resolve_xenia_executable(
@@ -469,6 +535,12 @@ mod tests {
         assert!(toml.contains("[gpu]"));
         assert!(toml.contains("vsync = false"));
         assert!(toml.contains("framerate_limit = 60"));
+    }
+
+    #[test]
+    fn parse_launch_wrapper_supports_quoted_args() {
+        let tokens = parse_launch_wrapper("gamescope --fullscreen --prefer-vk-device \"RADV Radeon\" --").unwrap();
+        assert_eq!(tokens, vec!["gamescope", "--fullscreen", "--prefer-vk-device", "RADV Radeon", "--"]);
     }
 
     #[test]

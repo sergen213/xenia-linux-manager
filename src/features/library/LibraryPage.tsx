@@ -175,6 +175,9 @@ export function LibraryPage() {
           onGameLaunchEnvironmentChange={async (launchEnvironment) => {
             await launchActions.changeGameLaunchEnvironment(launchEnvironment);
           }}
+          onGameLaunchWrapperChange={async (launchWrapper) => {
+            await launchActions.changeGameLaunchWrapper(launchWrapper);
+          }}
           onConfirmWarningLaunch={() => launchActions.launch(true)}
           onManagePatchesToggle={() =>
             dispatch({ type: "SET_MANAGE_PATCHES_OPEN", open: !state.managePatchesOpen })

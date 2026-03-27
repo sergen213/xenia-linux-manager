@@ -44,6 +44,7 @@ interface GameDetailsPanelProps {
   installedXeniaBuildTags: string[];
   onPreferredXeniaBuildChange: (tag: string | null) => Promise<void>;
   onGameLaunchEnvironmentChange: (launchEnvironment: string | null) => Promise<void>;
+  onGameLaunchWrapperChange: (launchWrapper: string | null) => Promise<void>;
   onConfirmWarningLaunch: () => Promise<void>;
   managePatchesOpen: boolean;
   patchImportPending: boolean;
@@ -145,6 +146,7 @@ export function GameDetailsPanel({
   installedXeniaBuildTags,
   onPreferredXeniaBuildChange,
   onGameLaunchEnvironmentChange,
+  onGameLaunchWrapperChange,
   onConfirmWarningLaunch,
   managePatchesOpen,
   patchImportPending,
@@ -191,6 +193,8 @@ export function GameDetailsPanel({
   const [patchInfo, setPatchInfo] = useState<GameXeniaPatches | null>(null);
   const [launchEnvEditing, setLaunchEnvEditing] = useState(false);
   const [launchEnvValue, setLaunchEnvValue] = useState("");
+  const [launchWrapperEditing, setLaunchWrapperEditing] = useState(false);
+  const [launchWrapperValue, setLaunchWrapperValue] = useState("");
   const effectiveLaunchEnv = useMemo(
     () => mergeLaunchEnvironment(
       settingsState.settings?.launch_environment || "",
@@ -198,16 +202,28 @@ export function GameDetailsPanel({
     ),
     [settingsState.settings?.launch_environment, details?.launch_environment, launchEnvEditing, launchEnvValue],
   );
+  const effectiveLaunchWrapper = useMemo(() => {
+    const globalWrapper = (settingsState.settings?.launch_wrapper || "").trim();
+    const localWrapper = (launchWrapperEditing ? launchWrapperValue : (details?.launch_wrapper ?? "")).trim();
+    return [globalWrapper, localWrapper].filter(Boolean).join(" ");
+  }, [settingsState.settings?.launch_wrapper, details?.launch_wrapper, launchWrapperEditing, launchWrapperValue]);
 
   useEffect(() => {
     setLaunchEnvValue(details?.launch_environment ?? "");
     setLaunchEnvEditing(false);
-  }, [details?.game_id, details?.launch_environment]);
+    setLaunchWrapperValue(details?.launch_wrapper ?? "");
+    setLaunchWrapperEditing(false);
+  }, [details?.game_id, details?.launch_environment, details?.launch_wrapper]);
 
   const handleLaunchEnvSave = useCallback(async () => {
     await onGameLaunchEnvironmentChange(launchEnvValue.trim() ? launchEnvValue : null);
     setLaunchEnvEditing(false);
   }, [launchEnvValue, onGameLaunchEnvironmentChange]);
+
+  const handleLaunchWrapperSave = useCallback(async () => {
+    await onGameLaunchWrapperChange(launchWrapperValue.trim() ? launchWrapperValue : null);
+    setLaunchWrapperEditing(false);
+  }, [launchWrapperValue, onGameLaunchWrapperChange]);
 
   const handleSteamExport = useCallback(async () => {
     if (!details?.game_id || !libraryMetadataPath || !appDataPath) return;
@@ -395,6 +411,59 @@ export function GameDetailsPanel({
         )}
         <pre style={{ marginTop: "8px", marginBottom: 0, whiteSpace: "pre-wrap" }}>
           {effectiveLaunchEnv || "Not set"}
+        </pre>
+      </div>
+      <div style={{ marginBottom: "12px" }}>
+        <div style={{ fontSize: "0.85rem", marginBottom: "6px", color: "var(--color-text-secondary)" }}>
+          Per-game launch wrapper / prefix
+        </div>
+        {launchWrapperEditing ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            <input
+              value={launchWrapperValue}
+              onChange={(e) => setLaunchWrapperValue(e.target.value)}
+              placeholder="gamemoderun or gamescope --mangoapp --"
+            />
+            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+              <button type="button" onClick={() => setLaunchWrapperValue("gamemoderun")}>
+                Preset: GameMode
+              </button>
+              <button type="button" onClick={() => setLaunchWrapperValue("gamescope --mangoapp --")}>
+                Preset: gamescope
+              </button>
+            </div>
+            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+              <button type="button" onClick={() => void handleLaunchWrapperSave()}>
+                Save launch wrapper
+              </button>
+              <button type="button" onClick={() => setLaunchWrapperEditing(false)}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            <pre style={{ margin: 0, whiteSpace: "pre-wrap" }}>
+              {details.launch_wrapper?.trim() || "Not set"}
+            </pre>
+            <div>
+              <button
+                type="button"
+                onClick={() => {
+                  setLaunchWrapperValue(details.launch_wrapper ?? "");
+                  setLaunchWrapperEditing(true);
+                }}
+              >
+                Edit launch wrapper
+              </button>
+            </div>
+          </div>
+        )}
+        <div style={{ fontSize: "0.8rem", marginTop: "8px", marginBottom: "4px", color: "var(--color-text-secondary)" }}>
+          Effective launch wrapper preview
+        </div>
+        <pre style={{ margin: 0, whiteSpace: "pre-wrap" }}>
+          {effectiveLaunchWrapper || "Not set"}
         </pre>
       </div>
       <div style={{ display: "flex", gap: "8px", marginBottom: "8px", flexWrap: "wrap" }}>

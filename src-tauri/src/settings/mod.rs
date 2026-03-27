@@ -64,6 +64,10 @@ pub struct AppSettings {
     /// Stored as newline-delimited KEY=VALUE entries for portability/editability.
     #[serde(default)]
     pub launch_environment: String,
+    /// Optional global launch wrapper / prefix, e.g. `gamemoderun` or
+    /// `gamescope --mangoapp --`.
+    #[serde(default)]
+    pub launch_wrapper: String,
 }
 
 fn default_click_behavior() -> String {
@@ -82,6 +86,7 @@ impl Default for AppSettings {
             gamer_tag: None,
             click_behavior: "single".to_string(),
             launch_environment: String::new(),
+            launch_wrapper: String::new(),
         }
     }
 }

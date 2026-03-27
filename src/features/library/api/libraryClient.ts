@@ -232,6 +232,16 @@ export async function updateGameLaunchEnvironment(
   });
 }
 
+export async function updateGameLaunchWrapper(
+  libraryMetadataPath: string,
+  input: { game_id: string; launch_wrapper: string | null },
+): Promise<GameIdentityRecord> {
+  return invoke<GameIdentityRecord>("update_game_launch_wrapper", {
+    libraryMetadataPath,
+    input,
+  });
+}
+
 export async function resolveDuplicateReview(
   libraryMetadataPath: string,
   input: DuplicateResolutionInput,

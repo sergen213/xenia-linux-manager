@@ -280,6 +280,14 @@ pub fn update_game_launch_environment(
 }
 
 #[tauri::command]
+pub fn update_game_launch_wrapper(
+    library_metadata_path: String,
+    input: identity::UpdateGameLaunchWrapperInput,
+) -> Result<identity::GameIdentityRecord, String> {
+    identity::update_game_launch_wrapper(&library_metadata_path, input)
+}
+
+#[tauri::command]
 pub fn resolve_duplicate_review(
     library_metadata_path: String,
     input: identity::DuplicateResolutionInput,

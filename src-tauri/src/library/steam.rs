@@ -404,19 +404,28 @@ fn steam_launch_components(plan: &launch::LaunchPlan) -> (String, String, String
         .unwrap_or_default();
 
     let mut parts = Vec::new();
-    let exe = if plan.environment.is_empty() {
-        plan.xenia_executable_path.clone()
-    } else {
+    let exe = if !plan.environment.is_empty() {
         "/usr/bin/env".to_string()
+    } else if !plan.wrapper.is_empty() {
+        plan.wrapper[0].clone()
+    } else {
+        plan.xenia_executable_path.clone()
     };
 
     if !plan.environment.is_empty() {
         for (key, value) in &plan.environment {
             parts.push(shell_escape(&format!("{}={}", key, value)));
         }
-        parts.push(shell_escape(&plan.xenia_executable_path));
     }
 
+    if !plan.wrapper.is_empty() {
+        let start = if plan.environment.is_empty() { 1 } else { 0 };
+        for token in &plan.wrapper[start..] {
+            parts.push(shell_escape(token));
+        }
+    }
+
+    parts.push(shell_escape(&plan.xenia_executable_path));
     parts.push(shell_escape(&format!("--config={}", plan.config_path)));
     parts.push(shell_escape(&plan.game_executable_path));
 
@@ -667,6 +676,7 @@ mod tests {
             game_executable_path: "/games/test.iso".into(),
             config_path: "/tmp/test.toml".into(),
             environment: vec![("MANGOHUD".into(), "1".into())],
+            wrapper: vec![],
         };
         let (exe, start_dir, options) = steam_launch_components(&plan);
         assert_eq!(exe, "/usr/bin/env");

@@ -59,6 +59,10 @@ pub struct GameIdentityRecord {
     /// KEY=VALUE entries.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub launch_environment: Option<String>,
+    /// Optional per-game launch wrapper / prefix such as `gamemoderun` or
+    /// `gamescope --mangoapp --`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub launch_wrapper: Option<String>,
     pub last_played_at: Option<u64>,
     pub running_session: Option<RunningSession>,
     pub created_at: u64,
@@ -123,6 +127,12 @@ pub struct UpdatePreferredXeniaBuildInput {
 pub struct UpdateGameLaunchEnvironmentInput {
     pub game_id: String,
     pub launch_environment: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct UpdateGameLaunchWrapperInput {
+    pub game_id: String,
+    pub launch_wrapper: Option<String>,
 }
 
 pub fn identity_file_path(library_metadata_path: &str) -> PathBuf {
@@ -210,6 +220,7 @@ pub fn ensure_scan_game_record(
         title_id: None,
         preferred_xenia_tag: None,
         launch_environment: None,
+        launch_wrapper: None,
         last_played_at: None,
         running_session: None,
         created_at: now,
@@ -244,6 +255,7 @@ pub fn create_manual_game(
         title_id: None,
         preferred_xenia_tag: None,
         launch_environment: None,
+        launch_wrapper: None,
         last_played_at: None,
         running_session: None,
         created_at: now,
@@ -324,6 +336,27 @@ pub fn update_game_launch_environment(
 
     record.launch_environment = input
         .launch_environment
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty());
+    record.updated_at = now_millis();
+    let updated = record.clone();
+    save_identity_store(library_metadata_path, &store)?;
+    Ok(updated)
+}
+
+pub fn update_game_launch_wrapper(
+    library_metadata_path: &str,
+    input: UpdateGameLaunchWrapperInput,
+) -> Result<GameIdentityRecord, String> {
+    let mut store = load_identity_store(library_metadata_path);
+    let record = store
+        .games
+        .iter_mut()
+        .find(|game| game.game_id == input.game_id)
+        .ok_or_else(|| format!("Game not found: {}", input.game_id))?;
+
+    record.launch_wrapper = input
+        .launch_wrapper
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty());
     record.updated_at = now_millis();

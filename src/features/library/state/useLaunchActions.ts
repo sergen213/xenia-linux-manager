@@ -10,6 +10,7 @@ import {
   removeGameContent,
   updatePreferredXeniaBuild,
   updateGameLaunchEnvironment,
+  updateGameLaunchWrapper,
   getLibraryGameDetails,
 } from "../api/libraryClient";
 import { useLibrary } from "./libraryStore";
@@ -203,6 +204,20 @@ export function useLaunchActions() {
     [libPath, state.selectedGameId, dispatch],
   );
 
+  const changeGameLaunchWrapper = useCallback(
+    async (launchWrapper: string | null) => {
+      if (!state.selectedGameId) return;
+
+      await updateGameLaunchWrapper(libPath, {
+        game_id: state.selectedGameId,
+        launch_wrapper: launchWrapper,
+      });
+      const details = await getLibraryGameDetails(libPath, state.selectedGameId);
+      dispatch({ type: "GAME_DETAILS_LOADED", details });
+    },
+    [libPath, state.selectedGameId, dispatch],
+  );
+
   const clearStatusMessage = useCallback(() => {
     setShortcutStatusMessage(null);
   }, []);
@@ -223,6 +238,7 @@ export function useLaunchActions() {
     removeContentEntry,
     changePreferredXeniaBuild,
     changeGameLaunchEnvironment,
+    changeGameLaunchWrapper,
     clearStatusMessage,
   };
 }

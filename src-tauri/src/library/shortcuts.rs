@@ -188,15 +188,18 @@ fn shell_escape(value: &str) -> String {
 
 fn desktop_exec_command(plan: &launch::LaunchPlan) -> String {
     let mut parts = Vec::new();
-    if plan.environment.is_empty() {
-        parts.push(shell_escape(&plan.xenia_executable_path));
-    } else {
+    if !plan.environment.is_empty() {
         parts.push(shell_escape("/usr/bin/env"));
         for (key, value) in &plan.environment {
             parts.push(shell_escape(&format!("{}={}", key, value)));
         }
-        parts.push(shell_escape(&plan.xenia_executable_path));
     }
+    if !plan.wrapper.is_empty() {
+        for token in &plan.wrapper {
+            parts.push(shell_escape(token));
+        }
+    }
+    parts.push(shell_escape(&plan.xenia_executable_path));
     parts.push(shell_escape(&format!("--config={}", plan.config_path)));
     parts.push(shell_escape(&plan.game_executable_path));
     parts.join(" ")
@@ -228,6 +231,7 @@ mod tests {
             game_executable_path: "/games/Halo 3.iso".into(),
             config_path: "/tmp/game.toml".into(),
             environment: vec![("MANGOHUD".into(), "1".into())],
+            wrapper: vec![],
         };
         let command = desktop_exec_command(&plan);
         assert!(command.contains("/usr/bin/env"));
