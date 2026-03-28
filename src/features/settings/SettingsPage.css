@@ -1,5 +1,7 @@
 .settings-page {
-  max-width: 960px;
+  width: 100%;
+  max-width: none;
+  min-width: 0;
 }
 
 .settings-page__header {

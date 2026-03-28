@@ -10,6 +10,42 @@ interface ProfileRawEditorProps {
   onDraftChange: (draft: Record<string, unknown>) => void;
 }
 
+interface RawEntry {
+  key: string;
+  value: unknown;
+  changed: boolean;
+  inDraft: boolean;
+}
+
+interface RawValueInputProps {
+  entry: RawEntry;
+  onParsedChange: (key: string, value: unknown) => void;
+  onParseError: (message: string | null) => void;
+}
+
+function RawValueInput({ entry, onParsedChange, onParseError }: RawValueInputProps) {
+  const [text, setText] = useState(() => JSON.stringify(entry.value));
+
+  return (
+    <input
+      type="text"
+      className="profile-raw-editor__value"
+      value={text}
+      onChange={(e) => {
+        const next = e.target.value;
+        setText(next);
+
+        try {
+          onParsedChange(entry.key, JSON.parse(next) as unknown);
+          onParseError(null);
+        } catch {
+          onParseError(`Invalid JSON for "${entry.key}"`);
+        }
+      }}
+    />
+  );
+}
+
 /**
  * Advanced raw key editor that reads and writes the same sparse explicit-value
  * document as the standard profile editor. Allows adding arbitrary keys,
@@ -25,10 +61,8 @@ export function ProfileRawEditor({
   const [newValue, setNewValue] = useState("");
   const [parseError, setParseError] = useState<string | null>(null);
 
-  // Build sorted entries depending on view mode.
   const entries = useMemo(() => {
     if (viewMode === "effective") {
-      // Show all effective fields, merging in draft changes.
       const combined = new Map<string, unknown>();
 
       if (effectiveConfig) {
@@ -36,14 +70,11 @@ export function ProfileRawEditor({
           combined.set(field.key, field.value);
         }
       }
-      // Overlay draft entries.
+
       for (const [key, value] of Object.entries(draft)) {
         if (value === null) {
-          // null means revert to default; find the effective value.
-          const effective = effectiveConfig?.fields.find((f) => f.key === key);
-          if (effective) {
-            combined.set(key, effective.value);
-          }
+          const effective = effectiveConfig?.fields.find((field) => field.key === key);
+          combined.set(key, effective?.value ?? "");
         } else {
           combined.set(key, value);
         }
@@ -55,24 +86,20 @@ export function ProfileRawEditor({
           value,
           changed:
             key in draft ||
-            effectiveConfig?.fields.find((f) => f.key === key)?.changed === true,
+            effectiveConfig?.fields.find((field) => field.key === key)?.changed === true,
           inDraft: key in draft,
         }))
-        .sort((a, b) => a.key.localeCompare(b.key));
+        .sort((left, right) => left.key.localeCompare(right.key));
     }
 
-    // Explicit mode: show only overrides from effective config + draft.
     const explicit = new Map<string, unknown>();
 
-    // Start from effective config's explicit overrides.
     if (effectiveConfig) {
-      for (const [key, value] of Object.entries(
-        effectiveConfig.explicit_overrides,
-      )) {
+      for (const [key, value] of Object.entries(effectiveConfig.explicit_overrides)) {
         explicit.set(key, value);
       }
     }
-    // Overlay draft.
+
     for (const [key, value] of Object.entries(draft)) {
       if (value === null) {
         explicit.delete(key);
@@ -88,19 +115,12 @@ export function ProfileRawEditor({
         changed: true,
         inDraft: key in draft,
       }))
-      .sort((a, b) => a.key.localeCompare(b.key));
+      .sort((left, right) => left.key.localeCompare(right.key));
   }, [draft, effectiveConfig, viewMode]);
 
   const handleValueChange = useCallback(
-    (key: string, rawValue: string) => {
-      try {
-        const parsed = JSON.parse(rawValue) as unknown;
-        setParseError(null);
-        onDraftChange({ ...draft, [key]: parsed });
-      } catch {
-        // Keep the raw string; let user fix.
-        setParseError(`Invalid JSON for "${key}"`);
-      }
+    (key: string, parsedValue: unknown) => {
+      onDraftChange({ ...draft, [key]: parsedValue });
     },
     [draft, onDraftChange],
   );
@@ -108,6 +128,7 @@ export function ProfileRawEditor({
   const handleRemoveKey = useCallback(
     (key: string) => {
       onDraftChange({ ...draft, [key]: null });
+      setParseError(null);
     },
     [draft, onDraftChange],
   );
@@ -160,11 +181,11 @@ export function ProfileRawEditor({
             >
               <td className="profile-raw-editor__key">{entry.key}</td>
               <td>
-                <input
-                  type="text"
-                  className="profile-raw-editor__value"
-                  value={JSON.stringify(entry.value)}
-                  onChange={(e) => handleValueChange(entry.key, e.target.value)}
+                <RawValueInput
+                  key={`${entry.key}:${JSON.stringify(entry.value)}`}
+                  entry={entry}
+                  onParsedChange={handleValueChange}
+                  onParseError={setParseError}
                 />
               </td>
               <td>
@@ -174,7 +195,7 @@ export function ProfileRawEditor({
                   title="Remove override (restore default)"
                   onClick={() => handleRemoveKey(entry.key)}
                 >
-                  Remove
+                  {entry.inDraft || viewMode === "explicit" ? "Remove" : "Reset"}
                 </button>
               </td>
             </tr>
@@ -192,7 +213,6 @@ export function ProfileRawEditor({
         </tbody>
       </table>
 
-      {/* Add new key */}
       <div className="profile-raw-editor__add">
         <input
           type="text"

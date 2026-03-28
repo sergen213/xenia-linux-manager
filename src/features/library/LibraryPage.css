@@ -2,7 +2,9 @@
   display: flex;
   flex-direction: column;
   gap: 20px;
-  max-width: 1280px;
+  width: 100%;
+  max-width: none;
+  min-width: 0;
 }
 
 .library-page__header {
@@ -79,6 +81,8 @@
   grid-template-columns: minmax(0, 1.7fr) minmax(320px, 1fr);
   gap: 20px;
   align-items: start;
+  width: 100%;
+  min-width: 0;
 }
 
 .library-page__main,
@@ -86,6 +90,7 @@
 .manual-game-form,
 .library-filters,
 .review-inbox {
+  min-width: 0;
   background: var(--color-bg-card);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -327,6 +332,7 @@
   display: flex;
   flex-direction: column;
   gap: 18px;
+  min-width: 0;
   position: sticky;
   top: 20px;
   max-height: calc(100vh - 40px);
@@ -595,6 +601,8 @@
 .profile-raw-editor {
   display: grid;
   gap: 16px;
+  width: 100%;
+  min-width: 0;
 }
 
 .profile-editor__selector,
@@ -617,16 +625,12 @@
 .profile-editor__hint,
 .profile-raw-editor__table,
 .profile-raw-editor__error {
+  width: 100%;
+  min-width: 0;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  background: var(--color-bg);
-}
-
-.profile-editor__selector,
-.profile-editor__loading,
-.profile-editor__hint,
-.profile-raw-editor__error {
-  padding: 12px;
+  background: rgba(10, 17, 30, 0.28);
+  padding: 14px;
 }
 
 .profile-editor__selector {
@@ -706,6 +710,16 @@
 .profile-editor__field label {
   color: var(--color-text-secondary);
   font-size: var(--font-size-sm);
+}
+
+.profile-editor__field input:not([type="checkbox"]),
+.profile-editor__field .custom-select {
+  width: 100%;
+  min-width: 0;
+}
+
+.profile-editor__field input[type="checkbox"] {
+  justify-self: start;
 }
 
 .profile-editor__field--changed {

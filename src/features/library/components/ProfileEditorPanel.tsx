@@ -7,6 +7,7 @@ import type {
 } from "../model/profileTypes";
 import { CustomSelect } from "./CustomSelect";
 import { ProfileRawEditor } from "./ProfileRawEditor";
+import { mergeProfileDraft } from "../model/profileDraft";
 
 /** Field metadata for the standard labeled editor. */
 interface FieldDef {
@@ -39,12 +40,7 @@ const STANDARD_FIELDS: FieldDef[] = [
   { key: "storage.mount_scratch", label: "Mount Scratch", category: "Storage", type: "boolean" },
 ];
 
-const CATEGORY_GROUPS = STANDARD_FIELDS.reduce<Map<string, FieldDef[]>>((groups, field) => {
-  const list = groups.get(field.category) ?? [];
-  list.push(field);
-  groups.set(field.category, list);
-  return groups;
-}, new Map());
+const STANDARD_FIELD_KEYS = new Set(STANDARD_FIELDS.map((field) => field.key));
 
 export type EditorViewMode = "explicit" | "effective";
 export type EditorTabMode = "standard" | "raw";
@@ -187,8 +183,11 @@ export function ProfileEditorPanel({
 
   const handleSave = useCallback(async () => {
     if (!activeProfile) return;
-    await onSave(activeProfile.id, draft);
-  }, [activeProfile, draft, onSave]);
+    await onSave(
+      activeProfile.id,
+      mergeProfileDraft(effectiveConfig?.explicit_overrides ?? {}, draft),
+    );
+  }, [activeProfile, draft, effectiveConfig, onSave]);
 
   const handleCreateProfile = useCallback(async () => {
     const trimmed = newProfileName.trim();
@@ -209,7 +208,35 @@ export function ProfileEditorPanel({
     setRenameValue("");
   }, [renamingId, renameValue, onRenameProfile]);
 
-  const categories = CATEGORY_GROUPS;
+  const categories = useMemo(() => {
+    const groups = new Map<string, FieldDef[]>();
+
+    for (const field of STANDARD_FIELDS) {
+      const list = groups.get(field.category) ?? [];
+      list.push(field);
+      groups.set(field.category, list);
+    }
+
+    if (effectiveConfig) {
+      for (const field of effectiveConfig.fields) {
+        if (STANDARD_FIELD_KEYS.has(field.key)) {
+          continue;
+        }
+
+        const inferred = inferFieldDef(field);
+        const list = groups.get(inferred.category) ?? [];
+        list.push(inferred);
+        groups.set(inferred.category, list);
+      }
+    }
+
+    return new Map(
+      Array.from(groups.entries()).map(([category, fields]) => [
+        category,
+        fields.sort((left, right) => left.label.localeCompare(right.label)),
+      ]),
+    );
+  }, [effectiveConfig]);
 
   return (
     <div className="profile-editor">
@@ -422,6 +449,72 @@ export function ProfileEditorPanel({
   );
 }
 
+function inferFieldDef(field: EffectiveField): FieldDef {
+  const [prefix, ...rest] = field.key.split(".");
+  const labelSource = rest.length > 0 ? rest.join(" ") : field.key;
+
+  return {
+    key: field.key,
+    label: toTitleCase(labelSource.replace(/[_.]+/g, " ")),
+    category: toTitleCase(prefix || "Advanced"),
+    type: inferFieldType(field.value),
+  };
+}
+
+function inferFieldType(value: unknown): FieldDef["type"] {
+  if (typeof value === "boolean") {
+    return "boolean";
+  }
+  if (typeof value === "number") {
+    return "number";
+  }
+  return "string";
+}
+
+function toTitleCase(value: string): string {
+  return value
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+    .join(" ");
+}
+
+function NumberFieldInput({
+  fieldKey,
+  value,
+  onChange,
+}: {
+  fieldKey: string;
+  value: unknown;
+  onChange: (key: string, value: unknown) => void;
+}) {
+  const [text, setText] = useState(() =>
+    value != null && value !== "" ? String(value) : "",
+  );
+
+  return (
+    <input
+      id={`field-${fieldKey}`}
+      type="number"
+      value={text}
+      onChange={(e) => {
+        const next = e.target.value;
+        setText(next);
+
+        if (next.trim() === "") {
+          onChange(fieldKey, null);
+          return;
+        }
+
+        const num = Number(next);
+        if (!Number.isNaN(num)) {
+          onChange(fieldKey, num);
+        }
+      }}
+    />
+  );
+}
+
 function renderFieldInput(
   fieldDef: FieldDef,
   value: unknown,
@@ -439,14 +532,11 @@ function renderFieldInput(
       );
     case "number":
       return (
-        <input
-          id={`field-${fieldDef.key}`}
-          type="number"
-          value={value != null ? String(value) : ""}
-          onChange={(e) => {
-            const num = parseFloat(e.target.value);
-            onChange(fieldDef.key, isNaN(num) ? e.target.value : num);
-          }}
+        <NumberFieldInput
+          key={`${fieldDef.key}:${String(value ?? "")}`}
+          fieldKey={fieldDef.key}
+          value={value}
+          onChange={onChange}
         />
       );
     case "select":

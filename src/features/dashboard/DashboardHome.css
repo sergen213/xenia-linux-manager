@@ -1,5 +1,7 @@
 .dashboard {
-  max-width: 960px;
+  width: 100%;
+  max-width: none;
+  min-width: 0;
 }
 
 .dashboard__header {

@@ -287,17 +287,27 @@ pub fn delete_profile(
         return Err(format!("Profile not found: {}", profile_id));
     }
 
-    // Clear active selection if the deleted profile was active for this game.
-    let mut manifest = load_manifest(library_metadata_path, game_id)?;
-    if manifest.active_profile_id.as_deref() == Some(profile_id) {
-        manifest.active_profile_id = None;
-        save_manifest(library_metadata_path, game_id, &manifest)?;
+    // Clear active selection and remove per-game documents for all games,
+    // since profile records are shared across games.
+    for other_game_id in all_game_ids(library_metadata_path)? {
+        let mut manifest = load_manifest(library_metadata_path, &other_game_id)?;
+        if manifest.active_profile_id.as_deref() == Some(profile_id) {
+            manifest.active_profile_id = None;
+            save_manifest(library_metadata_path, &other_game_id, &manifest)?;
+        }
+
+        let doc_path = profile_document_path(library_metadata_path, &other_game_id, profile_id);
+        if doc_path.exists() {
+            let _ = fs::remove_file(&doc_path);
+        }
     }
 
-    // Remove the profile document file.
-    let doc_path = profile_document_path(library_metadata_path, game_id, profile_id);
-    if doc_path.exists() {
-        let _ = fs::remove_file(&doc_path);
+    // Also remove any legacy shared document if present.
+    let legacy_shared_doc = shared_profiles_root(library_metadata_path)
+        .join("profiles")
+        .join(format!("{}.json", profile_id));
+    if legacy_shared_doc.exists() {
+        let _ = fs::remove_file(&legacy_shared_doc);
     }
 
     save_shared_catalog(library_metadata_path, &catalog)?;
@@ -346,6 +356,10 @@ pub fn save_profile_overrides(
 
     let mut doc = load_profile_document(library_metadata_path, game_id, profile_id)?;
     doc.overrides = clean_overrides;
+    eprintln!(
+        "[profiles/save] Saving overrides for profile={} game={}: {:?}",
+        profile_id, game_id, doc.overrides
+    );
     save_profile_document(library_metadata_path, game_id, &doc)?;
 
     // Update the catalog timestamp.
@@ -367,12 +381,26 @@ pub fn load_profile_document(
     match fs::read_to_string(&path) {
         Ok(contents) => serde_json::from_str(&contents)
             .map_err(|e| format!("Failed to parse profile document: {}", e)),
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(ProfileDocument {
-            version: STORE_VERSION,
-            profile_id: profile_id.to_string(),
-            game_id: game_id.to_string(),
-            overrides: HashMap::new(),
-        }),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            let legacy_shared_path = shared_profiles_root(library_metadata_path)
+                .join("profiles")
+                .join(format!("{}.json", profile_id));
+
+            match fs::read_to_string(&legacy_shared_path) {
+                Ok(contents) => serde_json::from_str(&contents)
+                    .map_err(|e| format!("Failed to parse legacy shared profile document: {}", e)),
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(ProfileDocument {
+                    version: STORE_VERSION,
+                    profile_id: profile_id.to_string(),
+                    game_id: game_id.to_string(),
+                    overrides: HashMap::new(),
+                }),
+                Err(e) => Err(format!(
+                    "Failed to read legacy shared profile document: {}",
+                    e
+                )),
+            }
+        }
         Err(e) => Err(format!("Failed to read profile document: {}", e)),
     }
 }
@@ -489,12 +517,24 @@ fn write_json_atomic<T: Serialize>(path: &Path, value: &T) -> Result<(), String>
         fs::create_dir_all(parent)
             .map_err(|e| format!("Failed to create profile storage directory: {}", e))?;
     }
-    let temp_path = path.with_extension("tmp");
     let contents = serde_json::to_string_pretty(value)
         .map_err(|e| format!("Failed to serialize profile metadata: {}", e))?;
-    fs::write(&temp_path, &contents)
+
+    // Write directly to the final path and sync.
+    // We intentionally do NOT use temp+rename because after rename the kernel
+    // page cache may still hold stale data on the old inode, causing the next
+    // read (getProfileEffectiveConfig, materialize_launch_config, Xenia startup)
+    // to miss the freshly written values.  Direct write + sync_all forces the
+    // kernel to flush data to the correct inode before we return.
+    use std::io::Write;
+    let mut file =
+        fs::File::create(path).map_err(|e| format!("Failed to create profile metadata: {}", e))?;
+    file.write_all(contents.as_bytes())
         .map_err(|e| format!("Failed to write profile metadata: {}", e))?;
-    fs::rename(&temp_path, path).map_err(|e| format!("Failed to finalize profile metadata: {}", e))
+    file.sync_all()
+        .map_err(|e| format!("Failed to sync profile metadata: {}", e))?;
+
+    Ok(())
 }
 
 fn profiles_root(library_metadata_path: &str, game_id: &str) -> PathBuf {
@@ -509,9 +549,8 @@ fn shared_profiles_root(library_metadata_path: &str) -> PathBuf {
         .join(SHARED_DIRNAME)
 }
 
-fn profiles_dir(library_metadata_path: &str, _game_id: &str) -> PathBuf {
-    // All profile documents live in the shared directory.
-    shared_profiles_root(library_metadata_path).join("profiles")
+fn profiles_dir(library_metadata_path: &str, game_id: &str) -> PathBuf {
+    profiles_root(library_metadata_path, game_id).join("profiles")
 }
 
 fn manifest_path(library_metadata_path: &str, game_id: &str) -> PathBuf {
@@ -523,11 +562,37 @@ fn shared_catalog_path(library_metadata_path: &str) -> PathBuf {
     shared_profiles_root(library_metadata_path).join("catalog.json")
 }
 
-fn profile_document_path(library_metadata_path: &str, _game_id: &str, profile_id: &str) -> PathBuf {
-    // Profile documents are in the shared directory.
-    shared_profiles_root(library_metadata_path)
-        .join("profiles")
-        .join(format!("{}.json", profile_id))
+fn profile_document_path(library_metadata_path: &str, game_id: &str, profile_id: &str) -> PathBuf {
+    profiles_dir(library_metadata_path, game_id).join(format!("{}.json", profile_id))
+}
+
+fn all_game_ids(library_metadata_path: &str) -> Result<Vec<String>, String> {
+    let root = PathBuf::from(library_metadata_path).join(PROFILES_DIRNAME);
+    let mut game_ids = Vec::new();
+
+    let entries = match fs::read_dir(&root) {
+        Ok(entries) => entries,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(game_ids),
+        Err(e) => return Err(format!("Failed to read profiles directory: {}", e)),
+    };
+
+    for entry in entries {
+        let entry = entry.map_err(|e| format!("Failed to read profiles directory entry: {}", e))?;
+        if !entry
+            .file_type()
+            .map_err(|e| format!("Failed to inspect profiles directory entry: {}", e))?
+            .is_dir()
+        {
+            continue;
+        }
+
+        let name = entry.file_name().to_string_lossy().to_string();
+        if name != SHARED_DIRNAME {
+            game_ids.push(name);
+        }
+    }
+
+    Ok(game_ids)
 }
 
 /// Legacy per-game profile document path (for migration).
@@ -709,6 +774,42 @@ mod tests {
         // But a different name works and both games see both profiles.
         let inv2 = create_profile(&dir, "game-2", "Another Name").unwrap();
         assert_eq!(inv2.profiles.len(), 2);
+    }
+
+    #[test]
+    fn overrides_are_isolated_per_game_even_for_shared_profiles() {
+        let dir = temp_dir("per-game-overrides");
+        let inv = create_profile(&dir, "game-1", "Shared Name").unwrap();
+        let profile_id = inv.profiles[0].id.clone();
+        let inv_game_2 = load_inventory(&dir, "game-2").unwrap();
+        assert_eq!(inv_game_2.profiles.len(), 1);
+        assert_eq!(inv_game_2.profiles[0].id, profile_id);
+
+        let mut game_1_overrides = HashMap::new();
+        game_1_overrides.insert("gpu.vsync".to_string(), serde_json::json!(false));
+        save_profile_overrides(&dir, "game-1", &profile_id, game_1_overrides).unwrap();
+
+        let mut game_2_overrides = HashMap::new();
+        game_2_overrides.insert("gpu.vsync".to_string(), serde_json::json!(true));
+        game_2_overrides.insert("gpu.framerate_limit".to_string(), serde_json::json!(120));
+        save_profile_overrides(&dir, "game-2", &profile_id, game_2_overrides).unwrap();
+
+        let game_1_doc = load_profile_document(&dir, "game-1", &profile_id).unwrap();
+        let game_2_doc = load_profile_document(&dir, "game-2", &profile_id).unwrap();
+
+        assert_eq!(
+            game_1_doc.overrides.get("gpu.vsync"),
+            Some(&serde_json::json!(false))
+        );
+        assert_eq!(game_1_doc.overrides.get("gpu.framerate_limit"), None);
+        assert_eq!(
+            game_2_doc.overrides.get("gpu.vsync"),
+            Some(&serde_json::json!(true))
+        );
+        assert_eq!(
+            game_2_doc.overrides.get("gpu.framerate_limit"),
+            Some(&serde_json::json!(120))
+        );
     }
 
     #[test]

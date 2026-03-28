@@ -98,7 +98,7 @@ export function useProfileActions() {
       try {
         await saveProfileOverrides(libPath, gameId, profileId, overrides);
         const config = await getProfileEffectiveConfig(libPath, gameId, profileId);
-        profilesDispatch({ type: "SET_PROFILE_DRAFT", draft: overrides });
+        profilesDispatch({ type: "SET_PROFILE_DRAFT", draft: {} });
         profilesDispatch({ type: "SET_PROFILE_DIRTY", dirty: false });
         profilesDispatch({ type: "PROFILE_EFFECTIVE_LOADED", config });
       } catch (error) {

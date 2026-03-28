@@ -108,6 +108,11 @@ pub fn materialize_launch_config(
     // Derive key-change summary from the explicitly overridden fields.
     let key_changes = derive_key_changes(&explicit_overrides);
 
+    eprintln!(
+        "[profiles/materialize] Launch config for game={}: profile={:?} overrides={:?}",
+        game_id, profile_id, explicit_overrides
+    );
+
     // Load the active patch summary.
     let patch_summary = load_patch_summary(library_metadata_path, game_id);
 
@@ -223,6 +228,36 @@ mod tests {
         assert_eq!(config.changed_setting_count, 2);
         assert_eq!(config.key_changes.len(), 2);
         assert!(config.effective_fields.len() > 2);
+    }
+
+    #[test]
+    fn materialize_uses_game_specific_overrides_for_shared_profile() {
+        let dir = temp_dir("per-game-materialize");
+        let inv = storage::create_profile(&dir, "game-1", "Shared").unwrap();
+        let pid = inv.profiles[0].id.clone();
+
+        let mut game_1_overrides = HashMap::new();
+        game_1_overrides.insert("gpu.vsync".to_string(), serde_json::json!(false));
+        storage::save_profile_overrides(&dir, "game-1", &pid, game_1_overrides).unwrap();
+
+        storage::select_active_profile(&dir, "game-2", Some(&pid)).unwrap();
+        let mut game_2_overrides = HashMap::new();
+        game_2_overrides.insert("gpu.framerate_limit".to_string(), serde_json::json!(120));
+        storage::save_profile_overrides(&dir, "game-2", &pid, game_2_overrides).unwrap();
+
+        let game_1 = materialize_launch_config(&dir, "game-1").unwrap();
+        let game_2 = materialize_launch_config(&dir, "game-2").unwrap();
+
+        assert_eq!(
+            game_1.explicit_overrides.get("gpu.vsync"),
+            Some(&serde_json::json!(false))
+        );
+        assert_eq!(game_1.explicit_overrides.get("gpu.framerate_limit"), None);
+        assert_eq!(game_2.explicit_overrides.get("gpu.vsync"), None);
+        assert_eq!(
+            game_2.explicit_overrides.get("gpu.framerate_limit"),
+            Some(&serde_json::json!(120))
+        );
     }
 
     #[test]

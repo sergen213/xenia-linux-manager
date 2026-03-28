@@ -426,7 +426,9 @@ fn steam_launch_components(plan: &launch::LaunchPlan) -> (String, String, String
     }
 
     parts.push(shell_escape(&plan.xenia_executable_path));
-    parts.push(shell_escape(&format!("--config={}", plan.config_path)));
+    for argument in &plan.launch_arguments {
+        parts.push(shell_escape(argument));
+    }
     parts.push(shell_escape(&plan.game_executable_path));
 
     (exe, start_dir, parts.join(" "))
@@ -675,6 +677,10 @@ mod tests {
             xenia_executable_path: "/usr/bin/xenia".into(),
             game_executable_path: "/games/test.iso".into(),
             config_path: "/tmp/test.toml".into(),
+            launch_arguments: vec![
+                "--storage_root=/opt/xenia".into(),
+                "--config=/tmp/test.toml".into(),
+            ],
             environment: vec![("MANGOHUD".into(), "1".into())],
             wrapper: vec![],
         };

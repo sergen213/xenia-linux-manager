@@ -200,7 +200,9 @@ fn desktop_exec_command(plan: &launch::LaunchPlan) -> String {
         }
     }
     parts.push(shell_escape(&plan.xenia_executable_path));
-    parts.push(shell_escape(&format!("--config={}", plan.config_path)));
+    for argument in &plan.launch_arguments {
+        parts.push(shell_escape(argument));
+    }
     parts.push(shell_escape(&plan.game_executable_path));
     parts.join(" ")
 }
@@ -230,6 +232,10 @@ mod tests {
             xenia_executable_path: "/usr/bin/xenia_canary".into(),
             game_executable_path: "/games/Halo 3.iso".into(),
             config_path: "/tmp/game.toml".into(),
+            launch_arguments: vec![
+                "--storage_root=/opt/xenia".into(),
+                "--config=/tmp/game.toml".into(),
+            ],
             environment: vec![("MANGOHUD".into(), "1".into())],
             wrapper: vec![],
         };

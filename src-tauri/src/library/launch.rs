@@ -8,6 +8,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::library::identity;
 use crate::library::review;
+use crate::patches::xenia_patches;
 use crate::profiles::materialize::{self, MaterializedLaunchConfig};
 use crate::settings;
 use crate::xenia::install_state::{self, LifecycleStatus};
@@ -43,6 +44,7 @@ pub struct LaunchPlan {
     pub xenia_executable_path: String,
     pub game_executable_path: String,
     pub config_path: String,
+    pub launch_arguments: Vec<String>,
     pub environment: Vec<(String, String)>,
     pub wrapper: Vec<String>,
 }
@@ -75,7 +77,8 @@ pub fn get_launch_preflight(
     }
 
     if details.manual {
-        warnings.push("This title was added manually. Double-check the executable path.".to_string());
+        warnings
+            .push("This title was added manually. Double-check the executable path.".to_string());
     }
     if details.confidence != "high" && details.kind != "manual" {
         warnings.push("Scan confidence is below high.".to_string());
@@ -111,16 +114,29 @@ pub fn build_launch_plan(
         .xenia_executable_path
         .clone()
         .ok_or_else(|| "Missing Xenia executable path".to_string())?;
-    let materialized = materialize::materialize_launch_config(library_metadata_path, game_id)?;
-    let launch_config_path = write_launch_config(app_data_path, game_id, &materialized)?;
-    let launch_env = load_launch_environment(library_metadata_path, game_id)?;
+    let details = review::load_game_details(library_metadata_path, game_id)?;
+    let storage_root = xenia_patches::get_xenia_storage_root(app_data_path)?;
 
+    let materialized = materialize::materialize_launch_config(library_metadata_path, game_id)?;
+    let launch_config_path = if let Some(title_id) = details.title_id.as_deref() {
+        write_game_launch_config(&storage_root, title_id, &materialized)?
+    } else {
+        write_external_launch_config(app_data_path, game_id, &materialized)?
+    };
+    let launch_env = load_launch_environment(library_metadata_path, game_id)?;
     let launch_wrapper = load_launch_wrapper(library_metadata_path, game_id)?;
+
+    let mut launch_arguments = Vec::new();
+    // Always pass --config so Xenia reads the profile-based config directly,
+    // rather than relying on auto-discovery which may use a cached/global config
+    // that takes precedence over the game-specific config file.
+    launch_arguments.push(format!("--config={}", launch_config_path.to_string_lossy()));
 
     Ok(LaunchPlan {
         xenia_executable_path: xenia_exec,
         game_executable_path: preflight.game_executable_path,
         config_path: launch_config_path.to_string_lossy().to_string(),
+        launch_arguments,
         environment: launch_env,
         wrapper: launch_wrapper,
     })
@@ -153,7 +169,7 @@ pub fn launch_game(
 
     let child = command
         .envs(plan.environment.clone())
-        .arg(format!("--config={}", plan.config_path))
+        .args(&plan.launch_arguments)
         .arg(&plan.game_executable_path)
         .spawn()
         .map_err(|e| format!("Failed to launch Xenia: {e}"))?;
@@ -269,10 +285,7 @@ fn parse_launch_environment(raw: &str) -> Result<Vec<(String, String)>, String> 
     Ok(envs)
 }
 
-fn load_launch_wrapper(
-    library_metadata_path: &str,
-    game_id: &str,
-) -> Result<Vec<String>, String> {
+fn load_launch_wrapper(library_metadata_path: &str, game_id: &str) -> Result<Vec<String>, String> {
     let settings = settings::load_settings().map_err(|e| e.to_string())?;
     let mut tokens = parse_launch_wrapper(&settings.launch_wrapper)?;
 
@@ -327,10 +340,15 @@ fn resolve_xenia_executable(
                 .find(|build| build.tag == preferred)
                 .map(|build| build.executable_path.clone())
         })
-        .or_else(|| install.manifest.as_ref().map(|manifest| manifest.executable_path.clone()))
+        .or_else(|| {
+            install
+                .manifest
+                .as_ref()
+                .map(|manifest| manifest.executable_path.clone())
+        })
 }
 
-fn write_launch_config(
+fn write_external_launch_config(
     app_data_path: &str,
     game_id: &str,
     materialized: &MaterializedLaunchConfig,
@@ -340,17 +358,100 @@ fn write_launch_config(
         .map_err(|e| format!("Failed to create launch config directory: {e}"))?;
     let path = dir.join(format!("{game_id}.toml"));
     let toml = materialized_config_to_toml(materialized)?;
-    std::fs::write(&path, toml).map_err(|e| format!("Failed to write launch config: {e}"))?;
+    write_file_synced(&path, &toml)?;
     Ok(path)
+}
+
+fn write_game_launch_config(
+    xenia_dir: &Path,
+    title_id: &str,
+    materialized: &MaterializedLaunchConfig,
+) -> Result<std::path::PathBuf, String> {
+    let dir = xenia_dir.join("config");
+    std::fs::create_dir_all(&dir)
+        .map_err(|e| format!("Failed to create Xenia game config directory: {e}"))?;
+    let path = dir.join(format!("{title_id}.config.toml"));
+    let toml = materialized_config_to_toml(materialized)?;
+    write_file_synced(&path, &toml)?;
+    Ok(path)
+}
+
+fn write_file_synced(path: &std::path::Path, contents: &str) -> Result<(), String> {
+    use std::io::Write;
+    let mut file =
+        std::fs::File::create(path).map_err(|e| format!("Failed to create file: {e}"))?;
+    file.write_all(contents.as_bytes())
+        .map_err(|e| format!("Failed to write file: {e}"))?;
+    file.sync_all()
+        .map_err(|e| format!("Failed to sync file: {e}"))?;
+    Ok(())
 }
 
 fn materialized_config_to_toml(materialized: &MaterializedLaunchConfig) -> Result<String, String> {
     let mut root = toml::map::Map::new();
     for (key, value) in &materialized.explicit_overrides {
-        insert_dotted_toml_value(&mut root, key, json_to_toml_value(value)?);
+        let translated = translate_profile_key_to_xenia_config(key);
+        insert_dotted_toml_value(&mut root, &translated, json_to_toml_value(value)?);
     }
-    toml::to_string_pretty(&toml::Value::Table(root))
-        .map_err(|e| format!("Failed to serialize launch config TOML: {e}"))
+    let toml_str = toml::to_string_pretty(&toml::Value::Table(root))
+        .map_err(|e| format!("Failed to serialize launch config TOML: {e}"))?;
+    eprintln!(
+        "[launch/config] Generated TOML for game={}: {} bytes, keys={:?}",
+        materialized.game_id,
+        toml_str.len(),
+        materialized.explicit_overrides.keys().collect::<Vec<_>>()
+    );
+    Ok(toml_str)
+}
+
+fn translate_profile_key_to_xenia_config(key: &str) -> String {
+    match key {
+        "apu.backend" => "APU.apu".to_string(),
+        "cpu.backend" => "CPU.cpu".to_string(),
+        "cpu.break_on_unimplemented" => "CPU.break_on_unimplemented_instructions".to_string(),
+        "display.fullscreen" => "Display.fullscreen".to_string(),
+        "display.internal_display_resolution" => "Display.internal_display_resolution".to_string(),
+        "display.postprocess_antialiasing" => "Display.postprocess_antialiasing".to_string(),
+        "gpu.backend" => "GPU.gpu".to_string(),
+        "gpu.vsync" => "GPU.vsync".to_string(),
+        "gpu.framerate_limit" => "GPU.framerate_limit".to_string(),
+        "gpu.draw_resolution_scale_x" => "GPU.draw_resolution_scale_x".to_string(),
+        "gpu.draw_resolution_scale_y" => "GPU.draw_resolution_scale_y".to_string(),
+        "gpu.render_target_path_vulkan" => "GPU.render_target_path_vulkan".to_string(),
+        "hid.host_radians_per_second" => "HID.host_radians_per_second".to_string(),
+        "memory.protect_zero" => "Memory.protect_zero".to_string(),
+        "storage.mount_cache" => "Storage.mount_cache".to_string(),
+        "storage.mount_scratch" => "Storage.mount_scratch".to_string(),
+        _ => {
+            let mut parts = key.split('.');
+            let category = parts.next().unwrap_or_default();
+            let remainder = parts.collect::<Vec<_>>().join(".");
+            if remainder.is_empty() {
+                to_xenia_category_name(category)
+            } else {
+                format!("{}.{}", to_xenia_category_name(category), remainder)
+            }
+        }
+    }
+}
+
+fn to_xenia_category_name(category: &str) -> String {
+    match category {
+        "apu" => "APU".to_string(),
+        "cpu" => "CPU".to_string(),
+        "gpu" => "GPU".to_string(),
+        "hid" => "HID".to_string(),
+        "display" => "Display".to_string(),
+        "memory" => "Memory".to_string(),
+        "storage" => "Storage".to_string(),
+        other => {
+            let mut chars = other.chars();
+            match chars.next() {
+                Some(first) => format!("{}{}", first.to_ascii_uppercase(), chars.as_str()),
+                None => String::new(),
+            }
+        }
+    }
 }
 
 fn insert_dotted_toml_value(
@@ -387,7 +488,9 @@ fn insert_dotted_parts(
 
 fn json_to_toml_value(value: &serde_json::Value) -> Result<toml::Value, String> {
     match value {
-        serde_json::Value::Null => Err("Null values cannot be written to launch config".to_string()),
+        serde_json::Value::Null => {
+            Err("Null values cannot be written to launch config".to_string())
+        }
         serde_json::Value::Bool(v) => Ok(toml::Value::Boolean(*v)),
         serde_json::Value::Number(v) => {
             if let Some(i) = v.as_i64() {
@@ -427,7 +530,9 @@ fn now_millis() -> u64 {
 mod tests {
     use super::*;
     use crate::library::catalog::{save_catalog, CatalogScanSummary, SourceCatalog};
-    use crate::library::discovery::{CandidateKind, CandidateStatus, Confidence, DiscoveredCandidate};
+    use crate::library::discovery::{
+        CandidateKind, CandidateStatus, Confidence, DiscoveredCandidate,
+    };
     use crate::library::sources;
     use crate::xenia::install_state::{self, InstallManifest, InstallState};
     use std::env;
@@ -495,10 +600,9 @@ mod tests {
 
     #[test]
     fn parse_launch_environment_accepts_comments_and_values() {
-        let envs = parse_launch_environment(
-            "# comment\nMANGOHUD=1\nMANGOHUD_CONFIG=fps,gpu_temp\n",
-        )
-        .unwrap();
+        let envs =
+            parse_launch_environment("# comment\nMANGOHUD=1\nMANGOHUD_CONFIG=fps,gpu_temp\n")
+                .unwrap();
         assert_eq!(
             envs,
             vec![
@@ -532,15 +636,42 @@ mod tests {
         };
 
         let toml = materialized_config_to_toml(&materialized).unwrap();
-        assert!(toml.contains("[gpu]"));
+        assert!(toml.contains("[GPU]"));
         assert!(toml.contains("vsync = false"));
         assert!(toml.contains("framerate_limit = 60"));
     }
 
     #[test]
+    fn profile_keys_are_translated_to_xenia_config_keys() {
+        assert_eq!(
+            translate_profile_key_to_xenia_config("gpu.backend"),
+            "GPU.gpu"
+        );
+        assert_eq!(
+            translate_profile_key_to_xenia_config("cpu.backend"),
+            "CPU.cpu"
+        );
+        assert_eq!(
+            translate_profile_key_to_xenia_config("cpu.break_on_unimplemented"),
+            "CPU.break_on_unimplemented_instructions"
+        );
+    }
+
+    #[test]
     fn parse_launch_wrapper_supports_quoted_args() {
-        let tokens = parse_launch_wrapper("gamescope --fullscreen --prefer-vk-device \"RADV Radeon\" --").unwrap();
-        assert_eq!(tokens, vec!["gamescope", "--fullscreen", "--prefer-vk-device", "RADV Radeon", "--"]);
+        let tokens =
+            parse_launch_wrapper("gamescope --fullscreen --prefer-vk-device \"RADV Radeon\" --")
+                .unwrap();
+        assert_eq!(
+            tokens,
+            vec![
+                "gamescope",
+                "--fullscreen",
+                "--prefer-vk-device",
+                "RADV Radeon",
+                "--"
+            ]
+        );
     }
 
     #[test]

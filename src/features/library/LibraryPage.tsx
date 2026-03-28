@@ -19,6 +19,7 @@ import { useLibraryBrowse } from "./state/useLibraryBrowse";
 import { useGameDetails } from "./state/useGameDetails";
 import { useLaunchActions } from "./state/useLaunchActions";
 import { useProfileActions } from "../profiles/state/useProfileActions";
+import { mergeProfileDraft, profileDraftIsDirty } from "./model/profileDraft";
 import "./LibraryPage.css";
 
 export function LibraryPage() {
@@ -36,6 +37,7 @@ export function LibraryPage() {
   const { saveIdentity } = useGameDetails();
   const launchActions = useLaunchActions();
   const profileActions = useProfileActions();
+  const { setActiveGame, loadProfiles } = profileActions;
   const saveExportActions = useSaveExportActions({
     libPath,
     xeniaPath,
@@ -68,10 +70,15 @@ export function LibraryPage() {
     savesDispatch({ type: "SET_ACTIVE_GAME", gameId: state.selectedGameId });
   }, [state.selectedGameId, savesDispatch]);
 
-  // Sync selected game to profiles store
+  // Sync selected game to profiles store and load profile inventory.
+  // Important: depend on stable callbacks, not the whole profileActions object,
+  // otherwise this effect reruns on every render and can thrash profile state.
   useEffect(() => {
-    profileActions.setActiveGame(state.selectedGameId);
-  }, [state.selectedGameId]);
+    setActiveGame(state.selectedGameId);
+    if (state.selectedGameId) {
+      void loadProfiles(state.selectedGameId);
+    }
+  }, [state.selectedGameId, setActiveGame, loadProfiles]);
 
   // Clear status message when game changes
   useEffect(() => {
@@ -212,11 +219,20 @@ export function LibraryPage() {
             if (!state.selectedGameId) {
               return;
             }
+            if (!profileActions.profileEditorOpen) {
+              void loadProfiles(state.selectedGameId);
+            }
             profileActions.setProfileEditorOpen(!profileActions.profileEditorOpen);
           }}
-          onProfileDraftChange={(draft) =>
-            profileActions.setProfileDraft(draft)
-          }
+          onProfileDraftChange={(draft) => {
+            profileActions.setProfileDraft(draft);
+            profileActions.setProfileDirty(
+              profileDraftIsDirty(
+                profileActions.profileEffectiveConfig?.explicit_overrides ?? {},
+                draft,
+              ),
+            );
+          }}
           onProfileSave={async (profileId, overrides) => {
             if (state.selectedGameId) {
               await profileActions.saveOverrides(state.selectedGameId, profileId, overrides);
@@ -258,7 +274,14 @@ export function LibraryPage() {
           onUnsavedDialogSave={async () => {
             const activeProfile = profileActions.profileInventory?.profiles.find((p) => p.active);
             if (!activeProfile || !state.selectedGameId) return;
-            await profileActions.saveOverrides(state.selectedGameId, activeProfile.id, profileActions.profileDraft);
+            await profileActions.saveOverrides(
+              state.selectedGameId,
+              activeProfile.id,
+              mergeProfileDraft(
+                profileActions.profileEffectiveConfig?.explicit_overrides ?? {},
+                profileActions.profileDraft,
+              ),
+            );
             profileActions.hideUnsavedDialog();
             // Complete the navigation that triggered the dialog.
             if (profileActions.unsavedDialogTarget !== null) {
