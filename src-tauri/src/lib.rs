@@ -1,9 +1,12 @@
+pub mod app_ctx;
 pub mod commands;
+pub mod events;
 pub mod jobs;
 pub mod library;
 pub mod patches;
 pub mod profiles;
 pub mod release;
+pub mod rpc;
 pub mod saves;
 pub mod settings;
 pub mod xenia;
