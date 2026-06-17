@@ -38,9 +38,12 @@ impl From<ArchiveError> for String {
 /// The primary Xenia executable name expected after extraction.
 pub const XENIA_EXECUTABLE: &str = "xenia_canary";
 
+/// The AppImage executable name for Xenia.
+pub const XENIA_APPIMAGE: &str = "xenia_canary.AppImage";
+
 /// Files or patterns that indicate a valid extracted Xenia build.
 /// At minimum we expect the main executable to exist.
-const REQUIRED_FILES: &[&str] = &[XENIA_EXECUTABLE];
+const REQUIRED_FILES: &[&str] = &[XENIA_EXECUTABLE, XENIA_APPIMAGE];
 
 // ---------------------------------------------------------------------------
 // Extraction
@@ -49,7 +52,8 @@ const REQUIRED_FILES: &[&str] = &[XENIA_EXECUTABLE];
 /// Extract an archive into a release-specific staging directory.
 ///
 /// Returns the path to the staging directory containing the extracted files.
-/// Supports `.tar.gz`, `.tar.xz`, and `.zip` archives using system tools.
+/// Supports `.tar.gz`, `.tar.xz`, `.zip`, and `.AppImage` formats.
+/// AppImages are copied directly without extraction.
 pub async fn extract_archive(
     app_data_path: &str,
     archive_path: &Path,
@@ -69,7 +73,9 @@ pub async fn extract_archive(
         .to_string_lossy()
         .to_lowercase();
 
-    if archive_name.ends_with(".tar.gz") || archive_name.ends_with(".tgz") {
+    if archive_name.ends_with(".appimage") {
+        copy_appimage(archive_path, &stage).await?;
+    } else if archive_name.ends_with(".tar.gz") || archive_name.ends_with(".tgz") {
         extract_tar_gz(archive_path, &stage).await?;
     } else if archive_name.ends_with(".tar.xz") {
         extract_tar_xz(archive_path, &stage).await?;
@@ -141,6 +147,22 @@ async fn extract_zip(archive: &Path, dest: &Path) -> Result<(), ArchiveError> {
         ],
     )
     .await
+}
+
+async fn copy_appimage(archive: &Path, dest: &Path) -> Result<(), ArchiveError> {
+    let dest_path = dest.join(XENIA_APPIMAGE);
+    tokio::fs::copy(archive, &dest_path).await?;
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let meta = tokio::fs::metadata(&dest_path).await?;
+        let mut perms = meta.permissions();
+        perms.set_mode(0o755);
+        tokio::fs::set_permissions(&dest_path, perms).await?;
+    }
+
+    Ok(())
 }
 
 async fn run_extraction_command(cmd: &str, args: &[&str]) -> Result<(), ArchiveError> {

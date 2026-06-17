@@ -83,7 +83,9 @@ describe("XeniaRecoveryActions", () => {
           retry_mode: "install",
           error: "Download failed: connection reset",
           failed_step: "download",
-          target_tag: "v0.2.100",
+          channel: "canary",
+          target_tag: "9369464",
+          target_build_id: "canary:9369464",
           failed_at: Date.now(),
         },
       },
@@ -102,8 +104,12 @@ describe("XeniaRecoveryActions", () => {
       installState: {
         status: "update_failed",
         manifest: {
-          tag: "v0.2.100",
+          channel: "canary",
+          build_id: "canary:9369464",
+          tag: "9369464",
+          release_name: "9369464_canary_experimental",
           published_at: "2026-03-10",
+          html_url: "https://example.com/9369464",
           asset_name: "xenia.tar.gz",
           executable_path: "/opt/xenia/xenia_canary",
           install_dir: "/opt/xenia",
@@ -114,7 +120,9 @@ describe("XeniaRecoveryActions", () => {
           retry_mode: "update",
           error: "Promotion failed: disk full",
           failed_step: "promote",
-          target_tag: "v0.2.101",
+          channel: "canary",
+          target_tag: "9132035",
+          target_build_id: "canary:9132035",
           failed_at: Date.now(),
         },
       },
@@ -135,7 +143,9 @@ describe("XeniaRecoveryActions", () => {
           retry_mode: "install",
           error: "Download failed",
           failed_step: "download",
-          target_tag: "v0.2.100",
+          channel: "canary",
+          target_tag: "9369464",
+          target_build_id: "canary:9369464",
           failed_at: Date.now(),
         },
       },
@@ -146,7 +156,7 @@ describe("XeniaRecoveryActions", () => {
     fireEvent.click(screen.getByTestId("recovery-toggle-details"));
     expect(screen.getByTestId("recovery-details")).toBeInTheDocument();
     expect(screen.getByText("download")).toBeInTheDocument();
-    expect(screen.getByText("v0.2.100")).toBeInTheDocument();
+    expect(screen.getByText("9369464")).toBeInTheDocument();
   });
 
   it("shows cleanup button", () => {
@@ -160,7 +170,9 @@ describe("XeniaRecoveryActions", () => {
           retry_mode: "install",
           error: "Download failed",
           failed_step: "download",
-          target_tag: "v0.2.100",
+          channel: "canary",
+          target_tag: "9369464",
+          target_build_id: "canary:9369464",
           failed_at: Date.now(),
         },
       },
@@ -182,7 +194,9 @@ describe("XeniaRecoveryActions", () => {
           retry_mode: "install",
           error: "Download failed",
           failed_step: "download",
-          target_tag: "v0.2.100",
+          channel: "canary",
+          target_tag: "9369464",
+          target_build_id: "canary:9369464",
           failed_at: Date.now(),
         },
       },
@@ -202,7 +216,9 @@ describe("XeniaRecoveryActions", () => {
           retry_mode: "install",
           error: "Download failed",
           failed_step: "download",
-          target_tag: "v0.2.100",
+          channel: "canary",
+          target_tag: "9369464",
+          target_build_id: "canary:9369464",
           failed_at: Date.now(),
         },
       },

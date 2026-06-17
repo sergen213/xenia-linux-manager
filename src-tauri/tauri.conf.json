@@ -23,6 +23,11 @@
       "assetProtocol": {
         "enable": true,
         "scope": [
+          "$LOCALDATA/**",
+          "$HOME/**",
+          "$APPDATA/**",
+          "$APPLOCALDATA/**",
+          "$RESOURCE/**",
           "**"
         ]
       },

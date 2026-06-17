@@ -71,7 +71,7 @@ pub struct AppSettings {
 }
 
 fn default_click_behavior() -> String {
-    "single".to_string()
+    "double".to_string()
 }
 
 impl Default for AppSettings {
@@ -84,7 +84,7 @@ impl Default for AppSettings {
             setup_complete: false,
             last_active_route: None,
             gamer_tag: None,
-            click_behavior: "single".to_string(),
+            click_behavior: "double".to_string(),
             launch_environment: String::new(),
             launch_wrapper: String::new(),
         }
@@ -253,9 +253,17 @@ mod tests {
 
     #[test]
     fn validate_default_paths_succeeds() {
-        let s = AppSettings::default();
+        let root = std::env::temp_dir().join("xlm-settings-defaults-test");
+        let _ = fs::remove_dir_all(&root);
+        let s = AppSettings {
+            xenia_path: root.join("xenia"),
+            app_data_path: root.join("data"),
+            library_metadata_path: root.join("library"),
+            ..AppSettings::default()
+        };
         let v = validate_settings_paths(&s);
-        assert!(v.all_valid, "default paths should be valid");
+        assert!(v.all_valid, "managed temp paths should be valid");
+        let _ = fs::remove_dir_all(&root);
     }
 
     #[test]

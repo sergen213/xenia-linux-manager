@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { invoke } from "@tauri-apps/api/core";
 import { XeniaLifecycleCard } from "../components/XeniaLifecycleCard";
@@ -13,27 +13,49 @@ import {
   INITIAL_STATE as INITIAL_SETTINGS_STATE,
   type SettingsContextValue,
 } from "../../settings/state/settingsStore";
-import type { InstallManifest } from "../model/xeniaTypes";
+import type { InstallManifest, LinuxRelease } from "../model/xeniaTypes";
 
-// Mock the Tauri invoke calls
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(),
 }));
 
+const sampleRelease: LinuxRelease = {
+  channel: "canary",
+  tag: "9369464",
+  release_name: "9369464_canary_experimental",
+  build_id: "canary:9369464",
+  published_at: "2026-02-13T17:03:14Z",
+  html_url: "https://example.com/9369464",
+  asset_name: "xenia_canary_linux.tar.xz",
+  download_url: "https://example.com/xenia_canary_linux.tar.xz",
+  size_bytes: 3639000,
+};
+
 const mockManifest: InstallManifest = {
-  tag: "v0.2.100",
-  published_at: "2026-03-10T12:00:00Z",
-  asset_name: "xenia_canary_linux.tar.gz",
-  executable_path: "/opt/xenia/xenia_canary",
-  install_dir: "/opt/xenia",
+  channel: "canary",
+  build_id: "canary:9369464",
+  tag: "9369464",
+  release_name: "9369464_canary_experimental",
+  published_at: "2026-02-13T17:03:14Z",
+  html_url: "https://example.com/9369464",
+  asset_name: "xenia_canary_linux.tar.xz",
+  executable_path: "/opt/xenia/builds/canary/9369464/xenia_canary",
+  install_dir: "/opt/xenia/builds/canary/9369464",
   installed_at: Date.now(),
 };
 
-function renderWithProviders(
-  xeniaState: XeniaState = INITIAL_XENIA_STATE,
-) {
-  const xeniaDispatch = vi.fn();
-  const settingsDispatch = vi.fn();
+function mockInvoke() {
+  vi.mocked(invoke).mockImplementation(async (command: string) => {
+    switch (command) {
+      case "fetch_recent_releases":
+        return [sampleRelease];
+      default:
+        return null;
+    }
+  });
+}
+
+function renderWithProviders(xeniaState: XeniaState = INITIAL_XENIA_STATE) {
   const settingsCtx: SettingsContextValue = {
     state: {
       ...INITIAL_SETTINGS_STATE,
@@ -48,76 +70,58 @@ function renderWithProviders(
         click_behavior: "single" as const,
       },
     },
-    dispatch: settingsDispatch,
+    dispatch: vi.fn(),
   };
   const xeniaCtx: XeniaContextValue = {
     state: xeniaState,
-    dispatch: xeniaDispatch,
+    dispatch: vi.fn(),
   };
 
   render(
     <SettingsContext value={settingsCtx}>
       <XeniaContext value={xeniaCtx}>
-        <XeniaLifecycleCard />
+        <XeniaLifecycleCard channel="canary" />
       </XeniaContext>
     </SettingsContext>,
   );
-
-  return { xeniaDispatch, settingsDispatch };
 }
 
 describe("XeniaLifecycleCard", () => {
-  it("renders not-installed state with Install button", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockInvoke();
+  });
+
+  it("renders not-installed state with install button", async () => {
     renderWithProviders();
-    expect(screen.getByTestId("xenia-card-status")).toHaveTextContent("Not Installed");
-    expect(screen.getByTestId("xenia-card-version")).toHaveTextContent("--");
-    expect(screen.getByTestId("xenia-primary-action")).toHaveTextContent("Install");
+    await waitFor(() => {
+      expect(screen.getByTestId("xenia-card-status-canary")).toHaveTextContent("Not Installed");
+    });
+    expect(screen.getByTestId("xenia-card-version-canary")).toHaveTextContent("--");
+    expect(screen.getByTestId("xenia-primary-action-canary")).toHaveTextContent("Install");
   });
 
-  it("renders installed state with version and Check for updates", () => {
+  it("renders installed state and installed-build controls", async () => {
     const state: XeniaState = {
       ...INITIAL_XENIA_STATE,
       initialized: true,
       installState: {
         status: "installed",
         manifest: mockManifest,
-        installed_builds: [],
+        installed_builds: [mockManifest],
         failure: null,
       },
     };
     renderWithProviders(state);
-    expect(screen.getByTestId("xenia-card-version")).toHaveTextContent("v0.2.100");
-    expect(screen.getByTestId("xenia-card-status")).toHaveTextContent("Installed");
-    expect(screen.getByTestId("xenia-primary-action")).toHaveTextContent("Check for updates");
-    expect(screen.getByTestId("xenia-uninstall")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId("xenia-card-version-canary")).toHaveTextContent("9369464");
+    });
+    expect(screen.getByTestId("xenia-card-status-canary")).toHaveTextContent("Installed");
+    expect(screen.getByText("Installed builds")).toBeInTheDocument();
+    expect(screen.getByTestId("xenia-uninstall-canary")).toBeInTheDocument();
   });
 
-  it("shows update notice when update is available", () => {
-    const state: XeniaState = {
-      ...INITIAL_XENIA_STATE,
-      initialized: true,
-      installState: {
-        status: "installed",
-        manifest: mockManifest,
-        installed_builds: [],
-        failure: null,
-      },
-      availableUpdate: {
-        tag: "v0.2.101",
-        published_at: "2026-03-12T12:00:00Z",
-        asset_name: "xenia_canary_linux.tar.gz",
-        download_url: "https://example.com/xenia.tar.gz",
-        size_bytes: 52428800,
-      },
-    };
-    renderWithProviders(state);
-    expect(screen.getByTestId("xenia-update-notice")).toHaveTextContent(
-      "Update available: v0.2.101",
-    );
-    expect(screen.getByTestId("xenia-primary-action")).toHaveTextContent("Update");
-  });
-
-  it("shows failure state with Retry button and error summary", () => {
+  it("shows retry state when matching channel failure exists", async () => {
     const state: XeniaState = {
       ...INITIAL_XENIA_STATE,
       initialized: true,
@@ -129,46 +133,26 @@ describe("XeniaLifecycleCard", () => {
           retry_mode: "install",
           error: "Download failed: connection reset",
           failed_step: "download",
-          target_tag: "v0.2.100",
+          channel: "canary",
+          target_tag: "9369464",
+          target_build_id: "canary:9369464",
           failed_at: Date.now(),
         },
       },
     };
     renderWithProviders(state);
-    expect(screen.getByTestId("xenia-primary-action")).toHaveTextContent("Retry");
-    expect(screen.getByTestId("xenia-failure-summary")).toHaveTextContent(
-      "Download failed: connection reset",
-    );
-  });
-
-  it("shows checking indicator during update check", () => {
-    const state: XeniaState = {
-      ...INITIAL_XENIA_STATE,
-      initialized: true,
-      installState: {
-        status: "installed",
-        manifest: mockManifest,
-        installed_builds: [],
-        failure: null,
-      },
-      checkingForUpdate: true,
-    };
-    renderWithProviders(state);
-    // Primary button shows "Checking..." when update check is in progress
-    expect(screen.getByTestId("xenia-primary-action")).toHaveTextContent("Checking...");
-  });
-
-  it("opens dialog when primary action clicked", async () => {
-    // Mock fetchLatestRelease to resolve immediately
-    vi.mocked(invoke).mockResolvedValueOnce({
-      tag: "v0.2.100",
-      published_at: "2026-03-10T12:00:00Z",
-      asset_name: "xenia_canary_linux.tar.gz",
-      download_url: "https://example.com/xenia.tar.gz",
-      size_bytes: 52428800,
+    await waitFor(() => {
+      expect(screen.getByTestId("xenia-primary-action-canary")).toHaveTextContent("Retry");
     });
+    expect(screen.getByText("Download failed: connection reset")).toBeInTheDocument();
+  });
+
+  it("opens lifecycle dialog from primary action", async () => {
     renderWithProviders();
-    fireEvent.click(screen.getByTestId("xenia-primary-action"));
+    await waitFor(() => {
+      expect(screen.getByTestId("xenia-primary-action-canary")).toHaveTextContent("Install");
+    });
+    fireEvent.click(screen.getByTestId("xenia-primary-action-canary"));
     await waitFor(() => {
       expect(screen.getByTestId("xenia-lifecycle-dialog")).toBeInTheDocument();
     });

@@ -380,6 +380,8 @@ export interface XeniaPatchFile {
   file_path: string;
   title_name: string | null;
   title_id: string | null;
+  version: string | null;
+  hashes: string[];
   entries: XeniaPatchEntry[];
 }
 
@@ -545,10 +547,12 @@ export async function saveProfileOverrides(
 // ---------------------------------------------------------------------------
 
 export async function getMaterializedLaunchConfig(
+  appDataPath: string,
   libraryMetadataPath: string,
   gameId: string,
 ): Promise<MaterializedLaunchConfig> {
   return invoke<MaterializedLaunchConfig>("get_materialized_launch_config", {
+    appDataPath,
     libraryMetadataPath,
     gameId,
   });

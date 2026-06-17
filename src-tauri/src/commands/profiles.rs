@@ -71,10 +71,15 @@ pub fn save_profile_overrides(
 
 #[tauri::command]
 pub fn get_materialized_launch_config(
+    app_data_path: String,
     library_metadata_path: String,
     game_id: String,
 ) -> Result<crate::profiles::materialize::MaterializedLaunchConfig, String> {
-    crate::profiles::materialize::materialize_launch_config(&library_metadata_path, &game_id)
+    crate::profiles::materialize::materialize_launch_config(
+        &app_data_path,
+        &library_metadata_path,
+        &game_id,
+    )
 }
 
 // ---------------------------------------------------------------------------

@@ -17,6 +17,7 @@ use commands::profiles as profiles_commands;
 use commands::saves as saves_commands;
 use commands::settings as settings_commands;
 use commands::release as release_commands;
+use commands::shell as shell_commands;
 use commands::xenia as xenia_commands;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -37,6 +38,7 @@ pub fn run() {
             jobs_commands::get_task_history,
             jobs_commands::clear_task_history,
             xenia_commands::fetch_latest_release,
+            xenia_commands::fetch_recent_releases,
             xenia_commands::get_install_status,
             xenia_commands::check_for_update,
             xenia_commands::check_for_update_auto,
@@ -45,6 +47,7 @@ pub fn run() {
             xenia_commands::retry_last_operation,
             xenia_commands::clear_install_failure,
             xenia_commands::cleanup_install_artifacts,
+            xenia_commands::switch_active_xenia_build,
             xenia_commands::remove_xenia_install,
             library_commands::add_library_source,
             library_commands::list_library_sources,
@@ -69,6 +72,13 @@ pub fn run() {
             library_commands::get_launch_preflight,
             library_commands::get_launch_preflight_with_profile,
             library_commands::launch_library_game,
+            library_commands::export_game_desktop_shortcut,
+            library_commands::get_shortcut_locations,
+            library_commands::inspect_game_content,
+            library_commands::import_game_content,
+            library_commands::remove_game_content,
+            library_commands::detect_steam_install,
+            library_commands::export_game_to_steam,
             patches_commands::check_patches_status,
             patches_commands::deploy_game_patches,
             patches_commands::get_game_xenia_patches,
@@ -93,6 +103,7 @@ pub fn run() {
             saves_commands::apply_save_import,
             saves_commands::cleanup_save_import_staging,
             saves_commands::list_save_backups,
+            shell_commands::open_path,
             release_commands::get_release_metadata,
             release_commands::get_updater_readiness,
             release_commands::get_environment_diagnostics,

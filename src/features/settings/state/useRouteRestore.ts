@@ -68,7 +68,7 @@ export function useRouteRestore() {
         setup_complete: state.settings.setup_complete,
         last_active_route: location.pathname,
         gamer_tag: state.settings.gamer_tag ?? null,
-        click_behavior: state.settings.click_behavior ?? "single",
+        click_behavior: state.settings.click_behavior ?? "double",
       };
       void saveSettings(updated).catch(() => {
         // Silently ignore -- route restore is not critical.

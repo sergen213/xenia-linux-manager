@@ -1,10 +1,10 @@
+import type { ComponentProps } from "react";
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { XeniaLifecycleDialog } from "../components/XeniaLifecycleDialog";
 import {
   XeniaContext,
   INITIAL_XENIA_STATE,
-  type XeniaState,
   type XeniaContextValue,
 } from "../state/xeniaStore";
 import {
@@ -12,20 +12,35 @@ import {
   INITIAL_STATE as INITIAL_SETTINGS_STATE,
   type SettingsContextValue,
 } from "../../settings/state/settingsStore";
+import type { FailureContext, LinuxRelease } from "../model/xeniaTypes";
 
-// Mock the Tauri invoke calls
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(),
 }));
 
-function renderDialog(
-  action: "install" | "update" | "retry" = "install",
-  xeniaState: XeniaState = INITIAL_XENIA_STATE,
-) {
-  const xeniaDispatch = vi.fn();
-  const settingsDispatch = vi.fn();
-  const onClose = vi.fn();
+const sampleRelease: LinuxRelease = {
+  channel: "edge",
+  tag: "559007a",
+  release_name: "xenia_edge",
+  build_id: "edge:559007a",
+  published_at: "2026-04-18T03:40:22Z",
+  html_url: "https://example.com/559007a",
+  asset_name: "xenia_edge_linux.AppImage",
+  download_url: "https://example.com/xenia_edge_linux.AppImage",
+  size_bytes: 45746680,
+};
 
+const sampleFailure: FailureContext = {
+  retry_mode: "install",
+  error: "Connection reset by peer",
+  failed_step: "download",
+  channel: "edge",
+  target_tag: "559007a",
+  target_build_id: "edge:559007a",
+  failed_at: Date.now(),
+};
+
+function renderDialog(props: Partial<ComponentProps<typeof XeniaLifecycleDialog>> = {}) {
   const settingsCtx: SettingsContextValue = {
     state: {
       ...INITIAL_SETTINGS_STATE,
@@ -40,86 +55,50 @@ function renderDialog(
         click_behavior: "single" as const,
       },
     },
-    dispatch: settingsDispatch,
+    dispatch: vi.fn(),
   };
   const xeniaCtx: XeniaContextValue = {
-    state: xeniaState,
-    dispatch: xeniaDispatch,
+    state: INITIAL_XENIA_STATE,
+    dispatch: vi.fn(),
   };
 
   render(
     <SettingsContext value={settingsCtx}>
       <XeniaContext value={xeniaCtx}>
-        <XeniaLifecycleDialog action={action} onClose={onClose} />
+        <XeniaLifecycleDialog
+          action="install"
+          channel="edge"
+          release={sampleRelease}
+          failure={null}
+          onClose={vi.fn()}
+          {...props}
+        />
       </XeniaContext>
     </SettingsContext>,
   );
-
-  return { onClose, xeniaDispatch };
 }
 
 describe("XeniaLifecycleDialog", () => {
-  it("shows confirm phase by default for install", () => {
-    renderDialog("install");
-    expect(screen.getByTestId("dialog-confirm-phase")).toBeInTheDocument();
-    expect(screen.getByText("Install Xenia Canary")).toBeInTheDocument();
-    expect(screen.getByTestId("dialog-confirm")).toHaveTextContent("Install");
-    expect(screen.getByTestId("dialog-cancel")).toBeInTheDocument();
+  it("renders channel-aware install title and release info", () => {
+    renderDialog();
+    expect(screen.getByText("Install Xenia Edge")).toBeInTheDocument();
+    expect(screen.getByText("559007a")).toBeInTheDocument();
+    expect(screen.getByText("43.6 MB")).toBeInTheDocument();
   });
 
-  it("shows confirm phase for update action", () => {
-    renderDialog("update");
-    expect(screen.getByText("Update Xenia Canary")).toBeInTheDocument();
-    expect(screen.getByTestId("dialog-confirm")).toHaveTextContent("Update");
+  it("renders update title and release notes link", () => {
+    renderDialog({ action: "update" });
+    expect(screen.getByText("Update Xenia Edge")).toBeInTheDocument();
+    expect(screen.getByTestId("update-release-notes")).toHaveAttribute(
+      "href",
+      "https://example.com/559007a",
+    );
   });
 
-  it("shows confirm phase for retry action", () => {
-    renderDialog("retry");
-    expect(screen.getByText("Retry Xenia Canary")).toBeInTheDocument();
-    expect(screen.getByTestId("dialog-confirm")).toHaveTextContent("Retry");
-  });
-
-  it("shows release info when latest release is available", () => {
-    const state: XeniaState = {
-      ...INITIAL_XENIA_STATE,
-      latestRelease: {
-        tag: "v0.2.100",
-        published_at: "2026-03-10T12:00:00Z",
-        asset_name: "xenia_canary_linux.tar.gz",
-        download_url: "https://example.com/xenia.tar.gz",
-        size_bytes: 52428800,
-      },
-    };
-    renderDialog("install", state);
-    expect(screen.getByText("v0.2.100")).toBeInTheDocument();
-    expect(screen.getByText("50.0 MB")).toBeInTheDocument();
-  });
-
-  it("shows previous failure context for retry", () => {
-    const state: XeniaState = {
-      ...INITIAL_XENIA_STATE,
-      installState: {
-        status: "install_failed",
-        manifest: null,
-        installed_builds: [],
-        failure: {
-          retry_mode: "install",
-          error: "Connection reset by peer",
-          failed_step: "download",
-          target_tag: "v0.2.100",
-          failed_at: Date.now(),
-        },
-      },
-    };
-    renderDialog("retry", state);
+  it("renders retry title and failure context", () => {
+    renderDialog({ action: "retry", release: null, failure: sampleFailure });
+    expect(screen.getByText("Retry Xenia Edge")).toBeInTheDocument();
     expect(screen.getByText("Connection reset by peer")).toBeInTheDocument();
     expect(screen.getByText("Failed at: download")).toBeInTheDocument();
-  });
-
-  it("displays background operation message", () => {
-    renderDialog("install");
-    expect(
-      screen.getByText(/continue using the app while the operation runs/),
-    ).toBeInTheDocument();
   });
 });

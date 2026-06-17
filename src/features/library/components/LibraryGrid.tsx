@@ -1,5 +1,5 @@
-import { readFile } from "@tauri-apps/plugin-fs";
-import { memo, useEffect, useState } from "react";
+import { convertFileSrc } from "@tauri-apps/api/core";
+import { memo, useState } from "react";
 import type { LibraryBrowseCard } from "../model/libraryTypes";
 
 interface LibraryGridProps {
@@ -20,70 +20,33 @@ function formatLastPlayed(timestamp: number | null): string {
   return `Last played ${new Date(timestamp).toLocaleString()}`;
 }
 
-// Memoized to prevent re-renders when parent state changes but card props haven't
+// Memoized to prevent re-renders when parent state changes but card props haven't.
+// Artwork is served via the Tauri asset protocol (convertFileSrc) so the browser
+// loads it natively: real lazy-loading (only when scrolled into view), native
+// decode + caching, and no per-card readFile/Blob held on the JS heap. With large
+// libraries the old eager readFile defeated loading="lazy" and pinned every cover
+// in memory at once.
 const CoverArt = memo(function CoverArt({ card }: { card: LibraryBrowseCard }) {
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [loadFailed, setLoadFailed] = useState(false);
+  // Track the path that failed, not a bare boolean: a re-resolved artwork_path
+  // differs from failedPath and so automatically retries.
+  const [failedPath, setFailedPath] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    let objectUrl: string | null = null;
-
-    setImageUrl(null);
-    setLoadFailed(false);
-
-    if (!card.artwork_path) {
-      return;
-    }
-
-    readFile(card.artwork_path)
-      .then((bytes) => {
-        if (cancelled) {
-          return;
-        }
-        const lowerPath = card.artwork_path?.toLowerCase() ?? "";
-        const mimeType = lowerPath.endsWith(".png") ? "image/png" : "image/jpeg";
-        objectUrl = URL.createObjectURL(new Blob([bytes], { type: mimeType }));
-        setImageUrl(objectUrl);
-      })
-      .catch((error) => {
-        if (cancelled) {
-          return;
-        }
-        setLoadFailed(true);
-        console.warn(
-          `[artwork] Failed to read artwork file for "${card.title}":`,
-          `path=${card.artwork_path}`,
-          error,
-        );
-      });
-
-    return () => {
-      cancelled = true;
-      if (objectUrl) {
-        URL.revokeObjectURL(objectUrl);
-      }
-    };
-  }, [card.artwork_path, card.title]);
-
-  if (card.artwork_path && imageUrl && !loadFailed) {
+  if (card.artwork_path && failedPath !== card.artwork_path) {
     return (
       <div className="library-grid__cover library-grid__cover--image" aria-hidden="true">
         <img
-          src={imageUrl}
+          src={convertFileSrc(card.artwork_path)}
           alt=""
           loading="lazy"
+          decoding="async"
           onError={() => {
             console.warn(
               `[artwork] Failed to render image for "${card.title}":`,
               `path=${card.artwork_path}`,
             );
-            setLoadFailed(true);
+            setFailedPath(card.artwork_path);
           }}
         />
-        <span style={{ display: "none" }}>
-          {card.title.slice(0, 1).toUpperCase()}
-        </span>
       </div>
     );
   }
@@ -164,7 +127,7 @@ export function LibraryGrid({
   selectedGameId,
   onSelectGame,
   onActivateGame,
-  clickBehavior = "single",
+  clickBehavior = "double",
 }: LibraryGridProps) {
   if (cards.length === 0) {
     return (

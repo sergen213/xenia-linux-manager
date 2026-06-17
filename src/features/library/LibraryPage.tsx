@@ -62,7 +62,7 @@ export function LibraryPage() {
       return;
     }
     dispatch({ type: "SELECT_GAME", gameId });
-    await launchActions.launchGameById(gameId, false);
+    await launchActions.launchGameById(gameId, true);
   }, [profileActions, state.selectedGameId, dispatch, launchActions]);
 
   // Sync selected game to saves store
@@ -149,7 +149,7 @@ export function LibraryPage() {
             <LibraryGrid
               cards={visibleCards}
               selectedGameId={state.selectedGameId}
-              clickBehavior={settingsState.settings?.click_behavior ?? "single"}
+              clickBehavior={settingsState.settings?.click_behavior ?? "double"}
               onSelectGame={handleSelectGame}
               onActivateGame={handleActivateGame}
             />
@@ -158,8 +158,6 @@ export function LibraryPage() {
 
         <GameDetailsPanel
           details={state.selectedGame}
-          preflight={state.launchPreflight}
-          launchPending={launchActions.launchPending}
           shortcutExportPending={launchActions.shortcutExportPending}
           shortcutStatusMessage={launchActions.shortcutStatusMessage}
           contentRefreshToken={launchActions.contentRefreshToken}
@@ -171,13 +169,12 @@ export function LibraryPage() {
             await saveIdentity(payload);
             await refreshLibrary(payload.game_id);
           }}
-          onLaunch={() => launchActions.launch(false)}
           onExportDesktopShortcut={(target) => launchActions.exportShortcut(target)}
           onOpenShortcutFolder={(target) => launchActions.openShortcutFolder(target)}
           onOpenContentFolder={() => launchActions.openContentFolder()}
           onImportContent={(contentType) => launchActions.importContent(contentType)}
           onRemoveContentEntry={(entryPath) => launchActions.removeContentEntry(entryPath)}
-          installedXeniaBuildTags={launchActions.installedXeniaBuildTags}
+          installedXeniaBuildOptions={launchActions.installedXeniaBuildOptions}
           onPreferredXeniaBuildChange={async (tag) => {
             await launchActions.changePreferredXeniaBuild(tag);
           }}
@@ -187,7 +184,6 @@ export function LibraryPage() {
           onGameLaunchWrapperChange={async (launchWrapper) => {
             await launchActions.changeGameLaunchWrapper(launchWrapper);
           }}
-          onConfirmWarningLaunch={() => launchActions.launch(true)}
           onManagePatchesToggle={() =>
             dispatch({ type: "SET_MANAGE_PATCHES_OPEN", open: !state.managePatchesOpen })
           }

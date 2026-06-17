@@ -9,9 +9,15 @@
 // Release metadata (mirrors releases::LinuxRelease)
 // ---------------------------------------------------------------------------
 
+export type ReleaseChannel = "canary" | "edge";
+
 export interface LinuxRelease {
+  channel: ReleaseChannel;
   tag: string;
+  release_name: string;
+  build_id: string;
   published_at: string;
+  html_url: string;
   asset_name: string;
   download_url: string;
   size_bytes: number;
@@ -30,8 +36,12 @@ export type LifecycleStatus =
 export type RetryMode = "install" | "update";
 
 export interface InstallManifest {
+  channel: ReleaseChannel;
+  build_id: string;
   tag: string;
+  release_name: string;
   published_at: string;
+  html_url: string;
   asset_name: string;
   executable_path: string;
   install_dir: string;
@@ -42,7 +52,9 @@ export interface FailureContext {
   retry_mode: RetryMode;
   error: string;
   failed_step: string;
+  channel: ReleaseChannel;
   target_tag: string;
+  target_build_id: string;
   failed_at: number;
 }
 
@@ -102,4 +114,12 @@ export function lifecycleStatusLabel(status: LifecycleStatus): string {
     case "update_failed":
       return "Update Failed";
   }
+}
+
+export function channelLabel(channel: ReleaseChannel): string {
+  return channel === "edge" ? "Xenia Edge" : "Xenia Canary";
+}
+
+export function buildLabel(build: Pick<InstallManifest, "channel" | "tag">): string {
+  return `${channelLabel(build.channel)} • ${build.tag}`;
 }

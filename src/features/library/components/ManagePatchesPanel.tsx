@@ -8,8 +8,46 @@ import { PatchImportDropzone } from "./PatchImportDropzone";
 interface ManagePatchesPanelProps {
   titleId: string | null;
   appDataPath: string;
+  hasTitleUpdate: boolean;
   onImport: (input: { file_name: string; contents: string }) => Promise<void>;
   importPending: boolean;
+}
+
+function hasVersionSpecificMetadata(file: XeniaPatchFile): boolean {
+  return Boolean(file.version) || file.hashes.length > 0;
+}
+
+function pickInitialPatchFile(files: XeniaPatchFile[], hasTitleUpdate: boolean): XeniaPatchFile {
+  const withEnabled = files.filter((file) => file.entries.some((entry) => entry.is_enabled));
+
+  if (hasTitleUpdate) {
+    const enabledWithVersionMetadata = withEnabled.find(hasVersionSpecificMetadata);
+    if (enabledWithVersionMetadata) return enabledWithVersionMetadata;
+
+    const anyWithVersionMetadata = files.find(hasVersionSpecificMetadata);
+    if (anyWithVersionMetadata) return anyWithVersionMetadata;
+  }
+
+  return withEnabled[0] ?? files[0];
+}
+
+function buildPatchCompatibilityMessage(file: XeniaPatchFile, hasTitleUpdate: boolean): string | null {
+  if (!hasTitleUpdate) {
+    return null;
+  }
+
+  if (hasVersionSpecificMetadata(file)) {
+    const parts: string[] = [];
+    if (file.version) {
+      parts.push(`patch version ${file.version}`);
+    }
+    if (file.hashes.length > 0) {
+      parts.push(`${file.hashes.length} executable hash${file.hashes.length === 1 ? "" : "es"}`);
+    }
+    return `Title update detected. This patch file includes ${parts.join(" and ")}, so prefer it only when it matches your installed update.`;
+  }
+
+  return "Title update detected. This patch file has no version or executable hash metadata, so base-game patches may appear enabled but not apply to the updated title.";
 }
 
 /** Strip the title_id prefix and .patch.toml suffix to get a human-friendly label. */
@@ -22,7 +60,7 @@ function patchFileLabel(file: XeniaPatchFile): string {
   return label || file.file_name;
 }
 
-export function ManagePatchesPanel({ titleId, appDataPath, onImport, importPending }: ManagePatchesPanelProps) {
+export function ManagePatchesPanel({ titleId, appDataPath, hasTitleUpdate, onImport, importPending }: ManagePatchesPanelProps) {
   const [patches, setPatches] = useState<GameXeniaPatches | null>(null);
   const [loading, setLoading] = useState(false);
   const [toggling, setToggling] = useState<string | null>(null);
@@ -39,9 +77,7 @@ export function ManagePatchesPanel({ titleId, appDataPath, onImport, importPendi
       // On first load, auto-select the best file.
       if (!initialLoadDone.current && result.files.length > 0) {
         initialLoadDone.current = true;
-        // Prefer a file with enabled entries, else the first file.
-        const withEnabled = result.files.find((f) => f.entries.some((e) => e.is_enabled));
-        setSelectedFilePath((withEnabled ?? result.files[0]).file_path);
+        setSelectedFilePath(pickInitialPatchFile(result.files, hasTitleUpdate).file_path);
       }
     } catch (err) {
       console.error("[patches] Load failed:", err);
@@ -49,7 +85,7 @@ export function ManagePatchesPanel({ titleId, appDataPath, onImport, importPendi
     } finally {
       if (showLoading) setLoading(false);
     }
-  }, [titleId, appDataPath]);
+  }, [titleId, appDataPath, hasTitleUpdate]);
 
   // Reset on title change
   useEffect(() => {
@@ -59,15 +95,12 @@ export function ManagePatchesPanel({ titleId, appDataPath, onImport, importPendi
   }, [loadPatches]);
 
   const handleToggle = useCallback(async (filePath: string, entryName: string, enabled: boolean) => {
-    console.log("[patches] handleToggle called:", { filePath, entryName, enabled, appDataPath });
     setToggling(entryName);
     setError(null);
     try {
-      const result = await toggleXeniaPatchEntry(appDataPath, filePath, entryName, enabled);
-      console.log("[patches] toggle result:", result);
+      await toggleXeniaPatchEntry(appDataPath, filePath, entryName, enabled);
       // Reload without loading spinner to keep scroll position
       await loadPatches(false);
-      console.log("[patches] patches reloaded");
     } catch (err) {
       console.error("[patches] Toggle failed:", err);
       setError(err instanceof Error ? err.message : String(err));
@@ -90,6 +123,9 @@ export function ManagePatchesPanel({ titleId, appDataPath, onImport, importPendi
   }
 
   const selectedFile = patches?.files.find((f) => f.file_path === selectedFilePath) ?? null;
+  const selectedFileCompatibilityMessage = selectedFile
+    ? buildPatchCompatibilityMessage(selectedFile, hasTitleUpdate)
+    : null;
 
   return (
     <section className="manage-patches">
@@ -103,6 +139,12 @@ export function ManagePatchesPanel({ titleId, appDataPath, onImport, importPendi
           </p>
         </div>
       </header>
+
+      {hasTitleUpdate && (
+        <div className="manage-patches__error" role="note">
+          Title update detected for this game. Patches often need a matching update version or executable hash to apply.
+        </div>
+      )}
 
       {error && (
         <div className="manage-patches__error">
@@ -127,7 +169,14 @@ export function ManagePatchesPanel({ titleId, appDataPath, onImport, importPendi
               files={patches.files}
               selectedFilePath={selectedFilePath}
               onSelect={setSelectedFilePath}
+              hasTitleUpdate={hasTitleUpdate}
             />
+          )}
+
+          {selectedFileCompatibilityMessage && (
+            <div className="manage-patches__error" role="note">
+              {selectedFileCompatibilityMessage}
+            </div>
           )}
 
           {/* Patch entries for the selected file */}
@@ -142,14 +191,13 @@ export function ManagePatchesPanel({ titleId, appDataPath, onImport, importPendi
                       disabled={toggling !== null}
                       onChange={(e) => {
                         e.stopPropagation();
-                        console.log("[patches] Toggle:", entry.name, "->", e.target.checked);
                         void handleToggle(selectedFile.file_path, entry.name, e.target.checked);
                       }}
                     />
                     <span>
                       <strong>{entry.name}</strong>
                       {entry.description && <small>{entry.description}</small>}
-                      {entry.author && <small style={{ opacity: 0.6 }}>by {entry.author}</small>}
+                      {entry.author && <small className="patch-checklist__author">by {entry.author}</small>}
                     </span>
                   </label>
                 </li>
@@ -168,15 +216,23 @@ export function ManagePatchesPanel({ titleId, appDataPath, onImport, importPendi
   );
 }
 
-function PatchVersionPicker({ files, selectedFilePath, onSelect }: {
+function PatchVersionPicker({ files, selectedFilePath, onSelect, hasTitleUpdate }: {
   files: XeniaPatchFile[];
   selectedFilePath: string | null;
   onSelect: (filePath: string) => void;
+  hasTitleUpdate: boolean;
 }) {
   const options: SelectOption[] = files.map((file) => {
     const enabled = file.entries.filter((e) => e.is_enabled).length;
     const suffix = enabled > 0 ? ` (${enabled} enabled)` : "";
-    return { value: file.file_path, label: `${patchFileLabel(file)}${suffix}` };
+    const metadataSuffix = hasTitleUpdate
+      ? file.version
+        ? ` • v${file.version}`
+        : file.hashes.length > 0
+          ? ` • ${file.hashes.length} hash${file.hashes.length === 1 ? "" : "es"}`
+          : " • no TU metadata"
+      : "";
+    return { value: file.file_path, label: `${patchFileLabel(file)}${metadataSuffix}${suffix}` };
   });
 
   return (

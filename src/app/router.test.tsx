@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Routes, Route, Navigate } from "react-router-dom";
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { invoke } from "@tauri-apps/api/core";
 import { routes, getSidebarRoutes } from "./router";
 import {
   SettingsContext,
@@ -29,8 +30,30 @@ import {
 
 // Mock Tauri invoke
 vi.mock("@tauri-apps/api/core", () => ({
-  invoke: vi.fn().mockRejectedValue(new Error("not in tauri")),
+  invoke: vi.fn(),
 }));
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  vi.mocked(invoke).mockImplementation(async (command: string, args?: { channel?: string }) => {
+    if (command === "fetch_recent_releases") {
+      return [
+        {
+          channel: args?.channel ?? "canary",
+          tag: args?.channel === "edge" ? "559007a" : "9369464",
+          release_name: args?.channel === "edge" ? "xenia_edge" : "9369464_canary_experimental",
+          build_id: `${args?.channel ?? "canary"}:${args?.channel === "edge" ? "559007a" : "9369464"}`,
+          published_at: "2026-04-18T03:40:22Z",
+          html_url: "https://example.com/release",
+          asset_name: "xenia_linux.tar.gz",
+          download_url: "https://example.com/xenia_linux.tar.gz",
+          size_bytes: 123,
+        },
+      ];
+    }
+    return null;
+  });
+});
 
 const mockSettingsCtx = {
   state: { ...INITIAL_STATE, initialized: true },
@@ -96,27 +119,27 @@ describe("router", () => {
     expect(labels).toContain("Settings");
   });
 
-  it("renders Dashboard at root path", () => {
+  it("renders Dashboard at root path", async () => {
     renderApp("/");
-    expect(screen.getByText("Dashboard")).toBeInTheDocument();
+    expect(await screen.findByText("Dashboard")).toBeInTheDocument();
     expect(
       screen.getByText("Your Xbox 360 library at a glance"),
     ).toBeInTheDocument();
   });
 
-  it("renders Library page at /library", () => {
+  it("renders Library page at /library", async () => {
     renderApp("/library");
     expect(
-      screen.getByRole("heading", { name: "Library" }),
+      await screen.findByRole("heading", { name: "Library" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/Curate your Xbox 360 collection/i),
+      screen.getByText(/Manage your Xbox 360 collection/i),
     ).toBeInTheDocument();
   });
 
-  it("renders Tasks page at /tasks", () => {
+  it("renders Tasks page at /tasks", async () => {
     renderApp("/tasks");
-    expect(screen.getByText("Tasks")).toBeInTheDocument();
+    expect(await screen.findByText("Tasks")).toBeInTheDocument();
     expect(
       screen.getByText(
         "Monitor downloads, scans, and background operations",
@@ -124,9 +147,9 @@ describe("router", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders Settings page at /settings", () => {
+  it("renders Settings page at /settings", async () => {
     renderApp("/settings");
-    expect(screen.getByText("Settings")).toBeInTheDocument();
+    expect(await screen.findByText("Settings")).toBeInTheDocument();
     // Settings page renders subtitle and shows empty state when no settings loaded
     expect(
       screen.getByText("Configure paths, preferences, and app behavior"),
@@ -136,9 +159,9 @@ describe("router", () => {
     ).toBeInTheDocument();
   });
 
-  it("redirects unknown routes to Dashboard", () => {
+  it("redirects unknown routes to Dashboard", async () => {
     renderApp("/nonexistent");
-    expect(screen.getByText("Dashboard")).toBeInTheDocument();
+    expect(await screen.findByText("Dashboard")).toBeInTheDocument();
   });
 
   it("getSidebarRoutes returns all routes with showInSidebar=true", () => {

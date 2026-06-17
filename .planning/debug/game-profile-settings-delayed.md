@@ -1,5 +1,5 @@
 ---
-status: verifying
+status: resolved
 trigger: "When changing settings in game profile, changes apply only on the second run (settings delayed). All profile settings affected. Happens every time. Started after recent change."
 created: 2026-03-27T00:00:00Z
 updated: 2026-03-27T00:30:00Z

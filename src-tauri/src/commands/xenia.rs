@@ -16,20 +16,22 @@ use crate::xenia::archive;
 use crate::xenia::download;
 use crate::xenia::install_state::{self, InstallState};
 use crate::xenia::lifecycle;
-use crate::xenia::releases::{self, LinuxRelease};
+use crate::xenia::releases::{self, LinuxRelease, ReleaseChannel};
 
 // ---------------------------------------------------------------------------
 // Status and update commands
 // ---------------------------------------------------------------------------
 
-/// Fetch the latest Linux Xenia Canary release metadata.
-///
-/// Returns a typed release record the renderer can display before
-/// starting an install. This is metadata-driven (GitHub releases API),
-/// not a hardcoded URL, so stale documentation cannot break installs.
 #[tauri::command]
-pub async fn fetch_latest_release() -> Result<LinuxRelease, String> {
-    releases::fetch_latest_linux_release()
+pub async fn fetch_latest_release(channel: ReleaseChannel) -> Result<LinuxRelease, String> {
+    releases::fetch_latest_linux_release(channel)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn fetch_recent_releases(channel: ReleaseChannel) -> Result<Vec<LinuxRelease>, String> {
+    releases::fetch_recent_linux_releases(channel, 30)
         .await
         .map_err(|e| e.to_string())
 }
@@ -49,7 +51,7 @@ pub fn get_install_status(app_data_path: String) -> InstallState {
 /// installed tag, or `None` if already up to date.
 #[tauri::command]
 pub async fn check_for_update(installed_tag: String) -> Result<Option<LinuxRelease>, String> {
-    let latest = releases::fetch_latest_linux_release()
+    let latest = releases::fetch_latest_linux_release(ReleaseChannel::Canary)
         .await
         .map_err(|e| e.to_string())?;
 
@@ -69,11 +71,18 @@ pub async fn check_for_update_auto(
     app_data_path: String,
 ) -> Result<Option<LinuxRelease>, String> {
     let state = install_state::load_state(&app_data_path);
-    let tag = match &state.manifest {
-        Some(m) => m.tag.clone(),
+    let manifest = match &state.manifest {
+        Some(m) => m.clone(),
         None => return Ok(None),
     };
-    check_for_update(tag).await
+    let latest = releases::fetch_latest_linux_release(manifest.channel)
+        .await
+        .map_err(|e| e.to_string())?;
+    if latest.build_id != manifest.build_id {
+        Ok(Some(latest))
+    } else {
+        Ok(None)
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -98,7 +107,7 @@ pub async fn start_install(
     release: LinuxRelease,
 ) -> Result<String, String> {
     let job_id = registry.register(
-        format!("Install Xenia Canary {}", &release.tag),
+        format!("Install {} {}", release.channel.display_name(), &release.tag),
         "install".into(),
     );
 
@@ -132,7 +141,7 @@ pub async fn start_update(
     release: LinuxRelease,
 ) -> Result<String, String> {
     let job_id = registry.register(
-        format!("Update Xenia Canary to {}", &release.tag),
+        format!("Update {} to {}", release.channel.display_name(), &release.tag),
         "update".into(),
     );
 
@@ -173,15 +182,16 @@ pub async fn retry_last_operation(
     let is_update = failure.retry_mode == install_state::RetryMode::Update;
 
     // Fetch the latest release for the retry attempt.
-    let release = releases::fetch_latest_linux_release()
+    let channel = failure.channel;
+    let release = releases::fetch_latest_linux_release(channel)
         .await
         .map_err(|e| e.to_string())?;
 
     let category = if is_update { "update" } else { "install" };
     let label = if is_update {
-        format!("Retry update to Xenia Canary {}", &release.tag)
+        format!("Retry update to {} {}", release.channel.display_name(), &release.tag)
     } else {
-        format!("Retry install Xenia Canary {}", &release.tag)
+        format!("Retry install {} {}", release.channel.display_name(), &release.tag)
     };
 
     let job_id = registry.register(label, category.into());
@@ -226,19 +236,70 @@ pub async fn cleanup_install_artifacts(
         .map_err(|e| e.to_string())
 }
 
-/// Remove the active Xenia installation entirely.
-///
-/// Deletes the install directory, backup directory, and updates the
-/// persisted state to NotInstalled.
 #[tauri::command]
-pub async fn remove_xenia_install(xenia_path: String, app_data_path: String) -> Result<(), String> {
-    lifecycle::remove_install(&app_data_path, &xenia_path)
-        .await
-        .map_err(|e| e.to_string())?;
-
+pub async fn switch_active_xenia_build(
+    app_data_path: String,
+    build_id: String,
+) -> Result<InstallState, String> {
     let mut state = install_state::load_state(&app_data_path);
-    install_state::record_removal(&mut state);
+    install_state::switch_active_build(&mut state, &build_id)?;
     install_state::save_state(&app_data_path, &state).map_err(|e| e.to_string())
+        .map(|_| state)
+}
+
+#[tauri::command]
+pub async fn remove_xenia_install(
+    xenia_path: String,
+    app_data_path: String,
+    build_id: Option<String>,
+) -> Result<InstallState, String> {
+    let mut state = install_state::load_state(&app_data_path);
+
+    let manifest = match build_id.as_deref() {
+        Some(target) => Some(
+            state
+                .installed_builds
+                .iter()
+                .find(|build| build.build_id == target || build.tag == target)
+                .cloned()
+                .or_else(|| {
+                    state
+                        .manifest
+                        .clone()
+                        .filter(|build| build.build_id == target || build.tag == target)
+                })
+                .ok_or_else(|| format!("Installed build not found: {target}"))?,
+        ),
+        None => None,
+    };
+
+    if let Some(manifest) = manifest.as_ref() {
+        lifecycle::remove_install(&xenia_path, Some(manifest))
+            .await
+            .map_err(|e| e.to_string())?;
+    } else if build_id.is_none() {
+        if state.installed_builds.is_empty() {
+            if let Some(active_manifest) = state.manifest.clone() {
+                lifecycle::remove_install(&xenia_path, Some(&active_manifest))
+                    .await
+                    .map_err(|e| e.to_string())?;
+            } else {
+                lifecycle::remove_install(&xenia_path, None)
+                    .await
+                    .map_err(|e| e.to_string())?;
+            }
+        } else {
+            for installed in state.installed_builds.clone() {
+                lifecycle::remove_install(&xenia_path, Some(&installed))
+                    .await
+                    .map_err(|e| e.to_string())?;
+            }
+        }
+    }
+
+    install_state::record_removal(&mut state, build_id.as_deref());
+    install_state::save_state(&app_data_path, &state).map_err(|e| e.to_string())?;
+    Ok(state)
 }
 
 // ---------------------------------------------------------------------------
@@ -289,7 +350,7 @@ async fn run_lifecycle_pipeline(
         }
         Err(e) => {
             let error = format!("Download failed: {e}");
-            record_failure(app_data_path, &release.tag, "download", &error, is_update);
+            record_failure(app_data_path, release, "download", &error, is_update);
             fail_job(app, registry, job_id, app_data_path, &error);
             return;
         }
@@ -300,7 +361,7 @@ async fn run_lifecycle_pipeline(
     log_and_emit(app, registry, job_id, "Extracting archive...", LogLevel::Info);
 
     let staging_result =
-        archive::extract_archive(app_data_path, &archive_path, &release.tag).await;
+        archive::extract_archive(app_data_path, &archive_path, &release.build_id).await;
 
     let staging_dir = match staging_result {
         Ok(dir) => {
@@ -315,7 +376,7 @@ async fn run_lifecycle_pipeline(
         }
         Err(e) => {
             let error = format!("Extraction failed: {e}");
-            record_failure(app_data_path, &release.tag, "extract", &error, is_update);
+            record_failure(app_data_path, release, "extract", &error, is_update);
             fail_job(app, registry, job_id, app_data_path, &error);
             return;
         }
@@ -344,7 +405,7 @@ async fn run_lifecycle_pipeline(
         }
         Err(e) => {
             let error = format!("Validation failed: {e}");
-            record_failure(app_data_path, &release.tag, "validate", &error, is_update);
+            record_failure(app_data_path, release, "validate", &error, is_update);
             fail_job(app, registry, job_id, app_data_path, &error);
             return;
         }
@@ -368,7 +429,7 @@ async fn run_lifecycle_pipeline(
             }
             Err(e) => {
                 let error = format!("Promotion failed: {e}");
-                record_failure(app_data_path, &release.tag, "promote", &error, is_update);
+                record_failure(app_data_path, release, "promote", &error, is_update);
                 fail_job(app, registry, job_id, app_data_path, &error);
                 return;
             }
@@ -403,16 +464,16 @@ async fn run_lifecycle_pipeline(
 /// Record a failure in the persisted install state.
 fn record_failure(
     app_data_path: &str,
-    target_tag: &str,
+    release: &LinuxRelease,
     failed_step: &str,
     error: &str,
     is_update: bool,
 ) {
     let mut state = install_state::load_state(app_data_path);
     if is_update {
-        install_state::record_update_failure(&mut state, target_tag, failed_step, error);
+        install_state::record_update_failure(&mut state, release, failed_step, error);
     } else {
-        install_state::record_install_failure(&mut state, target_tag, failed_step, error);
+        install_state::record_install_failure(&mut state, release, failed_step, error);
     }
     let _ = install_state::save_state(app_data_path, &state);
 }
@@ -490,8 +551,12 @@ mod tests {
 
     fn sample_release() -> LinuxRelease {
         LinuxRelease {
-            tag: "v0.2.100".into(),
+            channel: ReleaseChannel::Canary,
+            tag: "9369464".into(),
+            release_name: "9369464_canary_experimental".into(),
+            build_id: LinuxRelease::build_id_for(ReleaseChannel::Canary, "9369464"),
             published_at: "2026-03-10T12:00:00Z".into(),
+            html_url: "https://example.com/9369464".into(),
             asset_name: "xenia_canary_linux.tar.gz".into(),
             download_url: "https://example.com/xenia_canary_linux.tar.gz".into(),
             size_bytes: 52428800,
@@ -511,7 +576,7 @@ mod tests {
     fn linux_release_is_serializable_for_tauri() {
         let release = sample_release();
         let json = serde_json::to_string(&release).unwrap();
-        assert!(json.contains("\"tag\":\"v0.2.100\""));
+        assert!(json.contains("\"tag\":\"9369464\""));
         assert!(json.contains("\"download_url\""));
     }
 
@@ -600,14 +665,15 @@ mod tests {
 
         let loaded = get_install_status(dir);
         assert_eq!(loaded.status, LifecycleStatus::Installed);
-        assert_eq!(loaded.manifest.as_ref().unwrap().tag, "v0.2.100");
+        assert_eq!(loaded.manifest.as_ref().unwrap().tag, "9369464");
     }
 
     #[test]
     fn clear_install_failure_resets_state() {
         let dir = temp_dir("clear-failure");
         let mut state = InstallState::default();
-        install_state::record_install_failure(&mut state, "v0.2.100", "download", "timeout");
+        let release = sample_release();
+        install_state::record_install_failure(&mut state, &release, "download", "timeout");
         install_state::save_state(&dir, &state).unwrap();
 
         clear_install_failure(dir.clone()).unwrap();
@@ -620,7 +686,8 @@ mod tests {
     #[test]
     fn record_failure_persists_install_failure() {
         let dir = temp_dir("record-install-fail");
-        record_failure(&dir, "v0.2.100", "download", "connection reset", false);
+        let release = sample_release();
+        record_failure(&dir, &release, "download", "connection reset", false);
 
         let state = install_state::load_state(&dir);
         assert_eq!(state.status, LifecycleStatus::InstallFailed);
@@ -644,7 +711,14 @@ mod tests {
         );
         install_state::save_state(&dir, &state).unwrap();
 
-        record_failure(&dir, "v0.2.101", "promote", "disk full", true);
+        let newer_release = LinuxRelease {
+            tag: "9132035".into(),
+            release_name: "9132035_canary_experimental".into(),
+            build_id: LinuxRelease::build_id_for(ReleaseChannel::Canary, "9132035"),
+            html_url: "https://example.com/9132035".into(),
+            ..sample_release()
+        };
+        record_failure(&dir, &newer_release, "promote", "disk full", true);
 
         let loaded = install_state::load_state(&dir);
         assert_eq!(loaded.status, LifecycleStatus::UpdateFailed);
@@ -674,12 +748,16 @@ mod tests {
         );
         install_state::save_state(&dir, &state).unwrap();
 
-        remove_xenia_install(format!("{}/xenia", dir), dir.clone()).await.unwrap();
+        let loaded = install_state::load_state(&dir);
+        let build_id = loaded.manifest.as_ref().map(|manifest| manifest.build_id.clone());
+        remove_xenia_install(format!("{}/xenia", dir), dir.clone(), build_id)
+            .await
+            .unwrap();
 
         assert!(!install.exists());
-        let loaded = install_state::load_state(&dir);
-        assert_eq!(loaded.status, LifecycleStatus::NotInstalled);
-        assert!(loaded.manifest.is_none());
+        let reloaded = install_state::load_state(&dir);
+        assert_eq!(reloaded.status, LifecycleStatus::NotInstalled);
+        assert!(reloaded.manifest.is_none());
     }
 
     #[test]
@@ -694,7 +772,7 @@ mod tests {
         );
         let json = serde_json::to_string(&state).unwrap();
         assert!(json.contains("\"installed\""));
-        assert!(json.contains("v0.2.100"));
+        assert!(json.contains("9369464"));
 
         let restored: InstallState = serde_json::from_str(&json).unwrap();
         assert_eq!(state, restored);

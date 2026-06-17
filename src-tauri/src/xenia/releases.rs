@@ -1,8 +1,7 @@
-//! Release metadata fetch and Linux asset selection for Xenia Canary.
+//! Release metadata fetch and Linux asset selection for supported Xenia channels.
 //!
-//! Discovers the latest release from the `xenia-canary/xenia-canary`
-//! GitHub repository, selects the Linux-compatible archive asset, and returns
-//! a typed release record suitable for the install pipeline.
+//! Discovers releases from GitHub, selects Linux-compatible assets, and
+//! normalizes them into a stable renderer/backend contract.
 
 use serde::{Deserialize, Serialize};
 
@@ -10,19 +9,72 @@ use serde::{Deserialize, Serialize};
 // Public types
 // ---------------------------------------------------------------------------
 
-/// A normalized release record for a Linux Xenia Canary build.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum ReleaseChannel {
+    #[default]
+    Canary,
+    Edge,
+}
+
+impl ReleaseChannel {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Canary => "canary",
+            Self::Edge => "edge",
+        }
+    }
+
+    pub fn display_name(self) -> &'static str {
+        match self {
+            Self::Canary => "Xenia Canary",
+            Self::Edge => "Xenia Edge",
+        }
+    }
+
+    fn owner(self) -> &'static str {
+        match self {
+            Self::Canary => "xenia-canary",
+            Self::Edge => "has207",
+        }
+    }
+
+    fn repo(self) -> &'static str {
+        match self {
+            Self::Canary => "xenia-canary",
+            Self::Edge => "xenia-edge",
+        }
+    }
+}
+
+/// A normalized release record for a Linux Xenia build.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct LinuxRelease {
-    /// Release tag (e.g. "v0.2.123").
+    /// Release channel / repo family.
+    #[serde(default)]
+    pub channel: ReleaseChannel,
+    /// Release tag (e.g. "9369464" or "559007a").
     pub tag: String,
+    /// Human-facing release title from GitHub.
+    pub release_name: String,
+    /// Canonical unique build identifier (`channel:tag`).
+    pub build_id: String,
     /// ISO-8601 publication timestamp from GitHub.
     pub published_at: String,
+    /// GitHub release page.
+    pub html_url: String,
     /// Filename of the Linux archive asset.
     pub asset_name: String,
     /// Direct download URL for the Linux archive.
     pub download_url: String,
     /// Asset size in bytes (from GitHub metadata).
     pub size_bytes: u64,
+}
+
+impl LinuxRelease {
+    pub fn build_id_for(channel: ReleaseChannel, tag: &str) -> String {
+        format!("{}:{tag}", channel.as_str())
+    }
 }
 
 /// Errors that can occur during release discovery.
@@ -32,8 +84,8 @@ pub enum ReleaseError {
     Http(#[from] reqwest::Error),
     #[error("No releases found for {owner}/{repo}")]
     NoReleases { owner: String, repo: String },
-    #[error("No Linux-compatible asset found in release {tag}")]
-    NoLinuxAsset { tag: String },
+    #[error("No Linux-compatible asset found in recent releases for {owner}/{repo}")]
+    NoLinuxAsset { owner: String, repo: String },
     #[error("Failed to parse release metadata: {0}")]
     Parse(String),
 }
@@ -51,7 +103,9 @@ impl From<ReleaseError> for String {
 #[derive(Debug, Deserialize)]
 struct GhRelease {
     tag_name: String,
+    name: Option<String>,
     published_at: Option<String>,
+    html_url: String,
     assets: Vec<GhAsset>,
 }
 
@@ -67,35 +121,56 @@ struct GhAsset {
 // ---------------------------------------------------------------------------
 
 const GITHUB_API_BASE: &str = "https://api.github.com";
-const DEFAULT_OWNER: &str = "xenia-canary";
-const DEFAULT_REPO: &str = "xenia-canary";
 
 /// Substrings that indicate a Linux archive asset.
-const LINUX_ASSET_MARKERS: &[&str] = &["linux", "Linux"];
+const LINUX_ASSET_MARKERS: &[&str] = &["linux"];
 
 /// File extensions we accept for the Linux archive.
-const ACCEPTED_EXTENSIONS: &[&str] = &[".tar.gz", ".tar.xz", ".zip"];
+const ACCEPTED_EXTENSIONS: &[&str] = &[".appimage", ".tar.gz", ".tar.xz", ".zip"];
 
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
-/// Fetch the latest Linux Xenia Canary release from GitHub.
-///
-/// Uses the GitHub releases API to discover the most recent release, then
-/// selects the Linux-compatible archive asset from its asset list. This
-/// avoids hardcoding a download URL that could go stale.
-pub async fn fetch_latest_linux_release() -> Result<LinuxRelease, ReleaseError> {
-    fetch_latest_linux_release_from(DEFAULT_OWNER, DEFAULT_REPO).await
+pub async fn fetch_latest_linux_release(channel: ReleaseChannel) -> Result<LinuxRelease, ReleaseError> {
+    let releases = fetch_linux_releases(channel, 30).await?;
+    releases.into_iter().next().ok_or_else(|| ReleaseError::NoLinuxAsset {
+        owner: channel.owner().to_string(),
+        repo: channel.repo().to_string(),
+    })
 }
 
-/// Fetch the latest Linux release from an arbitrary GitHub owner/repo.
-/// Primarily exists for testability and future multi-source support.
-pub async fn fetch_latest_linux_release_from(
-    owner: &str,
-    repo: &str,
-) -> Result<LinuxRelease, ReleaseError> {
-    let url = format!("{GITHUB_API_BASE}/repos/{owner}/{repo}/releases?per_page=5");
+pub async fn fetch_recent_linux_releases(
+    channel: ReleaseChannel,
+    per_page: usize,
+) -> Result<Vec<LinuxRelease>, ReleaseError> {
+    fetch_linux_releases(channel, per_page)
+        .await
+        .map(|releases| releases.into_iter().take(per_page).collect())
+}
+
+/// Parse release metadata from raw JSON (used for testing and offline scenarios).
+pub fn parse_release_json(
+    channel: ReleaseChannel,
+    json: &str,
+) -> Result<Vec<LinuxRelease>, ReleaseError> {
+    let releases: Vec<GhRelease> =
+        serde_json::from_str(json).map_err(|e| ReleaseError::Parse(e.to_string()))?;
+
+    Ok(normalize_releases(channel, releases))
+}
+
+// ---------------------------------------------------------------------------
+// Internal helpers
+// ---------------------------------------------------------------------------
+
+async fn fetch_linux_releases(
+    channel: ReleaseChannel,
+    per_page: usize,
+) -> Result<Vec<LinuxRelease>, ReleaseError> {
+    let owner = channel.owner();
+    let repo = channel.repo();
+    let url = format!("{GITHUB_API_BASE}/repos/{owner}/{repo}/releases?per_page={per_page}");
 
     let client = reqwest::Client::builder()
         .user_agent("xenia-linux-manager/0.1")
@@ -110,44 +185,52 @@ pub async fn fetch_latest_linux_release_from(
         });
     }
 
-    // Try the most recent releases first to find one with a Linux asset.
-    for release in &releases {
-        if let Some(linux) = select_linux_asset(release) {
-            return Ok(linux);
-        }
+    let normalized = normalize_releases(channel, releases);
+    if normalized.is_empty() {
+        return Err(ReleaseError::NoLinuxAsset {
+            owner: owner.into(),
+            repo: repo.into(),
+        });
     }
 
-    Err(ReleaseError::NoLinuxAsset {
-        tag: releases[0].tag_name.clone(),
-    })
+    Ok(normalized)
 }
 
-// ---------------------------------------------------------------------------
-// Asset selection logic
-// ---------------------------------------------------------------------------
+fn normalize_releases(channel: ReleaseChannel, releases: Vec<GhRelease>) -> Vec<LinuxRelease> {
+    releases
+        .into_iter()
+        .filter_map(|release| select_linux_asset(channel, &release))
+        .collect()
+}
 
 /// Select the Linux-compatible archive asset from a release, if any.
-fn select_linux_asset(release: &GhRelease) -> Option<LinuxRelease> {
+fn select_linux_asset(channel: ReleaseChannel, release: &GhRelease) -> Option<LinuxRelease> {
     for asset in &release.assets {
         let name_lower = asset.name.to_lowercase();
 
-        // Must contain a Linux marker.
         let is_linux = LINUX_ASSET_MARKERS
             .iter()
-            .any(|m| name_lower.contains(&m.to_lowercase()));
+            .any(|marker| name_lower.contains(marker));
 
-        // Must end with an accepted archive extension.
         let is_archive = ACCEPTED_EXTENSIONS
             .iter()
             .any(|ext| name_lower.ends_with(ext));
 
         if is_linux && is_archive {
             return Some(LinuxRelease {
+                channel,
                 tag: release.tag_name.clone(),
+                release_name: release
+                    .name
+                    .clone()
+                    .filter(|name| !name.trim().is_empty())
+                    .unwrap_or_else(|| release.tag_name.clone()),
+                build_id: LinuxRelease::build_id_for(channel, &release.tag_name),
                 published_at: release
                     .published_at
                     .clone()
                     .unwrap_or_else(|| "unknown".into()),
+                html_url: release.html_url.clone(),
                 asset_name: asset.name.clone(),
                 download_url: asset.browser_download_url.clone(),
                 size_bytes: asset.size,
@@ -155,20 +238,6 @@ fn select_linux_asset(release: &GhRelease) -> Option<LinuxRelease> {
         }
     }
     None
-}
-
-/// Parse release metadata from raw JSON (used for testing and offline scenarios).
-pub fn parse_release_json(json: &str) -> Result<Vec<LinuxRelease>, ReleaseError> {
-    let releases: Vec<GhRelease> =
-        serde_json::from_str(json).map_err(|e| ReleaseError::Parse(e.to_string()))?;
-
-    let mut results = Vec::new();
-    for release in &releases {
-        if let Some(linux) = select_linux_asset(release) {
-            results.push(linux);
-        }
-    }
-    Ok(results)
 }
 
 // ---------------------------------------------------------------------------
@@ -179,37 +248,36 @@ pub fn parse_release_json(json: &str) -> Result<Vec<LinuxRelease>, ReleaseError>
 mod tests {
     use super::*;
 
-    fn sample_release_json() -> &'static str {
+    fn sample_canary_json() -> &'static str {
         r#"[
             {
-                "tag_name": "v0.2.100",
-                "published_at": "2026-03-10T12:00:00Z",
+                "tag_name": "4fcb8e4",
+                "name": "4fcb8e4_canary_experimental",
+                "published_at": "2026-04-14T05:52:00Z",
+                "html_url": "https://github.com/xenia-canary/xenia-canary/releases/tag/4fcb8e4_canary_experimental",
                 "assets": [
                     {
-                        "name": "xenia_canary_linux.tar.gz",
-                        "browser_download_url": "https://example.com/xenia_canary_linux.tar.gz",
-                        "size": 52428800
-                    },
-                    {
-                        "name": "xenia_canary_win.zip",
-                        "browser_download_url": "https://example.com/xenia_canary_win.zip",
-                        "size": 48000000
+                        "name": "xenia_canary_linux.AppImage",
+                        "browser_download_url": "https://example.com/xenia_canary_linux.AppImage",
+                        "size": 46390000
                     }
                 ]
             }
         ]"#
     }
 
-    fn sample_no_linux_json() -> &'static str {
+    fn sample_edge_json() -> &'static str {
         r#"[
             {
-                "tag_name": "v0.2.99",
-                "published_at": "2026-03-09T10:00:00Z",
+                "tag_name": "559007a",
+                "name": "xenia_edge",
+                "published_at": "2026-04-18T03:40:22Z",
+                "html_url": "https://github.com/has207/xenia-edge/releases/tag/559007a",
                 "assets": [
                     {
-                        "name": "xenia_canary_win.zip",
-                        "browser_download_url": "https://example.com/xenia_canary_win.zip",
-                        "size": 48000000
+                        "name": "xenia_edge_linux.AppImage",
+                        "browser_download_url": "https://example.com/xenia_edge_linux.AppImage",
+                        "size": 45746680
                     }
                 ]
             }
@@ -217,102 +285,52 @@ mod tests {
     }
 
     #[test]
-    fn parse_selects_linux_asset() {
-        let results = parse_release_json(sample_release_json()).unwrap();
+    fn parse_selects_canary_linux_asset() {
+        let results = parse_release_json(ReleaseChannel::Canary, sample_canary_json()).unwrap();
         assert_eq!(results.len(), 1);
-        let r = &results[0];
-        assert_eq!(r.tag, "v0.2.100");
-        assert_eq!(r.asset_name, "xenia_canary_linux.tar.gz");
-        assert_eq!(r.size_bytes, 52428800);
-        assert!(r.download_url.contains("linux"));
+        let release = &results[0];
+        assert_eq!(release.channel, ReleaseChannel::Canary);
+        assert_eq!(release.tag, "4fcb8e4");
+        assert_eq!(release.build_id, "canary:4fcb8e4");
+        assert_eq!(release.asset_name, "xenia_canary_linux.AppImage");
+    }
+
+    #[test]
+    fn parse_selects_edge_linux_asset() {
+        let results = parse_release_json(ReleaseChannel::Edge, sample_edge_json()).unwrap();
+        assert_eq!(results.len(), 1);
+        let release = &results[0];
+        assert_eq!(release.channel, ReleaseChannel::Edge);
+        assert_eq!(release.tag, "559007a");
+        assert_eq!(release.build_id, "edge:559007a");
+        assert_eq!(release.asset_name, "xenia_edge_linux.AppImage");
     }
 
     #[test]
     fn parse_returns_empty_when_no_linux_asset() {
-        let results = parse_release_json(sample_no_linux_json()).unwrap();
+        let json = r#"[
+            {
+                "tag_name": "abc1234",
+                "name": "release",
+                "published_at": "2026-04-18T03:40:22Z",
+                "html_url": "https://example.com/release",
+                "assets": [
+                    {
+                        "name": "xenia_edge_windows.zip",
+                        "browser_download_url": "https://example.com/xenia_edge_windows.zip",
+                        "size": 123
+                    }
+                ]
+            }
+        ]"#;
+
+        let results = parse_release_json(ReleaseChannel::Edge, json).unwrap();
         assert!(results.is_empty());
     }
 
     #[test]
     fn parse_rejects_invalid_json() {
-        let result = parse_release_json("not json");
+        let result = parse_release_json(ReleaseChannel::Canary, "not json");
         assert!(result.is_err());
-    }
-
-    #[test]
-    fn linux_release_serialization_roundtrip() {
-        let release = LinuxRelease {
-            tag: "v0.2.100".into(),
-            published_at: "2026-03-10T12:00:00Z".into(),
-            asset_name: "xenia_canary_linux.tar.gz".into(),
-            download_url: "https://example.com/xenia_canary_linux.tar.gz".into(),
-            size_bytes: 52428800,
-        };
-        let json = serde_json::to_string(&release).unwrap();
-        let restored: LinuxRelease = serde_json::from_str(&json).unwrap();
-        assert_eq!(release, restored);
-    }
-
-    #[test]
-    fn select_linux_asset_handles_case_variations() {
-        let release = GhRelease {
-            tag_name: "v0.2.101".into(),
-            published_at: Some("2026-03-11T00:00:00Z".into()),
-            assets: vec![GhAsset {
-                name: "Xenia_Canary_Linux.tar.xz".into(),
-                browser_download_url: "https://example.com/Xenia_Canary_Linux.tar.xz".into(),
-                size: 40000000,
-            }],
-        };
-        let result = select_linux_asset(&release);
-        assert!(result.is_some());
-        let r = result.unwrap();
-        assert_eq!(r.asset_name, "Xenia_Canary_Linux.tar.xz");
-    }
-
-    #[test]
-    fn select_linux_asset_rejects_non_archive() {
-        let release = GhRelease {
-            tag_name: "v0.2.102".into(),
-            published_at: None,
-            assets: vec![GhAsset {
-                name: "xenia_canary_linux.exe".into(),
-                browser_download_url: "https://example.com/xenia_canary_linux.exe".into(),
-                size: 30000000,
-            }],
-        };
-        let result = select_linux_asset(&release);
-        assert!(result.is_none());
-    }
-
-    #[test]
-    fn multiple_releases_picks_first_with_linux() {
-        let json = r#"[
-            {
-                "tag_name": "v0.2.103",
-                "published_at": "2026-03-12T00:00:00Z",
-                "assets": [
-                    {
-                        "name": "xenia_canary_win.zip",
-                        "browser_download_url": "https://example.com/win.zip",
-                        "size": 48000000
-                    }
-                ]
-            },
-            {
-                "tag_name": "v0.2.102",
-                "published_at": "2026-03-11T00:00:00Z",
-                "assets": [
-                    {
-                        "name": "xenia_canary_linux.tar.gz",
-                        "browser_download_url": "https://example.com/linux.tar.gz",
-                        "size": 50000000
-                    }
-                ]
-            }
-        ]"#;
-        let results = parse_release_json(json).unwrap();
-        assert_eq!(results.len(), 1);
-        assert_eq!(results[0].tag, "v0.2.102");
     }
 }

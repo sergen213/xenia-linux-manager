@@ -9,6 +9,8 @@ const COMMUNITY_PATCHES_API: &str =
     "https://api.github.com/repos/xenia-canary/game-patches/git/trees/main?recursive=1";
 const COMMUNITY_PATCH_RAW_BASE: &str =
     "https://raw.githubusercontent.com/xenia-canary/game-patches/main/";
+const XENIA_CONFIG_FILE_NAME: &str = "xenia-canary.config.toml";
+const LEGACY_XENIA_CONFIG_FILE_NAME: &str = "xenia-canary-config.toml";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct XeniaPatchEntry {
@@ -24,6 +26,8 @@ pub struct XeniaPatchFile {
     pub file_path: String,
     pub title_name: Option<String>,
     pub title_id: Option<String>,
+    pub version: Option<String>,
+    pub hashes: Vec<String>,
     pub entries: Vec<XeniaPatchEntry>,
 }
 
@@ -86,8 +90,10 @@ pub fn get_xenia_storage_root(app_data_path: &str) -> Result<PathBuf, String> {
     //    The config can live in the exe dir (portable) or in the resolved
     //    storage root itself.  We check both candidate locations.
     let config_candidates = vec![
-        exe_dir.join("xenia-canary.config.toml"),
-        resolve_default_storage_root().join("xenia-canary.config.toml"),
+        exe_dir.join(XENIA_CONFIG_FILE_NAME),
+        exe_dir.join(LEGACY_XENIA_CONFIG_FILE_NAME),
+        resolve_default_storage_root().join(XENIA_CONFIG_FILE_NAME),
+        resolve_default_storage_root().join(LEGACY_XENIA_CONFIG_FILE_NAME),
     ];
 
     for config_path in &config_candidates {
@@ -160,10 +166,57 @@ fn read_storage_root_from_config(config_path: &std::path::Path) -> Option<String
     None
 }
 
-/// Get the patches directory from xenia install state.
+/// Get the patches directory from xenia storage root.
 pub fn get_xenia_patches_dir(app_data_path: &str) -> Result<PathBuf, String> {
     let storage_root = get_xenia_storage_root(app_data_path)?;
     Ok(storage_root.join("patches"))
+}
+
+/// Ensure the main Xenia config has `apply_patches = true`.
+pub fn ensure_apply_patches_enabled(app_data_path: &str) -> Result<(), String> {
+    let storage_root = get_xenia_storage_root(app_data_path)?;
+    let canonical_config_path = storage_root.join(XENIA_CONFIG_FILE_NAME);
+    let legacy_config_path = storage_root.join(LEGACY_XENIA_CONFIG_FILE_NAME);
+    let config_path = if canonical_config_path.exists() {
+        canonical_config_path
+    } else if legacy_config_path.exists() {
+        legacy_config_path
+    } else {
+        canonical_config_path
+    };
+
+    let mut content = if config_path.exists() {
+        fs::read_to_string(&config_path).unwrap_or_default()
+    } else {
+        String::new()
+    };
+
+    if content.lines().any(|l| {
+        let t = l.trim();
+        t.starts_with("apply_patches") && t.contains('=') && t.contains("true")
+    }) {
+        return Ok(());
+    }
+
+    if content.lines().any(|l| l.trim().starts_with("apply_patches")) {
+        let mut new_lines = Vec::new();
+        for line in content.lines() {
+            if line.trim().starts_with("apply_patches") {
+                new_lines.push("apply_patches = true");
+            } else {
+                new_lines.push(line);
+            }
+        }
+        content = new_lines.join("\n");
+    } else {
+        content = format!("apply_patches = true\n{}", content);
+    }
+
+    fs::write(&config_path, &content)
+        .map_err(|e| format!("Failed to write config: {e}"))?;
+
+    eprintln!("[xenia_patches] Set apply_patches = true in {:?}", config_path);
+    Ok(())
 }
 
 /// Find all patch files that match a given title_id.
@@ -174,12 +227,7 @@ pub fn find_patches_for_game(
     let patches_dir = get_xenia_patches_dir(app_data_path)?;
     let patches_dir_str = patches_dir.to_string_lossy().to_string();
 
-    eprintln!(
-        "[xenia_patches] Looking for title_id={title_id:?} in patches_dir={patches_dir_str:?}"
-    );
-
     if !patches_dir.exists() {
-        eprintln!("[xenia_patches] Patches directory does not exist");
         return Ok(GameXeniaPatches {
             title_id: title_id.to_string(),
             patches_dir: patches_dir_str,
@@ -205,15 +253,16 @@ pub fn find_patches_for_game(
             continue;
         }
 
-        // Check if this file matches the title_id.
         let content = match fs::read_to_string(&path) {
             Ok(c) => c,
             Err(_) => continue,
         };
 
-        // Parse title_id from file content
         let file_title_id = extract_field(&content, "title_id");
         let file_title_name = extract_field(&content, "title_name");
+        let file_version = parse_patch_document(&content)
+            .ok()
+            .and_then(|parsed| parsed.version);
 
         let name_match = file_name
             .to_uppercase()
@@ -223,22 +272,21 @@ pub fn find_patches_for_game(
             .map(|t| t.eq_ignore_ascii_case(title_id))
             .unwrap_or(false);
 
-        eprintln!(
-            "[xenia_patches] File {file_name}: file_title_id={file_title_id:?}, name_match={name_match}, content_match={content_match}"
-        );
-
         if !name_match && !content_match {
             continue;
         }
 
         // Parse patch entries
         let entries = parse_patch_entries(&content);
+        let hashes = extract_hashes(&content);
 
         files.push(XeniaPatchFile {
             file_name,
             file_path: path.to_string_lossy().to_string(),
             title_name: file_title_name,
             title_id: file_title_id,
+            version: file_version,
+            hashes,
             entries,
         });
     }
@@ -443,81 +491,64 @@ fn toggle_entry_in_content(
 ) -> Result<String, String> {
     let lines: Vec<&str> = content.lines().collect();
     let mut result = Vec::new();
-    let mut found_entry_name: Option<bool> = None;
-    let mut found_is_enabled = false;
-    let mut matched_entry = false; // Track if we ever found the target entry
+    let mut current_name: Option<String> = None;
+    let mut pending_enabled_idx: Option<usize> = None;
+    let mut pending_enabled_indent: String = String::new();
+    let mut toggled = false;
+    let mut found_entry = false;
 
     for line in &lines {
         let trimmed = line.trim();
-        
-        // Detect [[patch]] section boundaries - reset state
-        // Only match exact [[patch]] table, NOT [[patch.be16]], [[patch.be32]], etc.
-        // Only reset if we haven't already found and toggled the target entry
+
         if trimmed == "[[patch]]" {
-            if !matched_entry {
-                // Haven't found our target yet, safe to reset
-                found_entry_name = None;
-                found_is_enabled = false;
-            }
-            // If we already found/toggled the target, keep that state
+            pending_enabled_idx.take();
+            current_name = None;
             result.push(line.to_string());
             continue;
         }
 
-        // Check if this is an is_enabled line
         if trimmed.starts_with("is_enabled") && trimmed.contains('=') {
-            // Handle both orderings: name before is_enabled OR is_enabled before name
-            if found_entry_name == Some(true) && !found_is_enabled {
-                // We found the name first (or at same time), and haven't replaced is_enabled yet
-                let indent = &line[..line.len() - line.trim_start().len()];
-                result.push(format!("{}is_enabled = {}", indent, enabled));
-                found_is_enabled = true;
-            } else if found_entry_name.is_none() {
-                // is_enabled appears BEFORE name in the block.
-                // Replace it anyway with a placeholder value; we'll replace again after we find the name.
-                let indent = &line[..line.len() - line.trim_start().len()];
-                let placeholder = format!("{}is_enabled = PLACEHOLDER", indent);
-                result.push(placeholder);
-                // Don't set found_is_enabled yet - we'll do final replacement after we find the name
-            } else {
-                // name mismatch or already replaced
-                result.push(line.to_string());
+            let indent = line[..line.len() - line.trim_start().len()].to_string();
+            if let Some(ref name) = current_name {
+                if name == entry_name {
+                    result.push(format!("{}is_enabled = {}", indent, enabled));
+                    toggled = true;
+                    continue;
+                }
             }
+            pending_enabled_idx = Some(result.len());
+            pending_enabled_indent = indent;
+            result.push(line.to_string());
             continue;
         }
 
-        // Check if this is a name line - might need to replace a previous is_enabled placeholder
         if trimmed.starts_with("name") && trimmed.contains('=') {
-            // If we found a PLACEHOLDER earlier (is_enabled was before name), replace it now
-            if let Some(last_idx) = result.iter().rposition(|r| r.contains("is_enabled = PLACEHOLDER")) {
-                let line_indent = &line[..line.len() - line.trim_start().len()];
-                result[last_idx] = format!("{}is_enabled = {}", line_indent, enabled);
-                found_is_enabled = true;
-            }
             let value = trimmed
                 .splitn(2, '=')
                 .nth(1)
                 .unwrap_or("")
                 .trim()
                 .trim_matches('"');
-            found_entry_name = Some(value == entry_name);
+            current_name = Some(value.to_string());
+
             if value == entry_name {
-                matched_entry = true;
+                found_entry = true;
+                if let Some(idx) = pending_enabled_idx.take() {
+                    result[idx] = format!("{}is_enabled = {}", pending_enabled_indent, enabled);
+                    toggled = true;
+                }
             }
             result.push(line.to_string());
             continue;
         }
 
-        // Regular line - just copy it
         result.push(line.to_string());
     }
 
-    // Use matched_entry instead of found_entry_name for the final check
-    if !matched_entry {
+    if !found_entry {
         return Err(format!("Patch entry \"{}\" not found in file", entry_name));
     }
-
-    if !found_is_enabled {
+    if !toggled {
         return Err(format!("Patch entry \"{}\" has no is_enabled field", entry_name));
     }
 
@@ -546,6 +577,63 @@ fn extract_field(content: &str, field: &str) -> Option<String> {
         }
     }
     None
+}
+
+/// Extract executable hashes from the `hash = [...]` array in patch content.
+fn extract_hashes(content: &str) -> Vec<String> {
+    let mut hashes = Vec::new();
+    let mut in_hash_array = false;
+
+    for line in content.lines() {
+        let trimmed = line.trim();
+
+        if trimmed.starts_with("hash") && trimmed.contains('=') && trimmed.contains('[') {
+            in_hash_array = true;
+            if trimmed.contains(']') {
+                in_hash_array = false;
+            }
+            if let Some(bracket_start) = trimmed.find('[') {
+                let after_bracket = &trimmed[bracket_start + 1..];
+                if let Some(bracket_end) = after_bracket.find(']') {
+                    let array_content = &after_bracket[..bracket_end];
+                    for part in array_content.split(',') {
+                        let hash = part.trim().trim_matches('"').trim();
+                        if !hash.is_empty() && !hash.starts_with('#') {
+                            hashes.push(hash.to_uppercase());
+                        }
+                    }
+                } else {
+                    for part in after_bracket.split(',') {
+                        let hash = part.trim().trim_matches('"').trim();
+                        if !hash.is_empty() && !hash.starts_with('#') {
+                            hashes.push(hash.to_uppercase());
+                        }
+                    }
+                }
+            }
+            continue;
+        }
+
+        if in_hash_array {
+            if trimmed.contains(']') {
+                in_hash_array = false;
+            }
+            let hash = trimmed
+                .split('#')
+                .next()
+                .unwrap_or(trimmed)
+                .trim()
+                .trim_matches(',')
+                .trim()
+                .trim_matches('"')
+                .trim();
+            if !hash.is_empty() && hash.len() == 16 && hash.chars().all(|c| c.is_ascii_hexdigit()) {
+                hashes.push(hash.to_uppercase());
+            }
+        }
+    }
+
+    hashes
 }
 
 /// Parse [[patch]] entries from the content.

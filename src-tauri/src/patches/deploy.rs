@@ -306,6 +306,10 @@ pub async fn deploy_patches(app_data_path: &str) -> Result<DeployPatchesResult, 
     let patch_count = count_patch_files(&patches_dir);
     eprintln!("[patches] Deploy complete – {patch_count} .patch.toml files");
 
+    if let Err(e) = super::xenia_patches::ensure_apply_patches_enabled(app_data_path) {
+        eprintln!("[patches] Warning: Failed to set apply_patches: {e}");
+    }
+
     Ok(DeployPatchesResult {
         patches_dir: patches_dir_str,
         patch_count,

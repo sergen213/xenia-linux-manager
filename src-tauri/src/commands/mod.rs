@@ -5,4 +5,5 @@ pub mod profiles;
 pub mod release;
 pub mod saves;
 pub mod settings;
+pub mod shell;
 pub mod xenia;

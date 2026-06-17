@@ -16,6 +16,7 @@ import {
 import { useLibrary } from "./libraryStore";
 import { useSettings } from "../../settings/state/settingsStore";
 import { useXenia } from "../../xenia/state/xeniaStore";
+import { buildLabel } from "../../xenia/model/xeniaTypes";
 
 export function useLaunchActions() {
   const { state, dispatch } = useLibrary();
@@ -228,13 +229,18 @@ export function useLaunchActions() {
     setShortcutStatusMessage(null);
   }, []);
 
+  const installedXeniaBuildOptions = xeniaState.installState.installed_builds.map((build) => ({
+    value: build.build_id || build.tag,
+    label: buildLabel(build),
+  }));
+
   return {
     // State
     launchPending: state.launchPending,
     shortcutExportPending,
     shortcutStatusMessage,
     contentRefreshToken,
-    installedXeniaBuildTags: xeniaState.installState.installed_builds.map((b) => b.tag),
+    installedXeniaBuildOptions,
     // Actions
     launch,
     launchGameById,

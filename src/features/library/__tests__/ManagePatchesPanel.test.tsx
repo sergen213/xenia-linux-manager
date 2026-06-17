@@ -23,6 +23,8 @@ const patches: GameXeniaPatches = {
       file_path: "/tmp/xenia/patches/4D5307E6 - Halo 3.patch.toml",
       title_name: "Halo 3",
       title_id: "4D5307E6",
+      version: null,
+      hashes: ["A1B2C3D4E5F6A7B8"],
       entries: [
         {
           name: "60 FPS",
@@ -51,6 +53,7 @@ describe("ManagePatchesPanel", () => {
       <ManagePatchesPanel
         titleId="4D5307E6"
         appDataPath="/tmp/appdata"
+        hasTitleUpdate={false}
         onImport={vi.fn()}
         importPending={false}
       />,
@@ -68,6 +71,7 @@ describe("ManagePatchesPanel", () => {
       <ManagePatchesPanel
         titleId="4D5307E6"
         appDataPath="/tmp/appdata"
+        hasTitleUpdate={false}
         onImport={vi.fn()}
         importPending={false}
       />,
@@ -80,6 +84,25 @@ describe("ManagePatchesPanel", () => {
       expect(screen.getByText("Unlock framerate")).toBeInTheDocument();
       expect(screen.getByText("by Canary")).toBeInTheDocument();
       expect(screen.getByRole("checkbox")).toBeChecked();
+    });
+  });
+
+  it("shows title-update compatibility messaging when a title update is installed", async () => {
+    vi.mocked(libraryClient.getGameXeniaPatches).mockResolvedValue(patches);
+
+    render(
+      <ManagePatchesPanel
+        titleId="4D5307E6"
+        appDataPath="/tmp/appdata"
+        hasTitleUpdate={true}
+        onImport={vi.fn()}
+        importPending={false}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/title update detected for this game/i)).toBeInTheDocument();
+      expect(screen.getByText(/includes 1 executable hash/i)).toBeInTheDocument();
     });
   });
 });

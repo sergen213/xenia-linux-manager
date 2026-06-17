@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { detectSteamInstall, exportGameToSteam, getGameXeniaPatches, inspectGameContent } from "../api/libraryClient";
 import type { GameXeniaPatches } from "../api/libraryClient";
-import type { GameInstalledContent, LaunchPreflight, LibraryGameDetails } from "../model/libraryTypes";
+import type { GameInstalledContent, LibraryGameDetails } from "../model/libraryTypes";
 import type {
   EffectiveConfig,
   ProfileInventory,
@@ -10,8 +10,6 @@ import type {
 import type { ExportPreflight, ExportResult } from "../model/saveTypes";
 import { CustomSelect } from "./CustomSelect";
 import { GameIdentityEditor } from "./GameIdentityEditor";
-import { LaunchPreflightPanel } from "./LaunchPreflightPanel";
-import { LaunchWarningDialog } from "./LaunchWarningDialog";
 import { ManagePatchesPanel } from "./ManagePatchesPanel";
 import { ProfileEditorPanel } from "./ProfileEditorPanel";
 import { ProfileSummaryCard } from "./ProfileSummaryCard";
@@ -22,8 +20,6 @@ import { useSettings } from "../../settings/state/settingsStore";
 
 interface GameDetailsPanelProps {
   details: LibraryGameDetails | null;
-  preflight: LaunchPreflight | null;
-  launchPending: boolean;
   shortcutExportPending: boolean;
   shortcutStatusMessage: string | null;
   contentRefreshToken: number;
@@ -35,17 +31,15 @@ interface GameDetailsPanelProps {
     executable_path: string;
     issue_notes: string[];
   }) => Promise<void>;
-  onLaunch: () => Promise<void>;
   onExportDesktopShortcut: (target: "applications" | "desktop") => Promise<void>;
   onOpenShortcutFolder: (target: "applications" | "desktop") => Promise<void>;
   onOpenContentFolder: () => Promise<void>;
   onImportContent: (contentType: "dlc" | "title_update") => Promise<void>;
   onRemoveContentEntry: (entryPath: string) => Promise<void>;
-  installedXeniaBuildTags: string[];
+  installedXeniaBuildOptions: Array<{ value: string; label: string }>;
   onPreferredXeniaBuildChange: (tag: string | null) => Promise<void>;
   onGameLaunchEnvironmentChange: (launchEnvironment: string | null) => Promise<void>;
   onGameLaunchWrapperChange: (launchWrapper: string | null) => Promise<void>;
-  onConfirmWarningLaunch: () => Promise<void>;
   managePatchesOpen: boolean;
   patchImportPending: boolean;
   onManagePatchesToggle: () => void;
@@ -129,25 +123,21 @@ function applyPreset(raw: string, preset: Record<string, string>): string {
 
 export function GameDetailsPanel({
   details,
-  preflight,
-  launchPending,
   shortcutExportPending,
   shortcutStatusMessage,
   contentRefreshToken,
   appDataPath,
   libraryMetadataPath,
   onSaveIdentity,
-  onLaunch,
   onExportDesktopShortcut,
   onOpenShortcutFolder,
   onOpenContentFolder,
   onImportContent,
   onRemoveContentEntry,
-  installedXeniaBuildTags,
+  installedXeniaBuildOptions,
   onPreferredXeniaBuildChange,
   onGameLaunchEnvironmentChange,
   onGameLaunchWrapperChange,
-  onConfirmWarningLaunch,
   managePatchesOpen,
   patchImportPending,
   onManagePatchesToggle,
@@ -294,12 +284,14 @@ export function GameDetailsPanel({
     return (
       <aside className="game-details">
         <div className="library-page__empty-state">
-          Select a title to inspect identity, source evidence, and launch
-          readiness.
+          Select a title to inspect identity and source evidence.
         </div>
       </aside>
     );
   }
+
+  const hasTitleUpdate =
+    installedContent?.entries.some((entry) => entry.content_type === "000B0000") ?? false;
 
   return (
     <aside className="game-details">
@@ -322,16 +314,7 @@ export function GameDetailsPanel({
         </div>
       </section>
 
-      <LaunchPreflightPanel
-        preflight={preflight}
-        launchPending={launchPending}
-        onLaunch={onLaunch}
-        onConfirmWarningLaunch={onConfirmWarningLaunch}
-        profileInventory={profileInventory}
-        profileEffectiveConfig={profileEffectiveConfig}
-        profileEffectiveLoading={profileEffectiveLoading}
-      />
-      {installedXeniaBuildTags.length > 0 && (
+      {installedXeniaBuildOptions.length > 0 && (
         <div className="game-details__block">
           <div className="game-details__label">
             Preferred Xenia build for this game
@@ -340,7 +323,7 @@ export function GameDetailsPanel({
             value={details.preferred_xenia_tag ?? ""}
             options={[
               { value: "", label: "Use active global build" },
-              ...installedXeniaBuildTags.map((tag) => ({ value: tag, label: tag })),
+              ...installedXeniaBuildOptions,
             ]}
             onChange={(v) => void onPreferredXeniaBuildChange(v || null)}
           />
@@ -505,7 +488,6 @@ export function GameDetailsPanel({
           {shortcutStatusMessage}
         </p>
       )}
-      <LaunchWarningDialog preflight={preflight} onConfirm={onConfirmWarningLaunch} />
 
       <section className="game-details__section">
         <div className="game-details__section-header">
@@ -525,6 +507,7 @@ export function GameDetailsPanel({
           <ManagePatchesPanel
             titleId={details.title_id ?? null}
             appDataPath={appDataPath}
+            hasTitleUpdate={hasTitleUpdate}
             onImport={onImportPatch}
             importPending={patchImportPending}
           />

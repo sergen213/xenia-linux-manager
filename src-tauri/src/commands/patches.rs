@@ -46,19 +46,7 @@ pub fn get_game_xenia_patches(
     app_data_path: String,
     title_id: String,
 ) -> Result<patches::xenia_patches::GameXeniaPatches, String> {
-    eprintln!(
-        "[patches] get_game_xenia_patches: app_data_path={app_data_path:?}, title_id={title_id:?}"
-    );
-    let result = patches::xenia_patches::find_patches_for_game(&app_data_path, &title_id);
-    match &result {
-        Ok(patches) => eprintln!(
-            "[patches] Found {} files for {}",
-            patches.files.len(),
-            title_id
-        ),
-        Err(e) => eprintln!("[patches] Error: {e}"),
-    }
-    result
+    patches::xenia_patches::find_patches_for_game(&app_data_path, &title_id)
 }
 
 #[tauri::command]

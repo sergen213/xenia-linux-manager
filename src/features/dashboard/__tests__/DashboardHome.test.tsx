@@ -1,5 +1,7 @@
-import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
+import { invoke } from "@tauri-apps/api/core";
+import { MemoryRouter } from "react-router-dom";
 import { DashboardHome } from "../DashboardHome";
 import {
   TasksContext,
@@ -26,6 +28,28 @@ import {
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(),
 }));
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  vi.mocked(invoke).mockImplementation(async (command: string, args?: { channel?: string }) => {
+    if (command === "fetch_recent_releases") {
+      return [
+        {
+          channel: args?.channel ?? "canary",
+          tag: args?.channel === "edge" ? "559007a" : "9369464",
+          release_name: args?.channel === "edge" ? "xenia_edge" : "9369464_canary_experimental",
+          build_id: `${args?.channel ?? "canary"}:${args?.channel === "edge" ? "559007a" : "9369464"}`,
+          published_at: "2026-04-18T03:40:22Z",
+          html_url: "https://example.com/release",
+          asset_name: "xenia_linux.tar.gz",
+          download_url: "https://example.com/xenia_linux.tar.gz",
+          size_bytes: 123,
+        },
+      ];
+    }
+    return null;
+  });
+});
 
 function renderDashboard(libraryOverrides: Partial<typeof INITIAL_LIBRARY_STATE> = {}) {
   const settingsCtx: SettingsContextValue = {
@@ -58,15 +82,17 @@ function renderDashboard(libraryOverrides: Partial<typeof INITIAL_LIBRARY_STATE>
   };
 
   render(
-    <SettingsContext value={settingsCtx}>
-      <TasksContext value={tasksCtx}>
-        <XeniaContext value={xeniaCtx}>
-          <LibraryContext value={libraryCtx}>
-            <DashboardHome />
-          </LibraryContext>
-        </XeniaContext>
-      </TasksContext>
-    </SettingsContext>,
+    <MemoryRouter>
+      <SettingsContext value={settingsCtx}>
+        <TasksContext value={tasksCtx}>
+          <XeniaContext value={xeniaCtx}>
+            <LibraryContext value={libraryCtx}>
+              <DashboardHome />
+            </LibraryContext>
+          </XeniaContext>
+        </TasksContext>
+      </SettingsContext>
+    </MemoryRouter>,
   );
 }
 
@@ -79,10 +105,12 @@ describe("DashboardHome", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders XeniaLifecycleCard instead of placeholder", () => {
+  it("renders both Xenia lifecycle cards", async () => {
     renderDashboard();
-    expect(screen.getByTestId("xenia-lifecycle-card")).toBeInTheDocument();
-    expect(screen.getByTestId("xenia-primary-action")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId("xenia-lifecycle-card-canary")).toBeInTheDocument();
+    });
+    expect(screen.getByTestId("xenia-lifecycle-card-edge")).toBeInTheDocument();
   });
 
   it("still shows library and task cards", () => {

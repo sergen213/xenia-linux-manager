@@ -3,7 +3,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use crate::library::review;
-use crate::xenia::install_state;
+use crate::patches::xenia_patches;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct GameContentEntry {
@@ -99,10 +99,7 @@ pub fn import_game_content(
         .clone()
         .ok_or("No title ID available for this game")?;
 
-    let state = install_state::load_state(app_data_path);
-    let manifest = state.manifest.ok_or("Xenia is not installed")?;
-    let exe = PathBuf::from(&manifest.executable_path);
-    let xenia_dir = exe.parent().ok_or("Cannot determine Xenia directory")?;
+    let storage_root = xenia_patches::get_xenia_storage_root(app_data_path)?;
 
     let source = PathBuf::from(source_path);
     if !source.exists() {
@@ -110,7 +107,10 @@ pub fn import_game_content(
     }
 
     let target_type = normalize_content_type(content_type)?;
-    let destination_root = xenia_dir.join("content").join(title_id).join(target_type);
+    let destination_root = storage_root
+        .join("content")
+        .join(title_id)
+        .join(target_type);
     fs::create_dir_all(&destination_root)
         .map_err(|e| format!("Failed to create content destination: {e}"))?;
 
@@ -161,15 +161,12 @@ pub fn remove_game_content(
 }
 
 fn resolve_content_root(app_data_path: &str, title_id: Option<&str>) -> Result<PathBuf, String> {
-    let state = install_state::load_state(app_data_path);
-    let manifest = state.manifest.ok_or("Xenia is not installed")?;
-    let exe = PathBuf::from(&manifest.executable_path);
-    let xenia_dir = exe.parent().ok_or("Cannot determine Xenia directory")?;
+    let storage_root = xenia_patches::get_xenia_storage_root(app_data_path)?;
 
     Ok(if let Some(tid) = title_id {
-        xenia_dir.join("content").join(tid)
+        storage_root.join("content").join(tid)
     } else {
-        xenia_dir.join("content")
+        storage_root.join("content")
     })
 }
 

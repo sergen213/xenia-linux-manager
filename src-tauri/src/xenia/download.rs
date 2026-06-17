@@ -158,11 +158,16 @@ pub async fn cleanup_download(app_data_path: &str, release: &LinuxRelease) -> st
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::xenia::releases::ReleaseChannel;
 
     fn sample_release() -> LinuxRelease {
         LinuxRelease {
-            tag: "v0.2.100".into(),
+            channel: ReleaseChannel::Canary,
+            tag: "9369464".into(),
+            release_name: "9369464_canary_experimental".into(),
+            build_id: LinuxRelease::build_id_for(ReleaseChannel::Canary, "9369464"),
             published_at: "2026-03-10T12:00:00Z".into(),
+            html_url: "https://example.com/9369464".into(),
             asset_name: "xenia_canary_linux.tar.gz".into(),
             download_url: "https://example.com/xenia_canary_linux.tar.gz".into(),
             size_bytes: 52428800,

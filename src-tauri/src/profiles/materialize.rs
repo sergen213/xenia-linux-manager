@@ -11,6 +11,8 @@ use std::collections::HashMap;
 
 use super::merge::{self, EffectiveField};
 use super::storage;
+use crate::library::review;
+use crate::patches::xenia_patches;
 
 // ---------------------------------------------------------------------------
 // Data types
@@ -72,6 +74,7 @@ pub struct KeyChangeSummary {
 /// This produces a deterministic snapshot of exactly what settings will be
 /// used when the game launches, matching what the user sees in the UI.
 pub fn materialize_launch_config(
+    app_data_path: &str,
     library_metadata_path: &str,
     game_id: &str,
 ) -> Result<MaterializedLaunchConfig, String> {
@@ -114,7 +117,7 @@ pub fn materialize_launch_config(
     );
 
     // Load the active patch summary.
-    let patch_summary = load_patch_summary(library_metadata_path, game_id);
+    let patch_summary = load_patch_summary(app_data_path, library_metadata_path, game_id);
 
     Ok(MaterializedLaunchConfig {
         game_id: game_id.to_string(),
@@ -169,10 +172,45 @@ fn humanize_key(key: &str) -> String {
 
 /// Load the active patch summary for a game, if any.
 fn load_patch_summary(
-    _library_metadata_path: &str,
-    _game_id: &str,
+    app_data_path: &str,
+    library_metadata_path: &str,
+    game_id: &str,
 ) -> Option<MaterializedPatchSummary> {
-    None
+    let details = review::load_game_details(library_metadata_path, game_id).ok()?;
+    let title_id = details.title_id?;
+
+    let patches = xenia_patches::find_patches_for_game(app_data_path, &title_id).ok()?;
+
+    let mut all_entries = Vec::new();
+    let mut primary_file_name = String::new();
+    let mut primary_file_id = String::new();
+
+    for file in &patches.files {
+        if primary_file_name.is_empty() {
+            primary_file_name = file.file_name.clone();
+            primary_file_id = file.file_path.clone();
+        }
+        for entry in &file.entries {
+            all_entries.push(MaterializedPatchEntry {
+                entry_id: entry.name.clone(),
+                title: entry.name.clone(),
+                enabled: entry.is_enabled,
+            });
+        }
+    }
+
+    if all_entries.is_empty() {
+        return None;
+    }
+
+    let active_entry_count = all_entries.iter().filter(|e| e.enabled).count();
+
+    Some(MaterializedPatchSummary {
+        patch_file_id: primary_file_id,
+        file_name: primary_file_name,
+        active_entry_count,
+        entries: all_entries,
+    })
 }
 
 fn now_millis() -> u64 {
@@ -201,8 +239,9 @@ mod tests {
 
     #[test]
     fn materialize_with_no_profiles_returns_defaults() {
+        let app_dir = temp_dir("no-profiles-app");
         let dir = temp_dir("no-profiles");
-        let config = materialize_launch_config(&dir, "game-1").unwrap();
+        let config = materialize_launch_config(&app_dir, &dir, "game-1").unwrap();
         assert!(config.profile_id.is_none());
         assert!(config.profile_name.is_none());
         assert_eq!(config.changed_setting_count, 0);
@@ -213,6 +252,7 @@ mod tests {
 
     #[test]
     fn materialize_with_active_profile_includes_overrides() {
+        let app_dir = temp_dir("with-profile-app");
         let dir = temp_dir("with-profile");
         let inv = storage::create_profile(&dir, "game-1", "Performance").unwrap();
         let pid = inv.profiles[0].id.clone();
@@ -222,7 +262,7 @@ mod tests {
         overrides.insert("gpu.framerate_limit".to_string(), serde_json::json!(60));
         storage::save_profile_overrides(&dir, "game-1", &pid, overrides).unwrap();
 
-        let config = materialize_launch_config(&dir, "game-1").unwrap();
+        let config = materialize_launch_config(&app_dir, &dir, "game-1").unwrap();
         assert_eq!(config.profile_id, Some(pid));
         assert_eq!(config.profile_name, Some("Performance".to_string()));
         assert_eq!(config.changed_setting_count, 2);
@@ -232,6 +272,7 @@ mod tests {
 
     #[test]
     fn materialize_uses_game_specific_overrides_for_shared_profile() {
+        let app_dir = temp_dir("per-game-app");
         let dir = temp_dir("per-game-materialize");
         let inv = storage::create_profile(&dir, "game-1", "Shared").unwrap();
         let pid = inv.profiles[0].id.clone();
@@ -245,8 +286,8 @@ mod tests {
         game_2_overrides.insert("gpu.framerate_limit".to_string(), serde_json::json!(120));
         storage::save_profile_overrides(&dir, "game-2", &pid, game_2_overrides).unwrap();
 
-        let game_1 = materialize_launch_config(&dir, "game-1").unwrap();
-        let game_2 = materialize_launch_config(&dir, "game-2").unwrap();
+        let game_1 = materialize_launch_config(&app_dir, &dir, "game-1").unwrap();
+        let game_2 = materialize_launch_config(&app_dir, &dir, "game-2").unwrap();
 
         assert_eq!(
             game_1.explicit_overrides.get("gpu.vsync"),
@@ -262,6 +303,7 @@ mod tests {
 
     #[test]
     fn materialize_key_changes_are_sorted() {
+        let app_dir = temp_dir("sorted-app");
         let dir = temp_dir("sorted-changes");
         let inv = storage::create_profile(&dir, "game-1", "Test").unwrap();
         let pid = inv.profiles[0].id.clone();
@@ -272,7 +314,7 @@ mod tests {
         overrides.insert("gpu.vsync".to_string(), serde_json::json!(false));
         storage::save_profile_overrides(&dir, "game-1", &pid, overrides).unwrap();
 
-        let config = materialize_launch_config(&dir, "game-1").unwrap();
+        let config = materialize_launch_config(&app_dir, &dir, "game-1").unwrap();
         let keys: Vec<&str> = config.key_changes.iter().map(|c| c.key.as_str()).collect();
         let mut sorted = keys.clone();
         sorted.sort();
@@ -291,6 +333,7 @@ mod tests {
 
     #[test]
     fn materialize_with_no_active_profile_uses_defaults() {
+        let app_dir = temp_dir("no-active-app");
         let dir = temp_dir("no-active");
         // Create a profile but don't select it.
         let inv = storage::create_profile(&dir, "game-1", "Unused").unwrap();
@@ -298,7 +341,7 @@ mod tests {
         // Deselect.
         storage::select_active_profile(&dir, "game-1", None).unwrap();
 
-        let config = materialize_launch_config(&dir, "game-1").unwrap();
+        let config = materialize_launch_config(&app_dir, &dir, "game-1").unwrap();
         assert!(config.profile_id.is_none());
         assert_eq!(config.changed_setting_count, 0);
         // The profile still exists, but was not active.
@@ -307,6 +350,7 @@ mod tests {
 
     #[test]
     fn materialize_effective_fields_match_merge_output() {
+        let app_dir = temp_dir("fields-match-app");
         let dir = temp_dir("fields-match");
         let inv = storage::create_profile(&dir, "game-1", "Check").unwrap();
         let pid = inv.profiles[0].id.clone();
@@ -315,7 +359,7 @@ mod tests {
         overrides.insert("cpu.backend".to_string(), serde_json::json!("x64"));
         storage::save_profile_overrides(&dir, "game-1", &pid, overrides).unwrap();
 
-        let materialized = materialize_launch_config(&dir, "game-1").unwrap();
+        let materialized = materialize_launch_config(&app_dir, &dir, "game-1").unwrap();
         let direct = merge::compute_effective_config(&dir, "game-1", &pid).unwrap();
 
         assert_eq!(materialized.effective_fields, direct.fields);

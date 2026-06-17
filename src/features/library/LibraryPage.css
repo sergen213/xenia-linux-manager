@@ -65,8 +65,8 @@
   padding: 0 5px;
   margin-left: 6px;
   border-radius: 999px;
-  background: rgba(194, 139, 53, 0.18);
-  color: #c28b35;
+  background: color-mix(in srgb, var(--color-warning) 18%, transparent);
+  color: var(--color-warning);
   font-size: 0.65rem;
   font-weight: 700;
   vertical-align: middle;
@@ -125,7 +125,7 @@
 .game-identity-editor input,
 .game-identity-editor textarea {
   width: 100%;
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-input);
   border-radius: var(--radius-sm);
   background: var(--color-bg);
   color: var(--color-text-primary);
@@ -227,15 +227,15 @@
   align-items: center;
   padding: 2px 8px;
   border-radius: 999px;
-  background: rgba(51, 109, 214, 0.14);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
   color: var(--color-accent);
   font-size: 0.7rem;
   font-weight: 700;
 }
 
 .library-grid__badge--warning {
-  background: rgba(194, 139, 53, 0.16);
-  color: #c28b35;
+  background: color-mix(in srgb, var(--color-warning) 16%, transparent);
+  color: var(--color-warning);
 }
 
 .review-inbox__header h3,
@@ -259,7 +259,7 @@
   justify-content: space-between;
   padding: 0.75rem 1rem;
   margin: 0.5rem 0;
-  background: rgba(239, 68, 68, 0.15);
+  background: color-mix(in srgb, var(--color-error) 15%, transparent);
   border: 1px solid var(--color-error);
   border-radius: var(--radius-sm);
   color: var(--color-error);
@@ -473,14 +473,14 @@
 }
 
 .launch-preflight__ready {
-  color: #2f8f57;
+  color: var(--color-success);
   margin-top: 12px;
 }
 
 .launch-warning-dialog {
-  border: 1px solid rgba(194, 139, 53, 0.4);
+  border: 1px solid color-mix(in srgb, var(--color-warning) 40%, transparent);
   border-radius: var(--radius-md);
-  background: rgba(194, 139, 53, 0.08);
+  background: color-mix(in srgb, var(--color-warning) 8%, transparent);
   padding: 12px;
 }
 
@@ -540,7 +540,7 @@
 
 .manage-patches__unsupported {
   margin: 0;
-  color: #c28b35;
+  color: var(--color-warning);
   font-weight: 600;
 }
 
@@ -560,15 +560,19 @@
   color: var(--color-text-secondary);
 }
 
+.patch-checklist__author {
+  color: var(--color-text-muted);
+}
+
 .patch-checklist__warnings {
-  color: #c28b35;
+  color: var(--color-warning);
   font-size: var(--font-size-xs);
 }
 
 .patch-chooser {
   position: fixed;
   inset: 0;
-  background: rgba(8, 14, 24, 0.6);
+  background: var(--color-scrim);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -641,7 +645,7 @@
 .profile-editor input,
 .profile-raw-editor input,
 .profile-raw-editor__value {
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-input);
   border-radius: var(--radius-sm);
   background: var(--color-bg);
   color: var(--color-text-primary);
@@ -680,8 +684,8 @@
 
 .profile-editor__actions button:last-child,
 .profile-raw-editor__remove {
-  color: var(--color-error, #ef4444);
-  border-color: color-mix(in srgb, var(--color-error, #ef4444) 35%, var(--color-border));
+  color: var(--color-error);
+  border-color: color-mix(in srgb, var(--color-error) 35%, var(--color-border));
 }
 
 .profile-editor__fields {
@@ -710,6 +714,7 @@
 .profile-editor__field label {
   color: var(--color-text-secondary);
   font-size: var(--font-size-sm);
+  min-width: 0;
 }
 
 .profile-editor__field input:not([type="checkbox"]),
@@ -720,6 +725,37 @@
 
 .profile-editor__field input[type="checkbox"] {
   justify-self: start;
+}
+
+@media (max-width: 900px) {
+  .profile-editor__field {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "label"
+      "control"
+      "reset";
+    align-items: start;
+  }
+
+  .profile-editor__field label {
+    grid-area: label;
+  }
+
+  .profile-editor__field input:not([type="checkbox"]),
+  .profile-editor__field .custom-select {
+    grid-area: control;
+  }
+
+  .profile-editor__field input[type="checkbox"] {
+    grid-area: control;
+    align-self: start;
+  }
+
+  .profile-editor__reset {
+    grid-area: reset;
+    justify-self: start;
+    width: fit-content;
+  }
 }
 
 .profile-editor__field--changed {
@@ -809,6 +845,7 @@
 /* ── Custom select (replaces native <select> for dark-theme compat) ── */
 .custom-select {
   position: relative;
+  isolation: isolate;
 }
 
 .custom-select__trigger {
@@ -817,13 +854,15 @@
   justify-content: space-between;
   width: 100%;
   padding: 10px 12px;
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-input);
   border-radius: var(--radius-sm);
   background: var(--color-bg);
   color: var(--color-text-primary);
   cursor: pointer;
   text-align: left;
   font: inherit;
+  position: relative;
+  z-index: 1;
 }
 
 .custom-select__trigger:hover {
@@ -846,14 +885,14 @@
 
 .custom-select__menu {
   position: absolute;
-  z-index: 20;
+  z-index: 50;
   top: 100%;
   left: 0;
   right: 0;
   margin-top: 2px;
   padding: 4px 0;
   list-style: none;
-  background: var(--color-bg);
+  background: var(--color-bg-card);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
@@ -868,7 +907,7 @@
   width: 100%;
   padding: 8px 12px;
   border: none;
-  background: transparent;
+  background: var(--color-bg-card);
   color: var(--color-text-primary);
   cursor: pointer;
   text-align: left;
@@ -877,11 +916,11 @@
 }
 
 .custom-select__option:hover {
-  background: var(--color-bg-card);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .custom-select__option.is-active {
-  background: var(--color-bg-card);
+  background: rgba(255, 255, 255, 0.1);
   font-weight: 600;
 }
 

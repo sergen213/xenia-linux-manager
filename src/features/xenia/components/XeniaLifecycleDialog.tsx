@@ -8,25 +8,33 @@ import {
   fetchLatestRelease,
   getInstallStatus,
 } from "../api/xeniaClient";
-import type { PrimaryAction, LinuxRelease } from "../model/xeniaTypes";
+import type {
+  FailureContext,
+  LinuxRelease,
+  PrimaryAction,
+  ReleaseChannel,
+} from "../model/xeniaTypes";
+import { channelLabel } from "../model/xeniaTypes";
 import "./XeniaLifecycleDialog.css";
 
 interface XeniaLifecycleDialogProps {
-  action: PrimaryAction;
+  action: Extract<PrimaryAction, "install" | "update" | "retry">;
+  channel: ReleaseChannel;
+  release: LinuxRelease | null;
+  failure: FailureContext | null;
   onClose: () => void;
 }
 
 type DialogPhase = "confirm" | "progress" | "success" | "error";
 
-/**
- * Modal dialog that handles the confirmation, progress, and result
- * phases of an install/update/retry operation.
- */
 export function XeniaLifecycleDialog({
   action,
+  channel,
+  release,
+  failure,
   onClose,
 }: XeniaLifecycleDialogProps) {
-  const { state, dispatch } = useXenia();
+  const { dispatch } = useXenia();
   const { state: settingsState } = useSettings();
   const [phase, setPhase] = useState<DialogPhase>("confirm");
   const [error, setError] = useState<string | null>(null);
@@ -34,10 +42,8 @@ export function XeniaLifecycleDialog({
 
   const appDataPath = settingsState.settings?.app_data_path ?? "";
   const xeniaPath = settingsState.settings?.xenia_path ?? "";
-  const release = state.latestRelease ?? state.availableUpdate;
-
   const actionLabel =
-    action === "install" ? "Install" : action === "update" ? "Update" : action === "retry" ? "Retry" : "Check";
+    action === "install" ? "Install" : action === "update" ? "Update" : "Retry";
 
   const handleConfirm = async () => {
     setPhase("progress");
@@ -45,24 +51,20 @@ export function XeniaLifecycleDialog({
       let id: string;
       if (action === "retry") {
         id = await retryLastOperation(appDataPath, xeniaPath);
-      } else if (action === "update" && release) {
-        id = await startUpdate(appDataPath, xeniaPath, release);
       } else {
-        // Install -- fetch release if not already available
-        let installRelease = release;
-        if (!installRelease) {
-          installRelease = await fetchLatestRelease();
-          dispatch({ type: "FETCH_RELEASE_SUCCESS", release: installRelease });
+        let targetRelease = release;
+        if (!targetRelease) {
+          targetRelease = await fetchLatestRelease(channel);
         }
-        id = await startInstall(appDataPath, xeniaPath, installRelease);
+        id =
+          action === "update"
+            ? await startUpdate(appDataPath, xeniaPath, targetRelease)
+            : await startInstall(appDataPath, xeniaPath, targetRelease);
       }
+
       setJobId(id);
-      // We do not wait for the job to finish -- the task subsystem
-      // handles progress tracking. Show success phase to indicate
-      // the job has been launched.
       setPhase("success");
 
-      // Refresh install state after a short delay to pick up changes
       setTimeout(async () => {
         try {
           const installState = await getInstallStatus(appDataPath);
@@ -93,20 +95,22 @@ export function XeniaLifecycleDialog({
         {phase === "confirm" && (
           <ConfirmPhase
             actionLabel={actionLabel}
+            channel={channel}
             release={release}
-            failure={state.installState.failure}
+            failure={failure}
             onConfirm={handleConfirm}
             onCancel={onClose}
           />
         )}
 
         {phase === "progress" && (
-          <ProgressPhase actionLabel={actionLabel} />
+          <ProgressPhase actionLabel={actionLabel} channel={channel} />
         )}
 
         {phase === "success" && (
           <SuccessPhase
             actionLabel={actionLabel}
+            channel={channel}
             jobId={jobId}
             onClose={onClose}
           />
@@ -124,26 +128,26 @@ export function XeniaLifecycleDialog({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Sub-phases
-// ---------------------------------------------------------------------------
-
 function ConfirmPhase({
   actionLabel,
+  channel,
   release,
   failure,
   onConfirm,
   onCancel,
 }: {
   actionLabel: string;
+  channel: ReleaseChannel;
   release: LinuxRelease | null;
-  failure: import("../model/xeniaTypes").FailureContext | null;
+  failure: FailureContext | null;
   onConfirm: () => void;
   onCancel: () => void;
 }) {
+  const title = channelLabel(channel);
+
   return (
     <div data-testid="dialog-confirm-phase">
-      <h3 className="xenia-dialog__title">{actionLabel} Xenia Canary</h3>
+      <h3 className="xenia-dialog__title">{actionLabel} {title}</h3>
 
       {release && (
         <div className="xenia-dialog__release-info">
@@ -172,45 +176,42 @@ function ConfirmPhase({
 
       {actionLabel === "Update" && release && (
         <div className="xenia-dialog__update-notice">
-          <p className="xenia-dialog__update-heading">
-            A new version is available
-          </p>
+          <p className="xenia-dialog__update-heading">New version available</p>
           <p className="xenia-dialog__update-detail">
-            This update will replace your current Xenia Canary installation with
-            version <strong>{release.tag}</strong>. Your game library, saves,
-            patches, and profiles will not be affected.
+            This update will add or switch to version <strong>{release.tag}</strong>.
+            Your library, saves, patches, and profiles stay intact.
           </p>
           <p className="xenia-dialog__update-notes-link">
-            Review what changed before updating:{" "}
+            Review release notes:{" "}
             <a
-              href={`https://github.com/xenia-canary/xenia-canary/releases/tag/${release.tag}`}
+              href={release.html_url}
               target="_blank"
               rel="noopener noreferrer"
               className="xenia-dialog__link"
               data-testid="update-release-notes"
             >
-              Release notes for {release.tag}
+              {release.release_name}
             </a>
           </p>
         </div>
       )}
 
       <p className="xenia-dialog__confirm-text">
-        {actionLabel === "Update"
-          ? "By clicking Update below, you confirm that you want to replace the current Xenia build. The download will run in the background."
-          : "This will download and install the Linux Canary build. You can continue using the app while the operation runs in the background."}
+        {actionLabel === "Retry"
+          ? "This retries the last failed operation for this channel."
+          : "This will run in the background. You can keep using the app while it downloads and installs."}
       </p>
 
       <div className="xenia-dialog__actions">
         <button
-          className="xenia-dialog__cancel-btn ui-button"
+          className="ui-button"
           onClick={onCancel}
           data-testid="dialog-cancel"
         >
           Cancel
         </button>
         <button
-          className="xenia-dialog__confirm-btn ui-button ui-button--primary"
+          className="ui-button ui-button--primary"
           onClick={onConfirm}
           data-testid="dialog-confirm"
         >
@@ -221,12 +222,20 @@ function ConfirmPhase({
   );
 }
 
-function ProgressPhase({ actionLabel }: { actionLabel: string }) {
+function ProgressPhase({
+  actionLabel,
+  channel,
+}: {
+  actionLabel: string;
+  channel: ReleaseChannel;
+}) {
   return (
     <div data-testid="dialog-progress-phase">
-      <h3 className="xenia-dialog__title">Starting {actionLabel}...</h3>
+      <h3 className="xenia-dialog__title">
+        Starting {actionLabel} for {channelLabel(channel)}...
+      </h3>
       <p className="xenia-dialog__progress-text">
-        Launching the background job. Track progress in the Tasks page.
+        Launching background job. Track progress in Tasks page.
       </p>
       <div className="xenia-dialog__spinner" />
     </div>
@@ -235,29 +244,23 @@ function ProgressPhase({ actionLabel }: { actionLabel: string }) {
 
 function SuccessPhase({
   actionLabel,
+  channel,
   jobId,
   onClose,
 }: {
   actionLabel: string;
+  channel: ReleaseChannel;
   jobId: string | null;
   onClose: () => void;
 }) {
   return (
     <div data-testid="dialog-success-phase">
-      <h3 className="xenia-dialog__title">{actionLabel} Started</h3>
+      <h3 className="xenia-dialog__title">
+        {actionLabel} Started for {channelLabel(channel)}
+      </h3>
       <p className="xenia-dialog__success-text">
-        The operation is running in the background. You can close this dialog
-        and continue using the app.
+        Operation running in background. Close dialog, keep using app.
       </p>
-
-      <div className="xenia-dialog__next-steps">
-        <h4 className="xenia-dialog__next-title">Next steps</h4>
-        <ul className="xenia-dialog__next-list">
-          <li>Monitor progress in the Tasks page</li>
-          <li>Set up your game library once installation completes</li>
-          <li>Review emulator settings for optimal performance</li>
-        </ul>
-      </div>
 
       {jobId && (
         <p className="xenia-dialog__job-id">
@@ -267,7 +270,7 @@ function SuccessPhase({
 
       <div className="xenia-dialog__actions">
         <button
-          className="xenia-dialog__confirm-btn ui-button ui-button--primary"
+          className="ui-button ui-button--primary"
           onClick={onClose}
           data-testid="dialog-close"
         >
@@ -295,14 +298,14 @@ function ErrorPhase({
       <p className="xenia-dialog__error-text">{error ?? "Unknown error"}</p>
       <div className="xenia-dialog__actions">
         <button
-          className="xenia-dialog__cancel-btn ui-button"
+          className="ui-button"
           onClick={onClose}
           data-testid="dialog-error-close"
         >
           Close
         </button>
         <button
-          className="xenia-dialog__confirm-btn ui-button ui-button--primary"
+          className="ui-button ui-button--primary"
           onClick={onRetry}
           data-testid="dialog-error-retry"
         >
@@ -312,10 +315,6 @@ function ErrorPhase({
     </div>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;

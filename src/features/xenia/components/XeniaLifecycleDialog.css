@@ -1,7 +1,7 @@
 .xenia-dialog-overlay {
   position: fixed;
   inset: 0;
-  background-color: rgba(0, 0, 0, 0.6);
+  background-color: var(--color-scrim);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -27,7 +27,7 @@
 }
 
 .xenia-dialog__title--error {
-  color: var(--color-danger, #ef4444);
+  color: var(--color-danger);
 }
 
 .xenia-dialog__release-info {
@@ -52,8 +52,8 @@
 }
 
 .xenia-dialog__failure-context {
-  background-color: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  background-color: color-mix(in srgb, var(--color-error) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-error) 35%, transparent);
   border-radius: var(--radius-md);
   padding: 12px;
   margin-bottom: 16px;
@@ -62,7 +62,7 @@
 .xenia-dialog__failure-label {
   font-size: var(--font-size-xs);
   font-weight: 600;
-  color: var(--color-danger, #ef4444);
+  color: var(--color-danger);
   margin-bottom: 4px;
 }
 
@@ -89,37 +89,6 @@
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-}
-
-.xenia-dialog__cancel-btn {
-  padding: 8px 16px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background-color: transparent;
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
-  cursor: pointer;
-  transition: background-color 0.15s;
-}
-
-.xenia-dialog__cancel-btn:hover {
-  background-color: var(--color-bg-hover);
-}
-
-.xenia-dialog__confirm-btn {
-  padding: 8px 16px;
-  border: none;
-  border-radius: var(--radius-md);
-  background-color: var(--color-accent);
-  color: var(--color-text-primary);
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  cursor: pointer;
-  transition: opacity 0.15s;
-}
-
-.xenia-dialog__confirm-btn:hover {
-  opacity: 0.85;
 }
 
 .xenia-dialog__actions .ui-button {
@@ -204,8 +173,8 @@
 }
 
 .xenia-dialog__update-notice {
-  background-color: rgba(56, 189, 248, 0.08);
-  border: 1px solid rgba(56, 189, 248, 0.2);
+  background-color: color-mix(in srgb, var(--color-accent) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 20%, transparent);
   border-radius: var(--radius-md);
   padding: 12px;
   margin-bottom: 16px;
@@ -247,7 +216,7 @@
 
 .xenia-dialog__error-text {
   font-size: var(--font-size-sm);
-  color: var(--color-danger, #ef4444);
+  color: var(--color-danger);
   margin-bottom: 16px;
   word-break: break-word;
   line-height: 1.5;

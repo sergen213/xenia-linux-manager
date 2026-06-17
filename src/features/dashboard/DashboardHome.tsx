@@ -80,7 +80,9 @@ export function DashboardHome() {
           )}
         </button>
 
-        <XeniaLifecycleCard />
+        <XeniaLifecycleCard channel="canary" />
+
+        <XeniaLifecycleCard channel="edge" />
 
         <div className="dashboard__card">
           <h3 className="dashboard__card-title">Tasks</h3>

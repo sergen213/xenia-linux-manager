@@ -24,8 +24,12 @@ function makeInstallState(overrides: Partial<InstallState> = {}): InstallState {
 
 function makeRelease(overrides: Partial<LinuxRelease> = {}): LinuxRelease {
   return {
-    tag: "v0.2.100",
+    channel: "canary",
+    tag: "9369464",
+    release_name: "9369464_canary_experimental",
+    build_id: "canary:9369464",
     published_at: "2026-03-10T12:00:00Z",
+    html_url: "https://example.com/9369464",
     asset_name: "xenia_canary_linux.tar.gz",
     download_url: "https://example.com/xenia.tar.gz",
     size_bytes: 52428800,
@@ -50,8 +54,12 @@ describe("xeniaReducer", () => {
     const installState = makeInstallState({
       status: "installed",
       manifest: {
-        tag: "v0.2.100",
+        channel: "canary",
+        build_id: "canary:9369464",
+        tag: "9369464",
+        release_name: "9369464_canary_experimental",
         published_at: "2026-03-10T12:00:00Z",
+        html_url: "https://example.com/9369464",
         asset_name: "xenia.tar.gz",
         executable_path: "/opt/xenia/xenia_canary",
         install_dir: "/opt/xenia",
@@ -82,7 +90,7 @@ describe("xeniaReducer", () => {
   });
 
   it("CHECK_UPDATE_SUCCESS with update stores the release", () => {
-    const update = makeRelease({ tag: "v0.2.101" });
+    const update = makeRelease({ tag: "9132035", build_id: "canary:9132035" });
     const next = xeniaReducer(INITIAL_XENIA_STATE, {
       type: "CHECK_UPDATE_SUCCESS",
       update,
@@ -151,7 +159,7 @@ describe("selectors", () => {
     const state: XeniaState = {
       ...INITIAL_XENIA_STATE,
       installState: makeInstallState({ status: "installed" }),
-      availableUpdate: makeRelease({ tag: "v0.2.101" }),
+      availableUpdate: makeRelease({ tag: "9132035", build_id: "canary:9132035" }),
     };
     expect(selectPrimaryAction(state)).toBe("update");
   });
@@ -186,8 +194,12 @@ describe("selectors", () => {
       installState: makeInstallState({
         status: "installed",
         manifest: {
-          tag: "v0.2.100",
+          channel: "canary",
+          build_id: "canary:9369464",
+          tag: "9369464",
+          release_name: "9369464_canary_experimental",
           published_at: "2026-03-10",
+          html_url: "https://example.com/9369464",
           asset_name: "xenia.tar.gz",
           executable_path: "/opt/xenia/xenia_canary",
           install_dir: "/opt/xenia",
@@ -195,7 +207,7 @@ describe("selectors", () => {
         },
       }),
     };
-    expect(selectInstalledTag(state)).toBe("v0.2.100");
+    expect(selectInstalledTag(state)).toBe("9369464");
   });
 
   it("selectInstalledTag returns null when not installed", () => {
@@ -215,7 +227,9 @@ describe("selectors", () => {
           retry_mode: "install",
           error: "download failed",
           failed_step: "download",
-          target_tag: "v0.2.100",
+          channel: "canary",
+          target_tag: "9369464",
+          target_build_id: "canary:9369464",
           failed_at: 1000,
         },
       }),
@@ -230,8 +244,12 @@ describe("selectors", () => {
       installState: makeInstallState({
         status: "installed",
         manifest: {
-          tag: "v0.2.100",
+          channel: "canary",
+          build_id: "canary:9369464",
+          tag: "9369464",
+          release_name: "9369464_canary_experimental",
           published_at: "2026-03-10",
+          html_url: "https://example.com/9369464",
           asset_name: "xenia.tar.gz",
           executable_path: "/opt/xenia/xenia_canary",
           install_dir: "/opt/xenia",

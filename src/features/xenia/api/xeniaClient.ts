@@ -6,15 +6,22 @@
  */
 
 import { invoke } from "@tauri-apps/api/core";
-import type { LinuxRelease, InstallState } from "../model/xeniaTypes";
+import type { LinuxRelease, InstallState, ReleaseChannel } from "../model/xeniaTypes";
 
 // ---------------------------------------------------------------------------
 // Status and update commands
 // ---------------------------------------------------------------------------
 
-/** Fetch the latest Linux Xenia Canary release metadata from GitHub. */
-export async function fetchLatestRelease(): Promise<LinuxRelease> {
-  return invoke<LinuxRelease>("fetch_latest_release");
+export async function fetchLatestRelease(
+  channel: ReleaseChannel,
+): Promise<LinuxRelease> {
+  return invoke<LinuxRelease>("fetch_latest_release", { channel });
+}
+
+export async function fetchRecentReleases(
+  channel: ReleaseChannel,
+): Promise<LinuxRelease[]> {
+  return invoke<LinuxRelease[]>("fetch_recent_releases", { channel });
 }
 
 /** Load the persisted install state (status, manifest, failure context). */
@@ -26,9 +33,9 @@ export async function getInstallStatus(
 
 export async function switchActiveXeniaBuild(
   appDataPath: string,
-  tag: string,
+  buildId: string,
 ): Promise<InstallState> {
-  return invoke<InstallState>("switch_active_xenia_build", { appDataPath, tag });
+  return invoke<InstallState>("switch_active_xenia_build", { appDataPath, buildId });
 }
 
 /** Check for updates by comparing the installed tag against latest release. */
@@ -98,6 +105,11 @@ export async function cleanupInstallArtifacts(
 export async function removeXeniaInstall(
   appDataPath: string,
   xeniaPath: string,
-): Promise<void> {
-  return invoke<void>("remove_xenia_install", { appDataPath, xeniaPath });
+  buildId?: string | null,
+): Promise<InstallState> {
+  return invoke<InstallState>("remove_xenia_install", {
+    appDataPath,
+    xeniaPath,
+    buildId: buildId ?? null,
+  });
 }

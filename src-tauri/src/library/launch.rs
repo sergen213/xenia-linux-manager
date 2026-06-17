@@ -117,7 +117,11 @@ pub fn build_launch_plan(
     let details = review::load_game_details(library_metadata_path, game_id)?;
     let storage_root = xenia_patches::get_xenia_storage_root(app_data_path)?;
 
-    let materialized = materialize::materialize_launch_config(library_metadata_path, game_id)?;
+    // Ensure patches are enabled in the main config
+    let _ = xenia_patches::ensure_apply_patches_enabled(app_data_path);
+
+    let materialized =
+        materialize::materialize_launch_config(app_data_path, library_metadata_path, game_id)?;
     let launch_config_path = if let Some(title_id) = details.title_id.as_deref() {
         write_game_launch_config(&storage_root, title_id, &materialized)?
     } else {
@@ -200,7 +204,7 @@ pub fn get_launch_preflight_with_profile(
 
     // Only materialize if launch is possible.
     let materialized_config = if preflight.can_launch {
-        materialize::materialize_launch_config(library_metadata_path, game_id).ok()
+        materialize::materialize_launch_config(app_data_path, library_metadata_path, game_id).ok()
     } else {
         None
     };
@@ -337,7 +341,7 @@ fn resolve_xenia_executable(
             install
                 .installed_builds
                 .iter()
-                .find(|build| build.tag == preferred)
+                .find(|build| build.build_id == preferred || build.tag == preferred)
                 .map(|build| build.executable_path.clone())
         })
         .or_else(|| {
@@ -393,6 +397,12 @@ fn materialized_config_to_toml(materialized: &MaterializedLaunchConfig) -> Resul
         let translated = translate_profile_key_to_xenia_config(key);
         insert_dotted_toml_value(&mut root, &translated, json_to_toml_value(value)?);
     }
+
+    // Ensure patches are enabled by default (required for patches to apply)
+    if !root.contains_key("apply_patches") {
+        root.insert("apply_patches".to_string(), toml::Value::Boolean(true));
+    }
+
     let toml_str = toml::to_string_pretty(&toml::Value::Table(root))
         .map_err(|e| format!("Failed to serialize launch config TOML: {e}"))?;
     eprintln!(
@@ -535,6 +545,7 @@ mod tests {
     };
     use crate::library::sources;
     use crate::xenia::install_state::{self, InstallManifest, InstallState};
+    use crate::xenia::releases::ReleaseChannel;
     use std::env;
     use std::fs;
     use std::path::PathBuf;
@@ -584,8 +595,12 @@ mod tests {
         let state = InstallState {
             status: LifecycleStatus::Installed,
             manifest: Some(InstallManifest {
+                channel: ReleaseChannel::Canary,
+                build_id: install_state::build_id(ReleaseChannel::Canary, "canary"),
                 tag: "canary".into(),
+                release_name: "canary".into(),
                 published_at: "2026-01-01T00:00:00Z".into(),
+                html_url: "https://example.com/canary".into(),
                 asset_name: "xenia.tar.gz".into(),
                 executable_path: "/bin/echo".into(),
                 install_dir: "/opt/xenia".into(),
