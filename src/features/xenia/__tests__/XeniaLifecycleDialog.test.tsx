@@ -14,8 +14,11 @@ import {
 } from "../../settings/state/settingsStore";
 import type { FailureContext, LinuxRelease } from "../model/xeniaTypes";
 
-vi.mock("@tauri-apps/api/core", () => ({
+vi.mock("../../../platform/bridge", () => ({
   invoke: vi.fn(),
+  listen: vi.fn(async () => () => {}),
+  convertFileSrc: (path: string) => `xlm-asset://local/${encodeURIComponent(path)}`,
+  open: vi.fn(async () => null),
 }));
 
 const sampleRelease: LinuxRelease = {

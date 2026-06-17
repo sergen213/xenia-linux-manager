@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { open as openDialog } from "@tauri-apps/plugin-dialog";
+import { open as openDialog } from "../../../platform/bridge";
 import { openPath } from "../api/libraryClient";
 import {
   launchLibraryGame,

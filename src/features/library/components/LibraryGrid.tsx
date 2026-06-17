@@ -1,4 +1,4 @@
-import { convertFileSrc } from "@tauri-apps/api/core";
+import { convertFileSrc } from "../../../platform/bridge";
 import { memo, useState } from "react";
 import type { LibraryBrowseCard } from "../model/libraryTypes";
 

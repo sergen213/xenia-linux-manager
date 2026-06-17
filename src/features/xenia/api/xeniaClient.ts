@@ -5,7 +5,7 @@
  * `src-tauri/src/commands/xenia.rs`.
  */
 
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "../../../platform/bridge";
 import type { LinuxRelease, InstallState, ReleaseChannel } from "../model/xeniaTypes";
 
 // ---------------------------------------------------------------------------

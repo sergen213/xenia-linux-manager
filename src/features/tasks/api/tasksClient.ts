@@ -5,8 +5,7 @@
  * Events map to Tauri event emitters in `src-tauri/src/jobs/events.rs`.
  */
 
-import { invoke } from "@tauri-apps/api/core";
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { invoke, listen, type UnlistenFn } from "../../../platform/bridge";
 import type {
   TaskHistory,
   JobCreatedPayload,

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { open as openDialog } from "@tauri-apps/plugin-dialog";
+import { open as openDialog } from "../../../platform/bridge";
 import { openPath } from "../api/libraryClient";
 import { useLibrary } from "../state/libraryStore";
 import { useSettings } from "../../settings/state/settingsStore";

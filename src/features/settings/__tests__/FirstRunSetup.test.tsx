@@ -4,11 +4,14 @@ import "@testing-library/jest-dom";
 import { FirstRunSetup } from "../components/FirstRunSetup";
 import { SettingsContext, type SettingsState } from "../state/settingsStore";
 import type { AppSettings, SettingsValidation } from "../model/settingsSchema";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "../../../platform/bridge";
 
-// Mock Tauri invoke so settingsClient calls don't fail in test env
-vi.mock("@tauri-apps/api/core", () => ({
+// Mock the platform bridge so settingsClient calls don't fail in test env
+vi.mock("../../../platform/bridge", () => ({
   invoke: vi.fn().mockRejectedValue(new Error("not in tauri")),
+  listen: vi.fn(async () => () => {}),
+  convertFileSrc: (path: string) => `xlm-asset://local/${encodeURIComponent(path)}`,
+  open: vi.fn(async () => null),
 }));
 
 const mockSettings: AppSettings = {

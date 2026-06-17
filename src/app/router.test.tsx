@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Routes, Route, Navigate } from "react-router-dom";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "../platform/bridge";
 import { routes, getSidebarRoutes } from "./router";
 import {
   SettingsContext,
@@ -28,9 +28,12 @@ import {
   INITIAL_PROFILES_STATE,
 } from "../features/profiles/state/profilesStore";
 
-// Mock Tauri invoke
-vi.mock("@tauri-apps/api/core", () => ({
+// Mock the platform bridge
+vi.mock("../platform/bridge", () => ({
   invoke: vi.fn(),
+  listen: vi.fn(async () => () => {}),
+  convertFileSrc: (path: string) => `xlm-asset://local/${encodeURIComponent(path)}`,
+  open: vi.fn(async () => null),
 }));
 
 beforeEach(() => {

@@ -13,7 +13,7 @@ import {
   onJobCompleted,
   onJobFailed,
 } from "../api/tasksClient";
-import type { UnlistenFn } from "@tauri-apps/api/event";
+import type { UnlistenFn } from "../../../platform/bridge";
 
 interface TasksProviderProps {
   children: ReactNode;

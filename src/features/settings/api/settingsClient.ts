@@ -5,7 +5,7 @@
  * `src-tauri/src/commands/settings.rs`.
  */
 
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "../../../platform/bridge";
 import type {
   AppSettings,
   SettingsValidation,

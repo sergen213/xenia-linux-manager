@@ -2,7 +2,7 @@
  * Tauri invoke bridge for library management and launch commands.
  */
 
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "../../../platform/bridge";
 import type {
   AddSourceResult,
   BrowseLibraryPayload,

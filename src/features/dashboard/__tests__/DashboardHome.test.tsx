@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "../../../platform/bridge";
 import { MemoryRouter } from "react-router-dom";
 import { DashboardHome } from "../DashboardHome";
 import {
@@ -24,9 +24,12 @@ import {
   type LibraryContextValue,
 } from "../../library/state/libraryStore";
 
-// Mock the Tauri invoke calls
-vi.mock("@tauri-apps/api/core", () => ({
+// Mock the platform bridge
+vi.mock("../../../platform/bridge", () => ({
   invoke: vi.fn(),
+  listen: vi.fn(async () => () => {}),
+  convertFileSrc: (path: string) => `xlm-asset://local/${encodeURIComponent(path)}`,
+  open: vi.fn(async () => null),
 }));
 
 beforeEach(() => {

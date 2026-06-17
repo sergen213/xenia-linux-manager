@@ -17,8 +17,11 @@ import {
 } from "../../features/xenia/state/xeniaStore";
 import type { Job } from "../../features/tasks/model/taskTypes";
 
-vi.mock("@tauri-apps/api/core", () => ({
+vi.mock("../../platform/bridge", () => ({
   invoke: vi.fn().mockRejectedValue(new Error("not in tauri")),
+  listen: vi.fn(async () => () => {}),
+  convertFileSrc: (path: string) => `xlm-asset://local/${encodeURIComponent(path)}`,
+  open: vi.fn(async () => null),
 }));
 
 function renderStatusBar({
@@ -71,8 +74,12 @@ describe("StatusBar", () => {
           ...INITIAL_XENIA_STATE.installState,
           status: "installed",
           manifest: {
+            channel: "canary",
+            build_id: "canary:v1.0.0",
             tag: "v1.0.0",
+            release_name: "xenia v1.0.0",
             published_at: "2024-01-01T00:00:00Z",
+            html_url: "https://example.com/release",
             asset_name: "xenia.zip",
             executable_path: "/tmp/xenia",
             install_dir: "/tmp",

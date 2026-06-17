@@ -15,9 +15,12 @@ import {
   INITIAL_XENIA_STATE,
 } from "../../features/xenia/state/xeniaStore";
 
-// Mock Tauri invoke so StatusBar's releaseClient call doesn't throw
-vi.mock("@tauri-apps/api/core", () => ({
+// Mock the platform bridge so StatusBar's releaseClient call doesn't throw
+vi.mock("../../platform/bridge", () => ({
   invoke: vi.fn().mockRejectedValue(new Error("not in tauri")),
+  listen: vi.fn(async () => () => {}),
+  convertFileSrc: (path: string) => `xlm-asset://local/${encodeURIComponent(path)}`,
+  open: vi.fn(async () => null),
 }));
 
 function renderSidebar(initialRoute = "/") {

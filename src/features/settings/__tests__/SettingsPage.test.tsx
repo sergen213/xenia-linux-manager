@@ -5,9 +5,12 @@ import { SettingsPage } from "../SettingsPage";
 import { SettingsContext, type SettingsState } from "../state/settingsStore";
 import type { AppSettings } from "../model/settingsSchema";
 
-// Mock Tauri invoke
-vi.mock("@tauri-apps/api/core", () => ({
+// Mock the platform bridge
+vi.mock("../../../platform/bridge", () => ({
   invoke: vi.fn().mockRejectedValue(new Error("not in tauri")),
+  listen: vi.fn(async () => () => {}),
+  convertFileSrc: (path: string) => `xlm-asset://local/${encodeURIComponent(path)}`,
+  open: vi.fn(async () => null),
 }));
 
 const mockSettings: AppSettings = {
