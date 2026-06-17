@@ -72,10 +72,12 @@ app.whenReady().then(async () => {
     return
   }
 
-  await refreshRoots()
   await sidecar.waitForReady(8000).catch(() => { /* surfaced via crash event */ })
   createWindow()
-  if (!isSmoke) initUpdater()
+  initUpdater()
+  // Expand allowed roots from settings in the background; roots already default
+  // to appDataDir(), so this must not gate (or hang) window creation.
+  void refreshRoots()
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow() })
 })
 
