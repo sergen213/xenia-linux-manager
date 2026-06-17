@@ -97,6 +97,54 @@ fn known_methods_are_not_unknown() {
         "apply_save_import",
         "cleanup_save_import_staging",
         "list_save_backups",
+        // xenia pure
+        "fetch_latest_release",
+        "fetch_recent_releases",
+        "get_install_status",
+        "check_for_update",
+        "check_for_update_auto",
+        "clear_install_failure",
+        "cleanup_install_artifacts",
+        "switch_active_xenia_build",
+        "remove_xenia_install",
+        // library pure
+        "add_library_source",
+        "list_library_sources",
+        "remove_library_source",
+        "get_source_catalog",
+        "get_all_catalogs",
+        "browse_library",
+        "get_review_inbox",
+        "get_library_game_details",
+        "create_manual_game",
+        "update_library_game_identity",
+        "update_preferred_xenia_build",
+        "update_game_launch_environment",
+        "update_game_launch_wrapper",
+        "resolve_duplicate_review",
+        "get_launch_preflight",
+        "get_launch_preflight_with_profile",
+        "launch_library_game",
+        "export_game_desktop_shortcut",
+        "get_shortcut_locations",
+        "inspect_game_content",
+        "import_game_content",
+        "remove_game_content",
+        "fetch_game_artwork",
+        "fetch_all_artwork",
+        "detect_steam_install",
+        "export_game_to_steam",
+        // shell
+        "open_path",
+        // xenia stateful
+        "start_install",
+        "start_update",
+        "retry_last_operation",
+        // library stateful
+        "start_source_scan",
+        "scan_all_sources",
+        "cancel_scan",
+        "get_library_status",
     ] {
         let req = format!(r#"{{"id":"t","method":"{m}","params":{{}}}}"#);
         let lines = run_lines(&[&req], 2);
@@ -108,4 +156,20 @@ fn known_methods_are_not_unknown() {
             );
         }
     }
+}
+
+#[test]
+fn start_install_emits_job_created() {
+    let tmp = std::env::temp_dir().join("xlm_test_install");
+    let _ = std::fs::create_dir_all(&tmp);
+    let p = tmp.to_string_lossy();
+    // Minimal LinuxRelease with all required fields; channel is defaulted so may be omitted.
+    let release = r#"{"tag":"0","release_name":"test","build_id":"canary:0","published_at":"","html_url":"","asset_name":"x.zip","download_url":"http://127.0.0.1:9/none","size_bytes":0}"#;
+    let req = format!(
+        r#"{{"id":"i1","method":"start_install","params":{{"xeniaPath":"{p}","appDataPath":"{p}","release":{release}}}}}"#
+    );
+    // Collect several lines: ready + job:created + response (order of the last two may vary).
+    let lines = run_lines(&[&req], 4);
+    let kinds: Vec<String> = lines.iter().map(|l| l["event"].as_str().unwrap_or(l["kind"].as_str().unwrap_or("")).to_string()).collect();
+    assert!(kinds.iter().any(|k| k == "job:created"), "expected a job:created event, got {kinds:?}");
 }
