@@ -9,5 +9,6 @@ contextBridge.exposeInMainWorld('xlm', {
     ipcRenderer.on('xlm:event', listener)
     return () => ipcRenderer.removeListener('xlm:event', listener)
   },
+  openDialog: (opts: object) => ipcRenderer.invoke('xlm:openDialog', opts),
   convertFileSrc: (path: string) => `xlm-asset://local/${encodeURIComponent(path)}`,
 })

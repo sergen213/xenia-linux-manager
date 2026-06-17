@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain } from 'electron'
 import { join } from 'path'
 import { SidecarClient } from './sidecar'
 import { resolveSidecarPath, appDataDir } from './paths'
@@ -49,6 +49,11 @@ app.whenReady().then(async () => {
   sidecar.start()
 
   ipcMain.handle('xlm:invoke', (_e, method: string, params?: object) => sidecar.request(method, params))
+
+  ipcMain.handle('xlm:openDialog', (_e, opts: Electron.OpenDialogOptions) => {
+    const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
+    return win ? dialog.showOpenDialog(win, opts) : dialog.showOpenDialog(opts)
+  })
 
   handleAssetProtocol(() => allowedRoots)
 
