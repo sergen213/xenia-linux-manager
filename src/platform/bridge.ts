@@ -1,11 +1,10 @@
 /**
  * Platform bridge — the renderer's single seam to the Electron host.
  *
- * Provides drop-in replacements for the former `@tauri-apps/*` runtime APIs,
- * backed by the `window.xlm` contextBridge surface defined in
- * `electron/preload/index.ts`. Consumers import from here instead of Tauri, so
- * the host-specific shape adaptations (event subscription, file dialog) live in
- * exactly one place.
+ * Exposes `invoke` / `listen` / `convertFileSrc` / `open` backed by the
+ * `window.xlm` contextBridge surface defined in `electron/preload/index.ts`.
+ * Consumers import from here, so the host-specific shape adaptations (event
+ * subscription, file dialog) live in exactly one place.
  */
 
 export interface XlmBridge {
@@ -23,9 +22,9 @@ declare global {
 }
 
 /**
- * Invoke a sidecar command. Mirrors Tauri's `invoke`. Params are forwarded
- * verbatim through IPC to the sidecar, which deserializes them by camelCase key
- * (the convention the clients already use).
+ * Invoke a sidecar command. Params are forwarded verbatim through IPC to the
+ * sidecar, which deserializes them by camelCase key (the convention the clients
+ * already use).
  */
 export function invoke<T = unknown>(
   method: string,
@@ -34,14 +33,13 @@ export function invoke<T = unknown>(
   return window.xlm.invoke<T>(method, params);
 }
 
-/** Drop-in for Tauri's `UnlistenFn`. */
+/** Handle returned by `listen`; call it to unsubscribe. */
 export type UnlistenFn = () => void;
 
 /**
- * Subscribe to a sidecar event. Mirrors Tauri's `listen`: returns a
- * `Promise<UnlistenFn>` and delivers `{ payload }` to the handler, so existing
- * `(event) => event.payload` call sites keep working over `window.xlm.on`
- * (which is synchronous and delivers the bare payload).
+ * Subscribe to a sidecar event. Returns a `Promise<UnlistenFn>` and delivers
+ * `{ payload }` to the handler, adapting `window.xlm.on` (which is synchronous
+ * and delivers the bare payload) so `(event) => event.payload` call sites work.
  */
 export function listen<T = unknown>(
   event: string,
@@ -53,12 +51,12 @@ export function listen<T = unknown>(
   return Promise.resolve(unlisten);
 }
 
-/** Mirrors Tauri's `convertFileSrc` — resolves a local path to an asset URL. */
+/** Resolve a local file path to an `xlm-asset://` URL the renderer can load. */
 export function convertFileSrc(path: string): string {
   return window.xlm.convertFileSrc(path);
 }
 
-/** Options accepted by `open` — the subset of Tauri's dialog API in use. */
+/** Options accepted by `open` — the subset of the dialog API in use. */
 export interface OpenDialogOptions {
   directory?: boolean;
   multiple?: boolean;
@@ -66,10 +64,9 @@ export interface OpenDialogOptions {
 }
 
 /**
- * Open a native file/folder picker. Mirrors Tauri's plugin-dialog `open`:
- * resolves to the selected path, an array when `multiple`, or `null` when
- * cancelled. Translates Tauri-style options to Electron dialog properties and
- * the `{ canceled, filePaths }` result back to the Tauri return shape.
+ * Open a native file/folder picker: resolves to the selected path, an array
+ * when `multiple`, or `null` when cancelled. Translates the options to Electron
+ * dialog properties and maps the `{ canceled, filePaths }` result back.
  */
 export async function open(
   opts: OpenDialogOptions = {},
