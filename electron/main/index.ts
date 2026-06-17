@@ -37,6 +37,8 @@ function createWindow(): BrowserWindow {
     if (!win.isDestroyed()) win.webContents.send('xlm:event', e)
   })
   win.on('closed', unsubEvents)
+  const unsubCrash = sidecar.on('crash', () => { if (!win.isDestroyed()) win.webContents.send('xlm:event', { event: 'sidecar:crash', payload: {} }) })
+  win.on('closed', unsubCrash)
   if (!app.isPackaged && process.env['ELECTRON_RENDERER_URL']) {
     win.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
