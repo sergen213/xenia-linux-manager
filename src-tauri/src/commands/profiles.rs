@@ -1,7 +1,6 @@
 use crate::profiles::sources;
 use crate::profiles::storage;
 
-#[tauri::command]
 pub fn list_game_profiles(
     library_metadata_path: String,
     game_id: String,
@@ -9,7 +8,6 @@ pub fn list_game_profiles(
     storage::load_inventory(&library_metadata_path, &game_id)
 }
 
-#[tauri::command]
 pub fn create_game_profile(
     library_metadata_path: String,
     game_id: String,
@@ -18,7 +16,6 @@ pub fn create_game_profile(
     storage::create_profile(&library_metadata_path, &game_id, &name)
 }
 
-#[tauri::command]
 pub fn rename_game_profile(
     library_metadata_path: String,
     game_id: String,
@@ -28,7 +25,6 @@ pub fn rename_game_profile(
     storage::rename_profile(&library_metadata_path, &game_id, &profile_id, &new_name)
 }
 
-#[tauri::command]
 pub fn delete_game_profile(
     library_metadata_path: String,
     game_id: String,
@@ -37,7 +33,6 @@ pub fn delete_game_profile(
     storage::delete_profile(&library_metadata_path, &game_id, &profile_id)
 }
 
-#[tauri::command]
 pub fn select_active_game_profile(
     library_metadata_path: String,
     game_id: String,
@@ -46,7 +41,6 @@ pub fn select_active_game_profile(
     storage::select_active_profile(&library_metadata_path, &game_id, profile_id.as_deref())
 }
 
-#[tauri::command]
 pub fn get_profile_effective_config(
     library_metadata_path: String,
     game_id: String,
@@ -55,7 +49,6 @@ pub fn get_profile_effective_config(
     crate::profiles::merge::compute_effective_config(&library_metadata_path, &game_id, &profile_id)
 }
 
-#[tauri::command]
 pub fn save_profile_overrides(
     library_metadata_path: String,
     game_id: String,
@@ -69,7 +62,6 @@ pub fn save_profile_overrides(
 // Materialization commands
 // ---------------------------------------------------------------------------
 
-#[tauri::command]
 pub fn get_materialized_launch_config(
     app_data_path: String,
     library_metadata_path: String,
@@ -86,13 +78,11 @@ pub fn get_materialized_launch_config(
 // Recommendation commands
 // ---------------------------------------------------------------------------
 
-#[tauri::command]
 pub fn check_recommendation_availability(game_id: String) -> sources::RecommendationAvailability {
     let source = sources::default_recommendation_source();
     sources::check_recommendation(&source, &game_id)
 }
 
-#[tauri::command]
 pub fn apply_recommended_profile(
     library_metadata_path: String,
     game_id: String,

@@ -1,4 +1,4 @@
-//! Output event sink. Replaces Tauri's AppHandle.emit for the sidecar.
+//! Output event sink. Replaces Tauri's app-handle emit for the sidecar.
 //!
 //! All emitted events and (separately) all RPC responses are serialized to
 //! single-line JSON and funneled through one std::sync::mpsc::Sender to the

@@ -8,7 +8,6 @@ pub struct ImportPatchInput {
     pub contents: String,
 }
 
-#[tauri::command]
 pub async fn check_patches_status(app_data_path: String) -> deploy::PatchesVersionInfo {
     match deploy::check_patches_version(&app_data_path).await {
         Ok(info) => info,
@@ -25,7 +24,6 @@ pub async fn check_patches_status(app_data_path: String) -> deploy::PatchesVersi
     }
 }
 
-#[tauri::command]
 pub async fn deploy_game_patches(app_data_path: String) -> deploy::DeployPatchesResult {
     match deploy::deploy_patches(&app_data_path).await {
         Ok(result) => result,
@@ -41,7 +39,6 @@ pub async fn deploy_game_patches(app_data_path: String) -> deploy::DeployPatches
     }
 }
 
-#[tauri::command]
 pub fn get_game_xenia_patches(
     app_data_path: String,
     title_id: String,
@@ -49,7 +46,6 @@ pub fn get_game_xenia_patches(
     patches::xenia_patches::find_patches_for_game(&app_data_path, &title_id)
 }
 
-#[tauri::command]
 pub async fn list_xenia_community_patch_candidates(
     app_data_path: String,
     title_id: String,
@@ -57,7 +53,6 @@ pub async fn list_xenia_community_patch_candidates(
     patches::xenia_patches::find_community_patch_candidates(&app_data_path, &title_id).await
 }
 
-#[tauri::command]
 pub async fn fetch_xenia_community_patch(
     app_data_path: String,
     remote_key: String,
@@ -65,7 +60,6 @@ pub async fn fetch_xenia_community_patch(
     patches::xenia_patches::fetch_community_patch(&app_data_path, &remote_key).await
 }
 
-#[tauri::command]
 pub fn import_xenia_patch_file(
     app_data_path: String,
     input: ImportPatchInput,
@@ -73,7 +67,6 @@ pub fn import_xenia_patch_file(
     patches::xenia_patches::import_patch_file(&app_data_path, &input.file_name, &input.contents)
 }
 
-#[tauri::command]
 pub fn toggle_xenia_patch_entry(
     app_data_path: String,
     file_path: String,

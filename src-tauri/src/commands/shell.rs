@@ -37,7 +37,6 @@ fn ensure_allowed_path(target: &Path, allowed_roots: &[String]) -> Result<(), St
 
 /// Open a file or directory in the system's default handler (file manager, etc.).
 /// Uses xdg-open on Linux, which is reliable even inside AppImage.
-#[tauri::command]
 pub fn open_path(path: String, allowed_roots: Vec<String>) -> Result<(), String> {
     let path = path.trim().to_string();
     if path.is_empty() {

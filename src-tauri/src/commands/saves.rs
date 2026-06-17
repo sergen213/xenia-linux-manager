@@ -6,7 +6,6 @@ use crate::saves::paths::{self, ExportPreflight, ExportableItem};
 use crate::saves::storage;
 
 /// Return a preflight payload describing what can be exported for a game.
-#[tauri::command]
 pub fn get_export_preflight(
     library_metadata_path: String,
     xenia_path: String,
@@ -16,7 +15,6 @@ pub fn get_export_preflight(
 }
 
 /// Execute an export, producing a portable zip archive.
-#[tauri::command]
 pub async fn export_save_archive(
     app_data_path: String,
     library_metadata_path: String,
@@ -54,7 +52,6 @@ pub async fn export_save_archive(
 }
 
 /// Inspect an archive for import: extract, read manifest, detect target game.
-#[tauri::command]
 pub async fn inspect_save_archive(
     app_data_path: String,
     library_metadata_path: String,
@@ -64,7 +61,6 @@ pub async fn inspect_save_archive(
 }
 
 /// Generate a conflict plan for an import operation.
-#[tauri::command]
 pub fn get_import_conflict_plan(
     library_metadata_path: String,
     xenia_path: String,
@@ -97,7 +93,6 @@ pub fn get_import_conflict_plan(
 }
 
 /// Apply an import according to the conflict plan with backup-before-apply.
-#[tauri::command]
 pub async fn apply_save_import(
     app_data_path: String,
     library_metadata_path: String,
@@ -118,7 +113,6 @@ pub async fn apply_save_import(
 }
 
 /// Clean up import staging directory.
-#[tauri::command]
 pub async fn cleanup_save_import_staging(app_data_path: String) -> Result<(), String> {
     archive::cleanup_import_staging(&app_data_path)
         .await
@@ -126,7 +120,6 @@ pub async fn cleanup_save_import_staging(app_data_path: String) -> Result<(), St
 }
 
 /// List existing backup archives.
-#[tauri::command]
 pub fn list_save_backups(app_data_path: String) -> Vec<storage::BackupEntry> {
     storage::list_backups(&app_data_path)
 }

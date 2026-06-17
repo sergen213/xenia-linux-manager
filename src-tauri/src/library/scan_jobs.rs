@@ -12,8 +12,7 @@
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 
-use tauri::{AppHandle, Manager};
-
+use crate::events::EventSink;
 use crate::jobs::events;
 use crate::jobs::store;
 use crate::jobs::{JobRegistry, LogLevel};
@@ -33,8 +32,8 @@ pub struct ScanRequest {
 
 #[derive(Clone)]
 struct ScanRuntimeContext {
-    pub app_handle: AppHandle,
-    pub registry: Arc<JobRegistry>,
+    events: EventSink,
+    registry: Arc<JobRegistry>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -75,12 +74,12 @@ impl ScanCoordinator {
     /// Enqueue a scan request. If no scan is currently active, it starts
     /// immediately. Otherwise it is queued.
     pub fn enqueue_scan(
-        &self,
+        self: &Arc<Self>,
         job_id: String,
         source_id: String,
         library_metadata_path: String,
         app_data_path: String,
-        app_handle: AppHandle,
+        events: EventSink,
         registry: Arc<JobRegistry>,
         launch_mode: ScanLaunchMode,
     ) {
@@ -94,7 +93,7 @@ impl ScanCoordinator {
         let should_start = {
             let mut state = self.state.lock().unwrap();
             state.runtime = Some(ScanRuntimeContext {
-                app_handle: app_handle.clone(),
+                events: events.clone(),
                 registry: Arc::clone(&registry),
             });
             if state.active.is_empty() || launch_mode == ScanLaunchMode::StartImmediately {
@@ -107,7 +106,7 @@ impl ScanCoordinator {
         };
 
         if should_start {
-            self.spawn_scan(request, app_handle, registry);
+            self.spawn_scan(request, events, registry);
         }
     }
 
@@ -146,7 +145,7 @@ impl ScanCoordinator {
     }
 
     /// Mark a scan as finished and start the next queued scan if any.
-    pub fn finish_scan(&self, job_id: &str) {
+    pub fn finish_scan(self: &Arc<Self>, job_id: &str) {
         let next = {
             let mut state = self.state.lock().unwrap();
             state.active.retain(|id| id != job_id);
@@ -163,21 +162,23 @@ impl ScanCoordinator {
         };
 
         if let Some((request, Some(runtime))) = next {
-            self.spawn_scan(request, runtime.app_handle, runtime.registry);
+            self.spawn_scan(request, runtime.events, runtime.registry);
         }
     }
 
     /// Spawn a scan job on the async runtime and release the active slot when
     /// the runtime exits so queued scans can advance immediately.
-    fn spawn_scan(&self, request: ScanRequest, app: AppHandle, registry: Arc<JobRegistry>) {
+    ///
+    /// Captures an `Arc<Self>` clone so the spawned task can run the
+    /// cancellation check and hand off to `finish_scan` once the scan reaches
+    /// any terminal state.
+    fn spawn_scan(self: &Arc<Self>, request: ScanRequest, events: EventSink, registry: Arc<JobRegistry>) {
+        let coordinator = Arc::clone(self);
         let job_id = request.job_id.clone();
-        let source_id = request.source_id.clone();
-        let lib_path = request.library_metadata_path.clone();
-        let app_data_path = request.app_data_path.clone();
 
-        tauri::async_runtime::spawn(async move {
-            run_scan_job(&app, &registry, &job_id, &source_id, &lib_path, &app_data_path).await;
-            finish_scan_runtime_slot(&app, &job_id);
+        tokio::spawn(async move {
+            run_scan_job(&events, &registry, &coordinator, request).await;
+            coordinator.finish_scan(&job_id);
         });
     }
 }
@@ -204,23 +205,26 @@ impl std::fmt::Debug for ScanCoordinator {
 /// Coordinator cleanup is handled by the caller so every exit path releases the
 /// active slot exactly once.
 async fn run_scan_job(
-    app: &AppHandle,
-    registry: &JobRegistry,
-    job_id: &str,
-    source_id: &str,
-    library_metadata_path: &str,
-    app_data_path: &str,
+    events: &EventSink,
+    registry: &Arc<JobRegistry>,
+    coordinator: &Arc<ScanCoordinator>,
+    request: ScanRequest,
 ) {
     use crate::library::sources;
 
+    let job_id = request.job_id.as_str();
+    let source_id = request.source_id.as_str();
+    let library_metadata_path = request.library_metadata_path.as_str();
+    let app_data_path = request.app_data_path.as_str();
+
     log_and_emit(
-        app,
+        events,
         registry,
         job_id,
         &format!("Starting scan for source {source_id}"),
         LogLevel::Info,
     );
-    update_progress(app, registry, job_id, 5, "Preparing scan...");
+    update_progress(events, registry, job_id, 5, "Preparing scan...");
 
     // Load source to get the root path.
     let source_list = sources::list_sources(library_metadata_path);
@@ -228,7 +232,7 @@ async fn run_scan_job(
         Some(s) => s.clone(),
         None => {
             fail_job(
-                app,
+                events,
                 registry,
                 job_id,
                 app_data_path,
@@ -241,13 +245,13 @@ async fn run_scan_job(
     // Verify the source path is accessible.
     if !source.root_path.exists() {
         let msg = format!("Source path not accessible: {}", source.root_path.display());
-        log_and_emit(app, registry, job_id, &msg, LogLevel::Error);
-        fail_job(app, registry, job_id, app_data_path, &msg);
+        log_and_emit(events, registry, job_id, &msg, LogLevel::Error);
+        fail_job(events, registry, job_id, app_data_path, &msg);
         return;
     }
 
     update_progress(
-        app,
+        events,
         registry,
         job_id,
         10,
@@ -264,35 +268,33 @@ async fn run_scan_job(
     let existing_paths =
         crate::library::catalog::collect_existing_paths(library_metadata_path, &other_source_ids);
 
-    update_progress(app, registry, job_id, 20, "Scanning files...");
+    update_progress(events, registry, job_id, 20, "Scanning files...");
     log_and_emit(
-        app,
+        events,
         registry,
         job_id,
         &format!("Scanning: {}", source.root_path.display()),
         LogLevel::Info,
     );
 
-    // Run the discovery engine with cancellation support.
-    let job_id_owned = job_id.to_string();
-    let coordinator_ref = app.try_state::<std::sync::Arc<ScanCoordinator>>();
+    // Run the discovery engine with cancellation support. Capture an
+    // Arc<ScanCoordinator> clone keyed on this scan's job_id so cancellation
+    // can be observed without reaching into Tauri-managed state.
+    let cancel_coordinator = Arc::clone(coordinator);
+    let job_id_owned = request.job_id.clone();
+    let is_cancelled = move || cancel_coordinator.is_cancelled(&job_id_owned);
     let results = crate::library::discovery::discover_candidates(
         &source.root_path,
         source_id,
         &existing_paths,
-        || {
-            coordinator_ref
-                .as_ref()
-                .map(|c| c.is_cancelled(&job_id_owned))
-                .unwrap_or(false)
-        },
+        is_cancelled,
     );
 
-    update_progress(app, registry, job_id, 80, "Persisting results...");
+    update_progress(events, registry, job_id, 80, "Persisting results...");
 
     // Log discovery statistics.
     log_and_emit(
-        app,
+        events,
         registry,
         job_id,
         &format!(
@@ -314,7 +316,7 @@ async fn run_scan_job(
     // Log individual errors as warnings.
     for err_msg in &results.errors {
         log_and_emit(
-            app,
+            events,
             registry,
             job_id,
             &format!("Scan error: {err_msg}"),
@@ -329,9 +331,9 @@ async fn run_scan_job(
             let snapshot = crate::library::catalog::to_source_snapshot(&catalog_summary);
             let _ = sources::update_scan_summary(library_metadata_path, source_id, snapshot);
 
-            update_progress(app, registry, job_id, 100, "Scan complete");
+            update_progress(events, registry, job_id, 100, "Scan complete");
             log_and_emit(
-                app,
+                events,
                 registry,
                 job_id,
                 &format!("Scan finished: {}", catalog_summary.status),
@@ -341,26 +343,26 @@ async fn run_scan_job(
             if results.was_cancelled {
                 // Mark as failed with cancellation reason but keep persisted results.
                 fail_job(
-                    app,
+                    events,
                     registry,
                     job_id,
                     app_data_path,
                     "Cancelled by user (partial results preserved)",
                 );
             } else {
-                complete_job(app, registry, job_id, app_data_path);
+                complete_job(events, registry, job_id, app_data_path);
             }
         }
         Err(persist_err) => {
             log_and_emit(
-                app,
+                events,
                 registry,
                 job_id,
                 &format!("Failed to persist scan results: {persist_err}"),
                 LogLevel::Error,
             );
             fail_job(
-                app,
+                events,
                 registry,
                 job_id,
                 app_data_path,
@@ -370,18 +372,12 @@ async fn run_scan_job(
     }
 }
 
-fn finish_scan_runtime_slot(app: &AppHandle, job_id: &str) {
-    if let Some(coordinator) = app.try_state::<Arc<ScanCoordinator>>() {
-        coordinator.finish_scan(job_id);
-    }
-}
-
 // ---------------------------------------------------------------------------
 // Job lifecycle helpers (mirrors the pattern from commands/xenia.rs)
 // ---------------------------------------------------------------------------
 
 fn log_and_emit(
-    app: &AppHandle,
+    sink: &EventSink,
     registry: &JobRegistry,
     job_id: &str,
     message: &str,
@@ -398,29 +394,29 @@ fn log_and_emit(
         .map(|j| j.logs.last().map(|l| l.timestamp).unwrap_or(0))
         .unwrap_or(0);
 
-    events::emit_job_log(app, job_id, message, level_str, timestamp);
+    events::emit_job_log(sink, job_id, message, level_str, timestamp);
 }
 
-fn update_progress(app: &AppHandle, registry: &JobRegistry, job_id: &str, pct: u8, label: &str) {
+fn update_progress(sink: &EventSink, registry: &JobRegistry, job_id: &str, pct: u8, label: &str) {
     registry.update(job_id, |j| j.set_progress(pct));
-    events::emit_job_progress(app, job_id, pct, label);
+    events::emit_job_progress(sink, job_id, pct, label);
 }
 
 fn persist_terminal_job(app_data_path: &str, job: crate::jobs::Job) {
     let _ = store::append_job(app_data_path, job);
 }
 
-fn complete_job(app: &AppHandle, registry: &JobRegistry, job_id: &str, app_data_path: &str) {
+fn complete_job(sink: &EventSink, registry: &JobRegistry, job_id: &str, app_data_path: &str) {
     if let Some(job) = registry.update(job_id, |j| j.complete()) {
-        events::emit_job_completed(app, &job);
+        events::emit_job_completed(sink, &job);
         persist_terminal_job(app_data_path, job);
     }
 }
 
-fn fail_job(app: &AppHandle, registry: &JobRegistry, job_id: &str, app_data_path: &str, error: &str) {
-    log_and_emit(app, registry, job_id, error, LogLevel::Error);
+fn fail_job(sink: &EventSink, registry: &JobRegistry, job_id: &str, app_data_path: &str, error: &str) {
+    log_and_emit(sink, registry, job_id, error, LogLevel::Error);
     if let Some(job) = registry.update(job_id, |j| j.fail(error)) {
-        events::emit_job_failed(app, &job);
+        events::emit_job_failed(sink, &job);
         persist_terminal_job(app_data_path, job);
     }
 }
@@ -445,14 +441,14 @@ mod tests {
 
     #[test]
     fn coordinator_starts_empty() {
-        let coord = ScanCoordinator::new();
+        let coord = Arc::new(ScanCoordinator::new());
         assert_eq!(coord.active_scan_count(), 0);
         assert_eq!(coord.queued_scan_count(), 0);
     }
 
     #[test]
     fn cancel_active_marks_cancelled() {
-        let coord = ScanCoordinator::new();
+        let coord = Arc::new(ScanCoordinator::new());
         {
             let mut state = coord.state.lock().unwrap();
             state.active.push("active-1".into());
@@ -463,7 +459,7 @@ mod tests {
 
     #[test]
     fn cancel_nonexistent_is_noop() {
-        let coord = ScanCoordinator::new();
+        let coord = Arc::new(ScanCoordinator::new());
         coord.cancel_scan("nonexistent");
         assert!(!coord.is_cancelled("nonexistent"));
     }
@@ -484,7 +480,7 @@ mod tests {
 
     #[test]
     fn finish_scan_removes_from_active() {
-        let coord = ScanCoordinator::new();
+        let coord = Arc::new(ScanCoordinator::new());
         {
             let mut state = coord.state.lock().unwrap();
             state.active.push("scan-1".into());
@@ -496,7 +492,7 @@ mod tests {
 
     #[test]
     fn finish_scan_clears_cancelled_flag() {
-        let coord = ScanCoordinator::new();
+        let coord = Arc::new(ScanCoordinator::new());
         {
             let mut state = coord.state.lock().unwrap();
             state.active.push("scan-1".into());
@@ -508,7 +504,7 @@ mod tests {
 
     #[test]
     fn multiple_active_tracked() {
-        let coord = ScanCoordinator::new();
+        let coord = Arc::new(ScanCoordinator::new());
         {
             let mut state = coord.state.lock().unwrap();
             state.active.push("a1".into());
@@ -519,7 +515,7 @@ mod tests {
 
     #[test]
     fn drain_queue_clears_entries() {
-        let coord = ScanCoordinator::new();
+        let coord = Arc::new(ScanCoordinator::new());
         // drain on empty is a no-op
         coord.drain_queue();
         assert_eq!(coord.queued_scan_count(), 0);
@@ -527,7 +523,7 @@ mod tests {
 
     #[test]
     fn finish_scan_promotes_next_queued_request() {
-        let coord = ScanCoordinator::new();
+        let coord = Arc::new(ScanCoordinator::new());
         {
             let mut state = coord.state.lock().unwrap();
             state.active.push("scan-1".into());
@@ -548,7 +544,7 @@ mod tests {
 
     #[test]
     fn finish_scan_clears_cancelled_flag_and_promotes_next_request() {
-        let coord = ScanCoordinator::new();
+        let coord = Arc::new(ScanCoordinator::new());
         {
             let mut state = coord.state.lock().unwrap();
             state.active.push("scan-1".into());

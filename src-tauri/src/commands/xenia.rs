@@ -1,4 +1,4 @@
-//! Tauri commands for the Xenia install lifecycle.
+//! Commands for the Xenia install lifecycle.
 //!
 //! Exposes release discovery, install/update operations, status queries,
 //! retry, cleanup, and removal to the renderer. All commands delegate to
@@ -7,8 +7,8 @@
 
 use std::sync::Arc;
 
-use tauri::{AppHandle, State};
-
+use crate::app_ctx::AppCtx;
+use crate::events::EventSink;
 use crate::jobs::events;
 use crate::jobs::store;
 use crate::jobs::{JobRegistry, LogLevel};
@@ -22,14 +22,12 @@ use crate::xenia::releases::{self, LinuxRelease, ReleaseChannel};
 // Status and update commands
 // ---------------------------------------------------------------------------
 
-#[tauri::command]
 pub async fn fetch_latest_release(channel: ReleaseChannel) -> Result<LinuxRelease, String> {
     releases::fetch_latest_linux_release(channel)
         .await
         .map_err(|e| e.to_string())
 }
 
-#[tauri::command]
 pub async fn fetch_recent_releases(channel: ReleaseChannel) -> Result<Vec<LinuxRelease>, String> {
     releases::fetch_recent_linux_releases(channel, 30)
         .await
@@ -40,7 +38,6 @@ pub async fn fetch_recent_releases(channel: ReleaseChannel) -> Result<Vec<LinuxR
 ///
 /// Returns the lifecycle status, installed manifest (if any), and
 /// failure context so the renderer can show accurate status on startup.
-#[tauri::command]
 pub fn get_install_status(app_data_path: String) -> InstallState {
     install_state::load_state(&app_data_path)
 }
@@ -49,7 +46,6 @@ pub fn get_install_status(app_data_path: String) -> InstallState {
 ///
 /// Returns `Some(release)` if the latest release tag differs from the
 /// installed tag, or `None` if already up to date.
-#[tauri::command]
 pub async fn check_for_update(installed_tag: String) -> Result<Option<LinuxRelease>, String> {
     let latest = releases::fetch_latest_linux_release(ReleaseChannel::Canary)
         .await
@@ -66,7 +62,6 @@ pub async fn check_for_update(installed_tag: String) -> Result<Option<LinuxRelea
 ///
 /// Combines loading the install state with fetching the latest release
 /// to return update availability and the new release metadata.
-#[tauri::command]
 pub async fn check_for_update_auto(
     app_data_path: String,
 ) -> Result<Option<LinuxRelease>, String> {
@@ -98,31 +93,29 @@ pub async fn check_for_update_auto(
 /// status.
 ///
 /// Returns the job ID immediately so the renderer can track progress.
-#[tauri::command]
 pub async fn start_install(
+    ctx: &AppCtx,
     xenia_path: String,
-    app: AppHandle,
-    registry: State<'_, Arc<JobRegistry>>,
     app_data_path: String,
     release: LinuxRelease,
 ) -> Result<String, String> {
-    let job_id = registry.register(
+    let job_id = ctx.jobs.register(
         format!("Install {} {}", release.channel.display_name(), &release.tag),
         "install".into(),
     );
 
     // Emit job-created event.
-    if let Some(job) = registry.get(&job_id) {
-        events::emit_job_created(&app, &job);
+    if let Some(job) = ctx.jobs.get(&job_id) {
+        events::emit_job_created(&ctx.events, &job);
     }
 
-    let reg = Arc::clone(&registry);
-    let app_handle = app.clone();
+    let reg = Arc::clone(&ctx.jobs);
+    let events = ctx.events.clone();
     let jid = job_id.clone();
     let data_path = app_data_path.clone();
 
-    tauri::async_runtime::spawn(async move {
-        run_lifecycle_pipeline(&xenia_path, &app_handle, &reg, &jid, &data_path, &release, false).await;
+    tokio::spawn(async move {
+        run_lifecycle_pipeline(&xenia_path, events, &reg, &jid, &data_path, &release, false).await;
     });
 
     Ok(job_id)
@@ -132,30 +125,28 @@ pub async fn start_install(
 ///
 /// Works the same as install but categorized as "update" and preserves
 /// the previous build until the new one is fully promoted.
-#[tauri::command]
 pub async fn start_update(
+    ctx: &AppCtx,
     xenia_path: String,
-    app: AppHandle,
-    registry: State<'_, Arc<JobRegistry>>,
     app_data_path: String,
     release: LinuxRelease,
 ) -> Result<String, String> {
-    let job_id = registry.register(
+    let job_id = ctx.jobs.register(
         format!("Update {} to {}", release.channel.display_name(), &release.tag),
         "update".into(),
     );
 
-    if let Some(job) = registry.get(&job_id) {
-        events::emit_job_created(&app, &job);
+    if let Some(job) = ctx.jobs.get(&job_id) {
+        events::emit_job_created(&ctx.events, &job);
     }
 
-    let reg = Arc::clone(&registry);
-    let app_handle = app.clone();
+    let reg = Arc::clone(&ctx.jobs);
+    let events = ctx.events.clone();
     let jid = job_id.clone();
     let data_path = app_data_path.clone();
 
-    tauri::async_runtime::spawn(async move {
-        run_lifecycle_pipeline(&xenia_path, &app_handle, &reg, &jid, &data_path, &release, true).await;
+    tokio::spawn(async move {
+        run_lifecycle_pipeline(&xenia_path, events, &reg, &jid, &data_path, &release, true).await;
     });
 
     Ok(job_id)
@@ -166,11 +157,9 @@ pub async fn start_update(
 /// Reads the persisted failure context to determine whether to retry
 /// an install or an update, then fetches the latest release and starts
 /// the appropriate pipeline.
-#[tauri::command]
 pub async fn retry_last_operation(
+    ctx: &AppCtx,
     xenia_path: String,
-    app: AppHandle,
-    registry: State<'_, Arc<JobRegistry>>,
     app_data_path: String,
 ) -> Result<String, String> {
     let state = install_state::load_state(&app_data_path);
@@ -194,19 +183,19 @@ pub async fn retry_last_operation(
         format!("Retry install {} {}", release.channel.display_name(), &release.tag)
     };
 
-    let job_id = registry.register(label, category.into());
+    let job_id = ctx.jobs.register(label, category.into());
 
-    if let Some(job) = registry.get(&job_id) {
-        events::emit_job_created(&app, &job);
+    if let Some(job) = ctx.jobs.get(&job_id) {
+        events::emit_job_created(&ctx.events, &job);
     }
 
-    let reg = Arc::clone(&registry);
-    let app_handle = app.clone();
+    let reg = Arc::clone(&ctx.jobs);
+    let events = ctx.events.clone();
     let jid = job_id.clone();
     let data_path = app_data_path.clone();
 
-    tauri::async_runtime::spawn(async move {
-        run_lifecycle_pipeline(&xenia_path, &app_handle, &reg, &jid, &data_path, &release, is_update).await;
+    tokio::spawn(async move {
+        run_lifecycle_pipeline(&xenia_path, events, &reg, &jid, &data_path, &release, is_update).await;
     });
 
     Ok(job_id)
@@ -218,7 +207,6 @@ pub async fn retry_last_operation(
 
 /// Clear failure context from the install state without changing the
 /// installed build.
-#[tauri::command]
 pub fn clear_install_failure(app_data_path: String) -> Result<(), String> {
     let mut state = install_state::load_state(&app_data_path);
     install_state::clear_failure(&mut state);
@@ -226,7 +214,6 @@ pub fn clear_install_failure(app_data_path: String) -> Result<(), String> {
 }
 
 /// Clean up staging and download artifacts for a specific release.
-#[tauri::command]
 pub async fn cleanup_install_artifacts(
     app_data_path: String,
     release: LinuxRelease,
@@ -236,7 +223,6 @@ pub async fn cleanup_install_artifacts(
         .map_err(|e| e.to_string())
 }
 
-#[tauri::command]
 pub async fn switch_active_xenia_build(
     app_data_path: String,
     build_id: String,
@@ -247,7 +233,6 @@ pub async fn switch_active_xenia_build(
         .map(|_| state)
 }
 
-#[tauri::command]
 pub async fn remove_xenia_install(
     xenia_path: String,
     app_data_path: String,
@@ -312,7 +297,7 @@ pub async fn remove_xenia_install(
 /// (preserving the existing manifest). Otherwise as install failures.
 async fn run_lifecycle_pipeline(
     xenia_path: &str,
-    app: &AppHandle,
+    events: EventSink,
     registry: &Arc<JobRegistry>,
     job_id: &str,
     app_data_path: &str,
@@ -320,11 +305,11 @@ async fn run_lifecycle_pipeline(
     is_update: bool,
 ) {
     // -- Step 1: Download (0-60% of progress) --
-    log_and_emit(app, registry, job_id, "Starting download...", LogLevel::Info);
-    update_progress(app, registry, job_id, 1, "Downloading archive...");
+    log_and_emit(&events, registry, job_id, "Starting download...", LogLevel::Info);
+    update_progress(&events, registry, job_id, 1, "Downloading archive...");
 
     let archive_result = {
-        let app_ref = app.clone();
+        let events_ref = events.clone();
         let reg_ref_jid = job_id.to_string();
         let reg_arc = Arc::clone(registry);
 
@@ -332,7 +317,7 @@ async fn run_lifecycle_pipeline(
             let pct = progress.percent.unwrap_or(0);
             // Scale download progress to 0-60% of overall.
             let scaled = (pct as u16 * 60 / 100).min(60) as u8;
-            update_progress(&app_ref, &reg_arc, &reg_ref_jid, scaled, "Downloading archive...");
+            update_progress(&events_ref, &reg_arc, &reg_ref_jid, scaled, "Downloading archive...");
         })
         .await
     };
@@ -340,7 +325,7 @@ async fn run_lifecycle_pipeline(
     let archive_path = match archive_result {
         Ok(path) => {
             log_and_emit(
-                app,
+                &events,
                 registry,
                 job_id,
                 &format!("Download complete: {}", path.display()),
@@ -351,14 +336,14 @@ async fn run_lifecycle_pipeline(
         Err(e) => {
             let error = format!("Download failed: {e}");
             record_failure(app_data_path, release, "download", &error, is_update);
-            fail_job(app, registry, job_id, app_data_path, &error);
+            fail_job(&events, registry, job_id, app_data_path, &error);
             return;
         }
     };
 
     // -- Step 2: Extract (60-80% of progress) --
-    update_progress(app, registry, job_id, 61, "Extracting archive...");
-    log_and_emit(app, registry, job_id, "Extracting archive...", LogLevel::Info);
+    update_progress(&events, registry, job_id, 61, "Extracting archive...");
+    log_and_emit(&events, registry, job_id, "Extracting archive...", LogLevel::Info);
 
     let staging_result =
         archive::extract_archive(app_data_path, &archive_path, &release.build_id).await;
@@ -366,7 +351,7 @@ async fn run_lifecycle_pipeline(
     let staging_dir = match staging_result {
         Ok(dir) => {
             log_and_emit(
-                app,
+                &events,
                 registry,
                 job_id,
                 &format!("Extracted to: {}", dir.display()),
@@ -377,15 +362,15 @@ async fn run_lifecycle_pipeline(
         Err(e) => {
             let error = format!("Extraction failed: {e}");
             record_failure(app_data_path, release, "extract", &error, is_update);
-            fail_job(app, registry, job_id, app_data_path, &error);
+            fail_job(&events, registry, job_id, app_data_path, &error);
             return;
         }
     };
 
     // -- Step 3: Validate layout (80-85% of progress) --
-    update_progress(app, registry, job_id, 81, "Validating extracted files...");
+    update_progress(&events, registry, job_id, 81, "Validating extracted files...");
     log_and_emit(
-        app,
+        &events,
         registry,
         job_id,
         "Validating extracted layout...",
@@ -395,7 +380,7 @@ async fn run_lifecycle_pipeline(
     let exec_path = match archive::validate_extracted_layout(&staging_dir).await {
         Ok(path) => {
             log_and_emit(
-                app,
+                &events,
                 registry,
                 job_id,
                 &format!("Validated executable: {}", path.display()),
@@ -406,20 +391,20 @@ async fn run_lifecycle_pipeline(
         Err(e) => {
             let error = format!("Validation failed: {e}");
             record_failure(app_data_path, release, "validate", &error, is_update);
-            fail_job(app, registry, job_id, app_data_path, &error);
+            fail_job(&events, registry, job_id, app_data_path, &error);
             return;
         }
     };
 
     // -- Step 4: Promote staged build (85-95% of progress) --
-    update_progress(app, registry, job_id, 86, "Promoting build...");
-    log_and_emit(app, registry, job_id, "Promoting staged build...", LogLevel::Info);
+    update_progress(&events, registry, job_id, 86, "Promoting build...");
+    log_and_emit(&events, registry, job_id, "Promoting staged build...", LogLevel::Info);
 
     let (final_exec, install_dir) =
         match lifecycle::promote_staged_build(xenia_path, app_data_path, release, &exec_path).await {
             Ok(result) => {
                 log_and_emit(
-                    app,
+                    &events,
                     registry,
                     job_id,
                     &format!("Build promoted to: {}", result.1.display()),
@@ -430,19 +415,19 @@ async fn run_lifecycle_pipeline(
             Err(e) => {
                 let error = format!("Promotion failed: {e}");
                 record_failure(app_data_path, release, "promote", &error, is_update);
-                fail_job(app, registry, job_id, app_data_path, &error);
+                fail_job(&events, registry, job_id, app_data_path, &error);
                 return;
             }
         };
 
     // -- Step 5: Record success and clean up (95-100%) --
-    update_progress(app, registry, job_id, 96, "Recording install state...");
+    update_progress(&events, registry, job_id, 96, "Recording install state...");
 
     let mut state = install_state::load_state(app_data_path);
     install_state::record_success(&mut state, release, &final_exec, &install_dir);
     if let Err(e) = install_state::save_state(app_data_path, &state) {
         log_and_emit(
-            app,
+            &events,
             registry,
             job_id,
             &format!("Warning: could not persist install state: {e}"),
@@ -453,8 +438,8 @@ async fn run_lifecycle_pipeline(
     // Clean up download artifacts (best-effort).
     let _ = lifecycle::cleanup_artifacts(app_data_path, release).await;
 
-    update_progress(app, registry, job_id, 100, "Complete");
-    complete_job(app, registry, job_id, app_data_path);
+    update_progress(&events, registry, job_id, 100, "Complete");
+    complete_job(&events, registry, job_id, app_data_path);
 }
 
 // ---------------------------------------------------------------------------
@@ -483,7 +468,7 @@ fn record_failure(
 // ---------------------------------------------------------------------------
 
 fn log_and_emit(
-    app: &AppHandle,
+    sink: &EventSink,
     registry: &JobRegistry,
     job_id: &str,
     message: &str,
@@ -500,42 +485,42 @@ fn log_and_emit(
         .map(|j| j.logs.last().map(|l| l.timestamp).unwrap_or(0))
         .unwrap_or(0);
 
-    events::emit_job_log(app, job_id, message, level_str, timestamp);
+    events::emit_job_log(sink, job_id, message, level_str, timestamp);
 }
 
 fn update_progress(
-    app: &AppHandle,
+    sink: &EventSink,
     registry: &JobRegistry,
     job_id: &str,
     pct: u8,
     label: &str,
 ) {
     registry.update(job_id, |j| j.set_progress(pct));
-    events::emit_job_progress(app, job_id, pct, label);
+    events::emit_job_progress(sink, job_id, pct, label);
 }
 
 fn complete_job(
-    app: &AppHandle,
+    sink: &EventSink,
     registry: &JobRegistry,
     job_id: &str,
     app_data_path: &str,
 ) {
     if let Some(job) = registry.update(job_id, |j| j.complete()) {
-        events::emit_job_completed(app, &job);
+        events::emit_job_completed(sink, &job);
         let _ = store::append_job(app_data_path, job);
     }
 }
 
 fn fail_job(
-    app: &AppHandle,
+    sink: &EventSink,
     registry: &JobRegistry,
     job_id: &str,
     app_data_path: &str,
     error: &str,
 ) {
-    log_and_emit(app, registry, job_id, error, LogLevel::Error);
+    log_and_emit(sink, registry, job_id, error, LogLevel::Error);
     if let Some(job) = registry.update(job_id, |j| j.fail(error)) {
-        events::emit_job_failed(app, &job);
+        events::emit_job_failed(sink, &job);
         let _ = store::append_job(app_data_path, job);
     }
 }

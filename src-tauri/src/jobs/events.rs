@@ -1,11 +1,13 @@
-//! Tauri event streaming for job progress updates.
+//! Job event streaming for job progress updates.
 //!
-//! Publishes structured events to the renderer so the frontend can subscribe
-//! to real-time job status changes without polling. Later subsystems (install,
-//! scan, patch) will call these helpers to push updates as work progresses.
+//! Publishes structured events through the sidecar's `EventSink` so the
+//! frontend can subscribe to real-time job status changes without polling.
+//! Later subsystems (install, scan, patch) call these helpers to push updates
+//! as work progresses.
 
 use serde::Serialize;
-use tauri::{AppHandle, Emitter};
+
+use crate::events::EventSink;
 
 use super::Job;
 
@@ -54,15 +56,15 @@ pub struct JobFinishedPayload {
 // ---------------------------------------------------------------------------
 
 /// Emit a job-created event to all renderer windows.
-pub fn emit_job_created(app: &AppHandle, job: &Job) {
-    let _ = app.emit(EVENT_JOB_CREATED, JobCreatedPayload { job: job.clone() });
+pub fn emit_job_created(sink: &EventSink, job: &Job) {
+    sink.emit_event(EVENT_JOB_CREATED, &JobCreatedPayload { job: job.clone() });
 }
 
 /// Emit a progress update event.
-pub fn emit_job_progress(app: &AppHandle, job_id: &str, progress: u8, label: &str) {
-    let _ = app.emit(
+pub fn emit_job_progress(sink: &EventSink, job_id: &str, progress: u8, label: &str) {
+    sink.emit_event(
         EVENT_JOB_PROGRESS,
-        JobProgressPayload {
+        &JobProgressPayload {
             job_id: job_id.to_string(),
             progress,
             label: label.to_string(),
@@ -71,10 +73,10 @@ pub fn emit_job_progress(app: &AppHandle, job_id: &str, progress: u8, label: &st
 }
 
 /// Emit a log entry event.
-pub fn emit_job_log(app: &AppHandle, job_id: &str, message: &str, level: &str, timestamp: u64) {
-    let _ = app.emit(
+pub fn emit_job_log(sink: &EventSink, job_id: &str, message: &str, level: &str, timestamp: u64) {
+    sink.emit_event(
         EVENT_JOB_LOG,
-        JobLogPayload {
+        &JobLogPayload {
             job_id: job_id.to_string(),
             message: message.to_string(),
             level: level.to_string(),
@@ -84,13 +86,13 @@ pub fn emit_job_log(app: &AppHandle, job_id: &str, message: &str, level: &str, t
 }
 
 /// Emit a job-completed event.
-pub fn emit_job_completed(app: &AppHandle, job: &Job) {
-    let _ = app.emit(EVENT_JOB_COMPLETED, JobFinishedPayload { job: job.clone() });
+pub fn emit_job_completed(sink: &EventSink, job: &Job) {
+    sink.emit_event(EVENT_JOB_COMPLETED, &JobFinishedPayload { job: job.clone() });
 }
 
 /// Emit a job-failed event.
-pub fn emit_job_failed(app: &AppHandle, job: &Job) {
-    let _ = app.emit(EVENT_JOB_FAILED, JobFinishedPayload { job: job.clone() });
+pub fn emit_job_failed(sink: &EventSink, job: &Job) {
+    sink.emit_event(EVENT_JOB_FAILED, &JobFinishedPayload { job: job.clone() });
 }
 
 // ---------------------------------------------------------------------------
@@ -132,5 +134,19 @@ mod tests {
         };
         let json = serde_json::to_string(&payload).unwrap();
         assert!(json.contains("\"level\":\"info\""));
+    }
+
+    #[test]
+    fn progress_emits_exact_envelope() {
+        use crate::events::EventSink;
+        let sink = EventSink::capture();
+        emit_job_progress(&sink, "test-1", 42, "Downloading");
+        let lines = sink.captured();
+        assert_eq!(lines.len(), 1);
+        let v: serde_json::Value = serde_json::from_str(&lines[0]).unwrap();
+        assert_eq!(v["event"], "job:progress");
+        assert_eq!(v["payload"]["job_id"], "test-1");
+        assert_eq!(v["payload"]["progress"], 42);
+        assert_eq!(v["payload"]["label"], "Downloading");
     }
 }
