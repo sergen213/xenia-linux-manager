@@ -58,3 +58,54 @@ fn unknown_method_returns_error() {
     assert_eq!(resp["ok"], false);
     assert!(resp["error"].as_str().unwrap().contains("unknown method"));
 }
+
+#[test]
+fn known_methods_are_not_unknown() {
+    // Sending with empty params may produce a param error, but never "unknown method".
+    for m in [
+        "get_default_settings",
+        "load_settings",
+        "save_settings",
+        "validate_paths",
+        "list_game_profiles",
+        "create_game_profile",
+        "rename_game_profile",
+        "delete_game_profile",
+        "select_active_game_profile",
+        "get_profile_effective_config",
+        "save_profile_overrides",
+        "get_materialized_launch_config",
+        "check_recommendation_availability",
+        "apply_recommended_profile",
+        "load_task_history",
+        "get_task_history",
+        "clear_task_history",
+        "get_release_metadata",
+        "get_updater_readiness",
+        "get_environment_diagnostics",
+        "check_patches_status",
+        "deploy_game_patches",
+        "get_game_xenia_patches",
+        "toggle_xenia_patch_entry",
+        "list_xenia_community_patch_candidates",
+        "fetch_xenia_community_patch",
+        "import_xenia_patch_file",
+        "get_export_preflight",
+        "export_save_archive",
+        "inspect_save_archive",
+        "get_import_conflict_plan",
+        "apply_save_import",
+        "cleanup_save_import_staging",
+        "list_save_backups",
+    ] {
+        let req = format!(r#"{{"id":"t","method":"{m}","params":{{}}}}"#);
+        let lines = run_lines(&[&req], 2);
+        let resp = &lines[1];
+        if resp["ok"] == false {
+            assert!(
+                !resp["error"].as_str().unwrap().contains("unknown method"),
+                "method {m} routed as unknown"
+            );
+        }
+    }
+}
