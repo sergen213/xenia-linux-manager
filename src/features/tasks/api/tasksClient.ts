@@ -1,8 +1,8 @@
 /**
- * Tauri invoke bridge and event subscription for the job/task subsystem.
+ * Sidecar invoke bridge and event subscription for the job/task subsystem.
  *
- * Commands map to Rust `#[tauri::command]` handlers.
- * Events map to Tauri event emitters in `src-tauri/src/jobs/events.rs`.
+ * Commands map to Rust RPC command handlers.
+ * Events map to the sidecar event emitters in `core/src/jobs/events.rs`.
  */
 
 import { invoke, listen, type UnlistenFn } from "../../../platform/bridge";

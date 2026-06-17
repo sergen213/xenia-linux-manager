@@ -33,7 +33,7 @@ export function StatusBar() {
       getReleaseMetadata()
         .then((m) => dispatch({ type: "SET_RELEASE_METADATA", metadata: m }))
         .catch(() => {
-          // Not in Tauri runtime -- leave metadata null
+          // Not in the Electron host -- leave metadata null
         });
     }
   }, [metadata, dispatch]);

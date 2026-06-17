@@ -2,7 +2,7 @@
  * TypeScript types mirroring the Rust Xenia install-state and release models.
  *
  * These types are the renderer-side contract for data flowing from the
- * backend lifecycle commands via Tauri invoke.
+ * backend lifecycle commands via the sidecar invoke bridge.
  */
 
 // ---------------------------------------------------------------------------

@@ -1,8 +1,8 @@
 /**
- * Tauri invoke bridge for release metadata commands.
+ * Sidecar invoke bridge for release metadata commands.
  *
- * Each function maps 1:1 to a Rust `#[tauri::command]` in
- * `src-tauri/src/commands/release.rs`.
+ * Each function maps 1:1 to a Rust RPC command in
+ * `core/src/commands/release.rs`.
  */
 
 import { invoke } from "../../../platform/bridge";

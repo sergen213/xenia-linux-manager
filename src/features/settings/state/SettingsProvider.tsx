@@ -28,7 +28,7 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
           dispatch({ type: "LOAD_SUCCESS", settings, validation });
         }
       } catch {
-        // If loadSettings fails (e.g., not running inside Tauri),
+        // If loadSettings fails (e.g., not running inside the Electron host),
         // fall back to defaults so the UI still renders.
         try {
           const defaults = await getDefaultSettings();

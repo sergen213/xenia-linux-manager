@@ -1,4 +1,4 @@
-//! Owned application context — replaces Tauri's managed state container.
+//! Owned application context for the sidecar (replaces the old managed-state container).
 
 use std::sync::Arc;
 

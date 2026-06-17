@@ -15,7 +15,7 @@ use super::Job;
 // Event payload types
 // ---------------------------------------------------------------------------
 
-/// Event name constants used for Tauri event subscriptions.
+/// Event name constants used for sidecar event subscriptions.
 pub const EVENT_JOB_CREATED: &str = "job:created";
 pub const EVENT_JOB_PROGRESS: &str = "job:progress";
 pub const EVENT_JOB_LOG: &str = "job:log";

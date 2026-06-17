@@ -2,7 +2,7 @@
  * Types for the release metadata contract between the Rust backend and the
  * React renderer.
  *
- * Mirrors the Rust types in `src-tauri/src/release/mod.rs`.
+ * Mirrors the Rust types in `core/src/release/mod.rs`.
  */
 
 /** How the app is running. */

@@ -14,7 +14,7 @@
     "test": "vitest",
     "test:electron": "vitest run --config vitest.electron.config.ts",
     "smoke": "xvfb-run -a electron-vite preview -- --smoke",
-    "build:sidecar": "cd src-tauri && cargo build --release --bin xlm-core",
+    "build:sidecar": "cd core && cargo build --release --bin xlm-core",
     "pack": "npm run build && electron-builder --dir",
     "dist": "npm run build:sidecar && npm run build && electron-builder --linux AppImage"
   },
@@ -56,7 +56,7 @@
     "productName": "Xenia Manager for Linux",
     "directories": { "output": "release", "buildResources": "build" },
     "files": ["out/**/*", "package.json"],
-    "extraResources": [{ "from": "src-tauri/target/release/xlm-core", "to": "xlm-core" }],
+    "extraResources": [{ "from": "core/target/release/xlm-core", "to": "xlm-core" }],
     "linux": { "target": ["AppImage"], "category": "Game", "icon": "build/icon.png" },
     "asar": true,
     "publish": [{ "provider": "github", "owner": "REPLACE_OWNER", "repo": "xenia-linux-manager" }]

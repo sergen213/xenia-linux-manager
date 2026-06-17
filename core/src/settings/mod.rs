@@ -1,7 +1,7 @@
 //! Persisted settings service for Xenia Linux Manager.
 //!
 //! Owns the canonical on-disk settings document and exposes load / save /
-//! default / validate operations consumed by Tauri commands and later
+//! default / validate operations consumed by sidecar commands and later
 //! subsystems (install, scan, patch, save).
 
 pub mod path_defaults;

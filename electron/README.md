@@ -10,10 +10,10 @@ renderer talks to the main process through the `window.xlm` contextBridge
 Build the Rust sidecar first:
 
 ```bash
-npm run build:sidecar      # cd src-tauri && cargo build --release --bin xlm-core
+npm run build:sidecar      # cd core && cargo build --release --bin xlm-core
 ```
 
-Dev resolves the binary from `src-tauri/target/{release,debug}/xlm-core`;
+Dev resolves the binary from `core/target/{release,debug}/xlm-core`;
 packaged builds resolve it from `<resources>/xlm-core` (see
 `electron/main/paths.ts`).
 

@@ -1,4 +1,4 @@
-//! Tauri commands for the job/task subsystem.
+//! Sidecar RPC commands for the job/task subsystem.
 //!
 //! Exposes job history and management operations to the renderer.
 

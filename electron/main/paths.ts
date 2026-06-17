@@ -10,11 +10,11 @@ export function resolveSidecarPath(): string {
     if (existsSync(packaged)) return packaged
   }
   const repoRoot = join(__dirname, '..', '..') // out/main -> repo root
-  const release = join(repoRoot, 'src-tauri', 'target', 'release', 'xlm-core')
-  const debug = join(repoRoot, 'src-tauri', 'target', 'debug', 'xlm-core')
+  const release = join(repoRoot, 'core', 'target', 'release', 'xlm-core')
+  const debug = join(repoRoot, 'core', 'target', 'debug', 'xlm-core')
   if (existsSync(release)) return release
   if (existsSync(debug)) return debug
-  throw new Error(`xlm-core not found. Run: cd src-tauri && cargo build --bin xlm-core`)
+  throw new Error(`xlm-core not found. Run: cd core && cargo build --bin xlm-core`)
 }
 
 /** App data dir — mirrors the Rust XDG default. */

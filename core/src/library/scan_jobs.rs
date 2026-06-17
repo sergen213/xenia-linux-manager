@@ -279,7 +279,7 @@ async fn run_scan_job(
 
     // Run the discovery engine with cancellation support. Capture an
     // Arc<ScanCoordinator> clone keyed on this scan's job_id so cancellation
-    // can be observed without reaching into Tauri-managed state.
+    // can be observed without reaching into externally-managed state.
     let cancel_coordinator = Arc::clone(coordinator);
     let job_id_owned = request.job_id.clone();
     let is_cancelled = move || cancel_coordinator.is_cancelled(&job_id_owned);

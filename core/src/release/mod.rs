@@ -4,7 +4,7 @@
 //! This module is the single backend source of truth for:
 //! - App version, build kind, and architecture
 //! - Whether the running binary is a packaged AppImage
-//! - Whether the Tauri updater path is fully configured
+//! - Whether the updater path is fully configured
 //! - Release notes URL and desktop integration state helpers
 //!
 //! The renderer consumes this through typed commands instead of probing
@@ -34,7 +34,7 @@ const RELEASE_NOTES_URL_TEMPLATE: &str =
 pub enum BuildKind {
     /// Running from a packaged AppImage.
     PackagedAppimage,
-    /// Running as a development build (cargo run / npm run tauri dev).
+    /// Running as a development build (cargo run / npm run dev).
     Dev,
 }
 
@@ -83,26 +83,24 @@ pub struct UpdaterReadiness {
 ///
 /// The updater requires:
 /// 1. A packaged AppImage build (not dev).
-/// 2. A non-empty public key in the Tauri config.
+/// 2. A non-empty updater public key embedded at build time.
 /// 3. At least one configured endpoint.
 ///
-/// This function reads from the Tauri config values embedded at compile time
-/// and the runtime environment.
+/// This function reads from build-time env values and the runtime environment.
 pub fn check_updater_readiness() -> UpdaterReadiness {
     let build_kind = detect_build_kind();
     let is_packaged = build_kind == BuildKind::PackagedAppimage;
 
-    // The public key is embedded in tauri.conf.json at build time. An empty
-    // string means the maintainer has not yet generated a signing key pair.
-    let pubkey_raw = option_env!("TAURI_UPDATER_PUBKEY").unwrap_or("");
+    // The public key is embedded via build-time env. An empty string means the
+    // maintainer has not yet generated a signing key pair.
+    let pubkey_raw = option_env!("XLM_UPDATER_PUBKEY").unwrap_or("");
     let has_pubkey = !pubkey_raw.is_empty();
 
-    // Endpoints are configured in tauri.conf.json. We check at runtime
-    // whether the plugin is actually registered and the config is non-empty
-    // by inspecting the env. For compile-time checking we rely on the config
-    // having at least one entry.  A placeholder URL is treated as "configured
-    // but not yet published".
-    let has_endpoints = true; // always configured in tauri.conf.json
+    // The update feed endpoint is owned by electron-builder's generated
+    // latest-linux.yml; the sidecar treats it as present and lets the Electron
+    // updater layer decide. A placeholder owner is treated as "configured but
+    // not yet published".
+    let has_endpoints = true;
 
     let available = is_packaged && has_pubkey && has_endpoints;
 

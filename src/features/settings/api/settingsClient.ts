@@ -1,8 +1,8 @@
 /**
- * Tauri invoke bridge for settings commands.
+ * Sidecar invoke bridge for settings commands.
  *
- * Each function maps 1:1 to a Rust `#[tauri::command]` in
- * `src-tauri/src/commands/settings.rs`.
+ * Each function maps 1:1 to a Rust RPC command in
+ * `core/src/commands/settings.rs`.
  */
 
 import { invoke } from "../../../platform/bridge";

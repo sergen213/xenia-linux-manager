@@ -558,7 +558,7 @@ mod tests {
     }
 
     #[test]
-    fn linux_release_is_serializable_for_tauri() {
+    fn linux_release_is_serializable() {
         let release = sample_release();
         let json = serde_json::to_string(&release).unwrap();
         assert!(json.contains("\"tag\":\"9369464\""));
@@ -746,7 +746,7 @@ mod tests {
     }
 
     #[test]
-    fn install_state_serializable_for_tauri() {
+    fn install_state_serializable() {
         let mut state = InstallState::default();
         let release = sample_release();
         install_state::record_success(

@@ -3,7 +3,7 @@
  *
  * Uses React context + reducer pattern (consistent with settingsStore)
  * to track active, completed, failed, and interrupted jobs. Subscriptions
- * to Tauri events keep the state live as background work progresses.
+ * to sidecar events keep the state live as background work progresses.
  */
 
 import { createContext, useContext } from "react";

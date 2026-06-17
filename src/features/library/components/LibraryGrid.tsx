@@ -21,7 +21,7 @@ function formatLastPlayed(timestamp: number | null): string {
 }
 
 // Memoized to prevent re-renders when parent state changes but card props haven't.
-// Artwork is served via the Tauri asset protocol (convertFileSrc) so the browser
+// Artwork is served via the xlm-asset:// protocol (convertFileSrc) so the browser
 // loads it natively: real lazy-loading (only when scrolled into view), native
 // decode + caching, and no per-card readFile/Blob held on the JS heap. With large
 // libraries the old eager readFile defeated loading="lazy" and pinned every cover

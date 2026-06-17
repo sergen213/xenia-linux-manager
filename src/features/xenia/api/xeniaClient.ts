@@ -1,8 +1,8 @@
 /**
- * Tauri invoke bridge for Xenia lifecycle commands.
+ * Sidecar invoke bridge for Xenia lifecycle commands.
  *
- * Each function maps 1:1 to a Rust `#[tauri::command]` in
- * `src-tauri/src/commands/xenia.rs`.
+ * Each function maps 1:1 to a Rust RPC command in
+ * `core/src/commands/xenia.rs`.
  */
 
 import { invoke } from "../../../platform/bridge";

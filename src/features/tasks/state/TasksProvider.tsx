@@ -50,7 +50,7 @@ export function TasksProvider({ children }: TasksProviderProps) {
         });
       } catch {
         if (cancelled) return;
-        // In dev mode outside Tauri, history loading will fail gracefully.
+        // In dev mode outside the Electron host, history loading will fail gracefully.
         // Mark initialized with empty state so UI still renders.
         dispatch({
           type: "LOAD_HISTORY_SUCCESS",

@@ -1,5 +1,5 @@
 /**
- * Tauri invoke bridge for library management and launch commands.
+ * Sidecar invoke bridge for library management and launch commands.
  */
 
 import { invoke } from "../../../platform/bridge";

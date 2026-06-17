@@ -64,8 +64,8 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            src-tauri/target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
+            core/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('core/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-cargo-
 
@@ -79,7 +79,7 @@ jobs:
         run: npm run test:electron
 
       - name: Run Rust sidecar tests
-        run: cargo test --manifest-path src-tauri/Cargo.toml
+        run: cargo test --manifest-path core/Cargo.toml
 
       - name: Build AppImage
         run: npm run dist -- --publish never

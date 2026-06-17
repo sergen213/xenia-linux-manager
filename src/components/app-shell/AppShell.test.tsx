@@ -17,7 +17,7 @@ import {
 
 // Mock the platform bridge so StatusBar's releaseClient call doesn't throw
 vi.mock("../../platform/bridge", () => ({
-  invoke: vi.fn().mockRejectedValue(new Error("not in tauri")),
+  invoke: vi.fn().mockRejectedValue(new Error("sidecar unavailable")),
   listen: vi.fn(async () => () => {}),
   convertFileSrc: (path: string) => `xlm-asset://local/${encodeURIComponent(path)}`,
   open: vi.fn(async () => null),

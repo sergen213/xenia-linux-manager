@@ -24,7 +24,7 @@ dist-ssr
 *.sw?
 
 # Rust sidecar build output
-src-tauri/target/
+core/target/
 
 # Electron build output
 out/

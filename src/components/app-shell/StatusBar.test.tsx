@@ -18,7 +18,7 @@ import {
 import type { Job } from "../../features/tasks/model/taskTypes";
 
 vi.mock("../../platform/bridge", () => ({
-  invoke: vi.fn().mockRejectedValue(new Error("not in tauri")),
+  invoke: vi.fn().mockRejectedValue(new Error("sidecar unavailable")),
   listen: vi.fn(async () => () => {}),
   convertFileSrc: (path: string) => `xlm-asset://local/${encodeURIComponent(path)}`,
   open: vi.fn(async () => null),

@@ -46,7 +46,7 @@ export function LibraryProvider({ children }: LibraryProviderProps) {
         }
       } catch {
         if (cancelled) return;
-        // Outside Tauri (dev mode), initialize with empty state
+        // Outside the Electron host (dev mode), initialize with empty state
         dispatch({
           type: "LOAD_SUCCESS",
           sources: [],

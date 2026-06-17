@@ -52,7 +52,7 @@ export function XeniaProvider({ children }: XeniaProviderProps) {
         dispatch({ type: "LOAD_STATUS_SUCCESS", installState });
       } catch {
         if (cancelled) return;
-        // Outside Tauri (dev mode), just mark initialized with defaults
+        // Outside the Electron host (dev mode), just mark initialized with defaults
         dispatch({
           type: "LOAD_STATUS_SUCCESS",
           installState: INITIAL_XENIA_STATE.installState,

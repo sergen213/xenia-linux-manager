@@ -4,8 +4,8 @@ import { join } from 'path'
 import { SidecarClient } from '../sidecar'
 
 const repoRoot = join(__dirname, '..', '..', '..')
-const release = join(repoRoot, 'src-tauri', 'target', 'release', 'xlm-core')
-const debug = join(repoRoot, 'src-tauri', 'target', 'debug', 'xlm-core')
+const release = join(repoRoot, 'core', 'target', 'release', 'xlm-core')
+const debug = join(repoRoot, 'core', 'target', 'debug', 'xlm-core')
 const BIN = existsSync(release) ? release : existsSync(debug) ? debug : ''
 
 describe.skipIf(!BIN)('SidecarClient', () => {
