@@ -32,8 +32,10 @@ export class SidecarClient {
     this.rl = createInterface({ input: child.stdout })
     this.rl.on('line', (line) => this.onLine(line))
     child.stderr.on('data', (b) => { process.stderr.write(`[xlm-core] ${b}`) })
-    child.on('exit', () => this.onExit())
-    child.on('error', () => this.onExit())
+    let exitHandled = false
+    const handleExit = () => { if (exitHandled) return; exitHandled = true; this.onExit() }
+    child.on('exit', handleExit)
+    child.on('error', handleExit)
   }
 
   private onLine(line: string): void {
@@ -68,8 +70,8 @@ export class SidecarClient {
     this.rl = null
     this.child = null
     this.ready = false
-    this.emitter.emit('crash')
     if (this.stopping) return
+    this.emitter.emit('crash')
     const max = this.opts.maxRestarts ?? 5
     if (this.opts.autoRestart && this.restarts < max) {
       const delay = Math.min(250 * 2 ** this.restarts, 5000)
@@ -81,8 +83,12 @@ export class SidecarClient {
   waitForReady(timeoutMs = 5000): Promise<{ version: string }> {
     if (this.ready) return Promise.resolve({ version: this.version })
     return new Promise((resolve, reject) => {
-      const t = setTimeout(() => reject(new Error('sidecar ready timeout')), timeoutMs)
-      this.readyResolvers.push((v) => { clearTimeout(t); resolve(v) })
+      const resolver = (v: { version: string }) => { clearTimeout(t); resolve(v) }
+      const t = setTimeout(() => {
+        this.readyResolvers = this.readyResolvers.filter((r) => r !== resolver)
+        reject(new Error('sidecar ready timeout'))
+      }, timeoutMs)
+      this.readyResolvers.push(resolver)
     })
   }
 
