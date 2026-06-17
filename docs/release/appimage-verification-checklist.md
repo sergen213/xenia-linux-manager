@@ -12,8 +12,8 @@ pass/fail status and notes for each item.
 
 ## Pre-verification Setup
 
-- [ ] Built a fresh AppImage with `npm run tauri build -- --bundles appimage`
-- [ ] Noted the AppImage path (typically `src-tauri/target/release/bundle/appimage/`)
+- [ ] Built a fresh AppImage with `npm run dist`
+- [ ] Noted the AppImage path (typically `release/`)
 - [ ] Made the AppImage executable: `chmod +x <path>.AppImage`
 - [ ] Ran the automated smoke helper: `bash scripts/verify-appimage-release.sh <path>.AppImage`
 

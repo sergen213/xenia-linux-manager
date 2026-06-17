@@ -23,8 +23,12 @@ dist-ssr
 *.sln
 *.sw?
 
-# Tauri
+# Rust sidecar build output
 src-tauri/target/
+
+# Electron build output
+out/
+release/
 
 # git worktrees
 .claude/worktrees/

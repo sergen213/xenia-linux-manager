@@ -54,8 +54,8 @@ Usage:
 
 Arguments:
   path-to-appimage    Path to the built .AppImage file to verify.
-                      If omitted, the script looks in the default Tauri
-                      output directory.
+                      If omitted, the script looks in the default
+                      electron-builder output directory (release/).
 
 Options:
   --help              Show this help message and exit.
@@ -87,8 +87,8 @@ fi
 APPIMAGE_PATH="${1:-}"
 
 if [[ -z "$APPIMAGE_PATH" ]]; then
-  # Try to find the AppImage in the default Tauri output
-  BUNDLE_DIR="$PROJECT_ROOT/src-tauri/target/release/bundle/appimage"
+  # Try to find the AppImage in the default electron-builder output
+  BUNDLE_DIR="$PROJECT_ROOT/release"
   if [[ -d "$BUNDLE_DIR" ]]; then
     APPIMAGE_PATH=$(find "$BUNDLE_DIR" -maxdepth 1 -name "*.AppImage" -type f | head -1)
   fi
@@ -100,7 +100,7 @@ if [[ -z "$APPIMAGE_PATH" ]]; then
   echo "Usage: bash scripts/verify-appimage-release.sh <path-to-appimage>"
   echo ""
   echo "Build one first with:"
-  echo "  npm run tauri build -- --bundles appimage"
+  echo "  npm run dist"
   exit 1
 fi
 

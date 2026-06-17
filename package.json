@@ -2,29 +2,23 @@
   "name": "xenia-linux-manager",
   "private": true,
   "version": "0.1.0",
+  "description": "Xenia Xbox 360 Emulator Manager for Linux",
+  "author": "Sergen",
   "type": "module",
   "main": "out/main/index.js",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
+    "dev": "electron-vite dev",
+    "build": "tsc -b && electron-vite build",
+    "preview": "electron-vite preview",
     "lint": "eslint .",
-    "preview": "vite preview",
-    "tauri": "tauri",
     "test": "vitest",
-    "release:manifest": "node scripts/generate-updater-manifest.mjs",
-    "electron:dev": "electron-vite dev",
-    "electron:build": "electron-vite build",
-    "electron:preview": "electron-vite preview",
+    "test:electron": "vitest run --config vitest.electron.config.ts",
     "smoke": "xvfb-run -a electron-vite preview -- --smoke",
-    "test:electron": "vitest run --config vitest.electron.config.ts"
+    "build:sidecar": "cd src-tauri && cargo build --release --bin xlm-core",
+    "pack": "npm run build && electron-builder --dir",
+    "dist": "npm run build:sidecar && npm run build && electron-builder --linux AppImage"
   },
   "dependencies": {
-    "@tauri-apps/api": "^2.5.0",
-    "@tauri-apps/plugin-dialog": "^2.6.0",
-    "@tauri-apps/plugin-fs": "^2.4.5",
-    "@tauri-apps/plugin-process": "^2.3.1",
-    "@tauri-apps/plugin-shell": "^2.3.5",
-    "@tauri-apps/plugin-updater": "^2.10.0",
     "electron-log": "^5.4.4",
     "electron-updater": "^6.8.9",
     "react": "^19.2.4",
@@ -33,7 +27,6 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
-    "@tauri-apps/cli": "^2.5.0",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.3.0",
     "@types/node": "^24.12.0",
@@ -60,6 +53,12 @@
   },
   "build": {
     "appId": "com.xenia-linux-manager.app",
+    "productName": "Xenia Manager for Linux",
+    "directories": { "output": "release", "buildResources": "build" },
+    "files": ["out/**/*", "package.json"],
+    "extraResources": [{ "from": "src-tauri/target/release/xlm-core", "to": "xlm-core" }],
+    "linux": { "target": ["AppImage"], "category": "Game", "icon": "build/icon.png" },
+    "asar": true,
     "publish": [{ "provider": "github", "owner": "REPLACE_OWNER", "repo": "xenia-linux-manager" }]
   }
 }
