@@ -39,6 +39,12 @@ function createWindow(): BrowserWindow {
   win.on('closed', unsubEvents)
   const unsubCrash = sidecar.on('crash', () => { if (!win.isDestroyed()) win.webContents.send('xlm:event', { event: 'sidecar:crash', payload: {} }) })
   win.on('closed', unsubCrash)
+  const devCsp = "default-src 'self' 'unsafe-inline' data: blob: ws: http://localhost:* http://127.0.0.1:*; img-src 'self' data: blob: xlm-asset: http://localhost:* http://127.0.0.1:*; connect-src 'self' ws: http://localhost:* http://127.0.0.1:*"
+  const prodCsp = "default-src 'self'; img-src 'self' data: xlm-asset:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'"
+  const csp = app.isPackaged ? prodCsp : devCsp
+  win.webContents.session.webRequest.onHeadersReceived((details, cb) => {
+    cb({ responseHeaders: { ...details.responseHeaders, 'Content-Security-Policy': [csp] } })
+  })
   if (!app.isPackaged && process.env['ELECTRON_RENDERER_URL']) {
     win.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
