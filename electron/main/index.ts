@@ -4,6 +4,7 @@ import { SidecarClient } from './sidecar'
 import { resolveSidecarPath, appDataDir } from './paths'
 import { runSmoke } from './smoke'
 import { registerAssetScheme, handleAssetProtocol } from './protocol'
+import { initUpdater } from './updater'
 
 const isSmoke = process.argv.includes('--smoke')
 let sidecar: SidecarClient
@@ -66,6 +67,7 @@ app.whenReady().then(async () => {
   await refreshRoots()
   await sidecar.waitForReady(8000).catch(() => { /* surfaced via crash event */ })
   createWindow()
+  if (!isSmoke) initUpdater()
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow() })
 })
 

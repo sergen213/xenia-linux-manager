@@ -6,6 +6,10 @@ export default defineConfig({
   main: {
     build: {
       outDir: 'out/main',
+      // Bundle electron-updater so Rollup's CJS plugin handles the interop;
+      // without this, the ESM bundle would emit a bare named import from a CJS
+      // package which Node.js rejects at runtime.
+      externalizeDeps: { exclude: ['electron-updater'] },
       rollupOptions: { input: { index: resolve(__dirname, 'electron/main/index.ts') } }
     }
   },
