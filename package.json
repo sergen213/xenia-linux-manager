@@ -10,7 +10,12 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "test": "vitest",
-    "release:manifest": "node scripts/generate-updater-manifest.mjs"
+    "release:manifest": "node scripts/generate-updater-manifest.mjs",
+    "electron:dev": "electron-vite dev",
+    "electron:build": "electron-vite build",
+    "electron:preview": "electron-vite preview",
+    "smoke": "xvfb-run -a electron-vite preview -- --smoke",
+    "test:electron": "vitest run --config vitest.electron.config.ts"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.5.0",
@@ -19,6 +24,8 @@
     "@tauri-apps/plugin-process": "^2.3.1",
     "@tauri-apps/plugin-shell": "^2.3.5",
     "@tauri-apps/plugin-updater": "^2.10.0",
+    "electron-log": "^5.4.4",
+    "electron-updater": "^6.8.9",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-router-dom": "^7.6.4"
@@ -32,6 +39,9 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.0",
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8",
+    "electron-vite": "^6.0.0-beta.1",
     "eslint": "^9.39.4",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.5.2",
@@ -40,6 +50,11 @@
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.56.1",
     "vite": "^8.0.0",
-    "vitest": "^3.2.4"
+    "vitest": "^3.2.6"
+  },
+  "allowScripts": {
+    "electron@33.4.11": true,
+    "esbuild@0.27.4": true,
+    "esbuild@0.25.12": true
   }
 }
