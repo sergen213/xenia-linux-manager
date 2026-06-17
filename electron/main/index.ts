@@ -1,11 +1,22 @@
 import { app, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
 import { SidecarClient } from './sidecar'
-import { resolveSidecarPath } from './paths'
+import { resolveSidecarPath, appDataDir } from './paths'
 import { runSmoke } from './smoke'
+import { registerAssetScheme, handleAssetProtocol } from './protocol'
 
 const isSmoke = process.argv.includes('--smoke')
 let sidecar: SidecarClient
+
+let allowedRoots: string[] = [appDataDir()]
+async function refreshRoots(): Promise<void> {
+  try {
+    const [settings] = await sidecar.request('load_settings') as [Record<string, string>, unknown]
+    allowedRoots = [appDataDir(), settings.app_data_path, settings.library_metadata_path, settings.xenia_path].filter(Boolean)
+  } catch { /* keep default root */ }
+}
+
+registerAssetScheme()
 
 function createWindow(): BrowserWindow {
   const win = new BrowserWindow({
@@ -39,12 +50,15 @@ app.whenReady().then(async () => {
 
   ipcMain.handle('xlm:invoke', (_e, method: string, params?: object) => sidecar.request(method, params))
 
+  handleAssetProtocol(() => allowedRoots)
+
   if (isSmoke) {
     const ok = await runSmoke(sidecar)
     try { await sidecar.stop() } finally { app.exit(ok ? 0 : 1) }
     return
   }
 
+  await refreshRoots()
   await sidecar.waitForReady(8000).catch(() => { /* surfaced via crash event */ })
   createWindow()
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow() })
