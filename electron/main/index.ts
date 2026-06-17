@@ -21,7 +21,10 @@ function createWindow(): BrowserWindow {
       sandbox: true
     }
   })
-  sidecar.onAny((e) => win.webContents.send('xlm:event', e))
+  const unsubEvents = sidecar.onAny((e) => {
+    if (!win.isDestroyed()) win.webContents.send('xlm:event', e)
+  })
+  win.on('closed', unsubEvents)
   if (!app.isPackaged && process.env['ELECTRON_RENDERER_URL']) {
     win.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
@@ -38,8 +41,7 @@ app.whenReady().then(async () => {
 
   if (isSmoke) {
     const ok = await runSmoke(sidecar)
-    await sidecar.stop()
-    app.exit(ok ? 0 : 1)
+    try { await sidecar.stop() } finally { app.exit(ok ? 0 : 1) }
     return
   }
 
