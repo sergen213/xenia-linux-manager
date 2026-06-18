@@ -5,6 +5,7 @@ import { resolveSidecarPath, appDataDir } from './paths'
 import { runSmoke } from './smoke'
 import { registerAssetScheme, handleAssetProtocol } from './protocol'
 import { initUpdater } from './updater'
+import { registerWindowControls, wireMaximizeEvents } from './window-controls'
 
 const isSmoke = process.argv.includes('--smoke')
 let sidecar: SidecarClient
@@ -23,7 +24,11 @@ function createWindow(): BrowserWindow {
   const win = new BrowserWindow({
     width: 1100,
     height: 700,
+    minWidth: 880,
+    minHeight: 600,
     resizable: true,
+    frame: false,
+    backgroundColor: '#18181b',
     show: !isSmoke,
     title: 'Xenia Manager for Linux',
     webPreferences: {
@@ -39,6 +44,8 @@ function createWindow(): BrowserWindow {
   win.on('closed', unsubEvents)
   const unsubCrash = sidecar.on('crash', () => { if (!win.isDestroyed()) win.webContents.send('xlm:event', { event: 'sidecar:crash', payload: {} }) })
   win.on('closed', unsubCrash)
+  const unsubMax = wireMaximizeEvents(win)
+  win.on('closed', unsubMax)
   const devCsp = "default-src 'self' 'unsafe-inline' data: blob: ws: http://localhost:* http://127.0.0.1:*; img-src 'self' data: blob: xlm-asset: http://localhost:* http://127.0.0.1:*; connect-src 'self' ws: http://localhost:* http://127.0.0.1:*"
   const prodCsp = "default-src 'self'; img-src 'self' data: xlm-asset:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'"
   const csp = app.isPackaged ? prodCsp : devCsp
@@ -62,6 +69,11 @@ app.whenReady().then(async () => {
   ipcMain.handle('xlm:openDialog', (_e, opts: Electron.OpenDialogOptions) => {
     const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
     return win ? dialog.showOpenDialog(win, opts) : dialog.showOpenDialog(opts)
+  })
+
+  registerWindowControls({
+    handle: (channel, fn) => ipcMain.handle(channel, fn),
+    getWindow: () => BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0] ?? null,
   })
 
   handleAssetProtocol(() => allowedRoots)
