@@ -17,10 +17,15 @@ export function TitleBar() {
   useEffect(() => {
     if (!controls) return;
     let active = true;
-    void windowIsMaximized().then((m) => {
-      if (active) setMaximized(m);
+    let sawEvent = false;
+    // Subscribe first; a live event always wins over the async mount seed.
+    const unsub = onWindowMaximizeChange((m) => {
+      sawEvent = true;
+      setMaximized(m);
     });
-    const unsub = onWindowMaximizeChange((m) => setMaximized(m));
+    void windowIsMaximized().then((m) => {
+      if (active && !sawEvent) setMaximized(m);
+    });
     return () => {
       active = false;
       unsub();

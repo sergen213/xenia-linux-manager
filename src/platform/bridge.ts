@@ -102,22 +102,22 @@ export function hasWindowControls(): boolean {
 
 /** Minimize the host window. No-op when window controls are unavailable. */
 export function windowMinimize(): Promise<void> {
-  return window.xlm.win?.minimize() ?? Promise.resolve();
+  return window.xlm?.win?.minimize() ?? Promise.resolve();
 }
 
 /** Toggle maximize/restore on the host window. No-op when unavailable. */
 export function windowToggleMaximize(): Promise<void> {
-  return window.xlm.win?.toggleMaximize() ?? Promise.resolve();
+  return window.xlm?.win?.toggleMaximize() ?? Promise.resolve();
 }
 
 /** Close the host window. No-op when unavailable. */
 export function windowClose(): Promise<void> {
-  return window.xlm.win?.close() ?? Promise.resolve();
+  return window.xlm?.win?.close() ?? Promise.resolve();
 }
 
 /** Current maximized state; false when controls are unavailable. */
 export function windowIsMaximized(): Promise<boolean> {
-  return window.xlm.win?.isMaximized() ?? Promise.resolve(false);
+  return window.xlm?.win?.isMaximized() ?? Promise.resolve(false);
 }
 
 /**
@@ -127,5 +127,5 @@ export function windowIsMaximized(): Promise<boolean> {
 export function onWindowMaximizeChange(
   cb: (maximized: boolean) => void,
 ): () => void {
-  return window.xlm.win?.onMaximizeChange(cb) ?? (() => {});
+  return window.xlm?.win?.onMaximizeChange(cb) ?? (() => {});
 }

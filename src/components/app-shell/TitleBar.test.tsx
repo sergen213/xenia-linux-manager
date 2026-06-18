@@ -55,6 +55,17 @@ describe("TitleBar", () => {
     expect(screen.getByRole("button", { name: /restore/i })).toBeInTheDocument();
   });
 
+  it("keeps a maximize event that arrives before the mount seed resolves", async () => {
+    render(<TitleBar />);
+    // Event fires before the windowIsMaximized() seed promise has flushed.
+    act(() => {
+      h.maxCb?.(true);
+    });
+    // Flushing the seed (resolves false) must NOT clobber the live event.
+    await act(async () => {});
+    expect(screen.getByRole("button", { name: /restore/i })).toBeInTheDocument();
+  });
+
   it("double-clicking the drag region toggles maximize", () => {
     render(<TitleBar />);
     fireEvent.doubleClick(screen.getByTestId("titlebar-drag"));
