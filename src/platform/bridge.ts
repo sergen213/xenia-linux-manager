@@ -7,12 +7,26 @@
  * subscription, file dialog) live in exactly one place.
  */
 
+/**
+ * Window-control surface (frameless custom title bar). Optional: absent in the
+ * browser / themed-preview where no Electron host is attached.
+ */
+export interface WinControls {
+  minimize(): Promise<void>;
+  toggleMaximize(): Promise<void>;
+  close(): Promise<void>;
+  isMaximized(): Promise<boolean>;
+  /** Subscribe to host-driven maximize-state changes; returns an unsubscribe. */
+  onMaximizeChange(cb: (maximized: boolean) => void): () => void;
+}
+
 export interface XlmBridge {
   invoke<T = unknown>(method: string, params?: object): Promise<T>;
   /** Subscribe to a host event; returns a synchronous unsubscribe. */
   on(event: string, cb: (payload: unknown) => void): () => void;
   convertFileSrc(path: string): string;
   openDialog(opts: object): Promise<{ canceled: boolean; filePaths: string[] }>;
+  win?: WinControls;
 }
 
 declare global {
@@ -79,4 +93,39 @@ export async function open(
   });
   if (result.canceled || result.filePaths.length === 0) return null;
   return opts.multiple ? result.filePaths : result.filePaths[0];
+}
+
+/** True when the Electron host exposes window controls (frameless title bar). */
+export function hasWindowControls(): boolean {
+  return typeof window.xlm?.win !== "undefined";
+}
+
+/** Minimize the host window. No-op when window controls are unavailable. */
+export function windowMinimize(): Promise<void> {
+  return window.xlm.win?.minimize() ?? Promise.resolve();
+}
+
+/** Toggle maximize/restore on the host window. No-op when unavailable. */
+export function windowToggleMaximize(): Promise<void> {
+  return window.xlm.win?.toggleMaximize() ?? Promise.resolve();
+}
+
+/** Close the host window. No-op when unavailable. */
+export function windowClose(): Promise<void> {
+  return window.xlm.win?.close() ?? Promise.resolve();
+}
+
+/** Current maximized state; false when controls are unavailable. */
+export function windowIsMaximized(): Promise<boolean> {
+  return window.xlm.win?.isMaximized() ?? Promise.resolve(false);
+}
+
+/**
+ * Subscribe to maximize-state changes; returns a synchronous unsubscribe.
+ * Returns a no-op unsubscribe when controls are unavailable.
+ */
+export function onWindowMaximizeChange(
+  cb: (maximized: boolean) => void,
+): () => void {
+  return window.xlm.win?.onMaximizeChange(cb) ?? (() => {});
 }
