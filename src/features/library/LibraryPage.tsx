@@ -163,6 +163,8 @@ export function LibraryPage() {
           contentRefreshToken={launchActions.contentRefreshToken}
           appDataPath={appDataPath}
           libraryMetadataPath={libPath}
+          launchPending={launchActions.launchPending}
+          onLaunch={() => launchActions.launch(true)}
           managePatchesOpen={state.managePatchesOpen}
           patchImportPending={state.patchImportPending}
           onSaveIdentity={async (payload) => {

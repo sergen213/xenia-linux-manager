@@ -245,12 +245,10 @@
   color: var(--color-warning);
 }
 
-.review-inbox__header h3,
-.game-details__header h2 {
+.review-inbox__header h3 {
   margin: 0;
 }
 
-.game-details__section-header,
 .manage-patches__header,
 .patch-checklist__header,
 .patch-chooser__header {
@@ -335,10 +333,16 @@
   padding: 8px 10px;
 }
 
+/* ============================================================
+   Game details panel — the right-hand inspector for a selected
+   title. ONE card; internal structure is carried by hierarchy
+   and 1px seams (never nested cards). Power-user controls live
+   behind progressive disclosure so the calm default stays calm.
+   ============================================================ */
 .game-details {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 16px;
   min-width: 0;
   position: sticky;
   top: 20px;
@@ -346,64 +350,320 @@
   overflow-y: auto;
 }
 
-.game-details__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.game-details__facts {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.game-details__facts div,
-.launch-preflight,
-.game-details__section {
+/* Preserve the launch-preflight box (formerly shared with the old facts grid). */
+.launch-preflight {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   padding: 12px;
 }
 
-.game-details__facts div {
-  overflow: hidden;
+/* ── Empty state — teaches the panel, doesn't scold ── */
+.game-details--empty {
+  align-items: center;
+  justify-content: center;
 }
 
-.game-details__facts strong {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.game-details__facts span,
-.game-identity-editor span {
-  display: block;
+.game-details__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 6px;
+  padding: 36px 16px;
   color: var(--color-text-secondary);
-  font-size: var(--font-size-xs);
+}
+
+.game-details__empty-icon {
+  color: var(--color-text-muted);
   margin-bottom: 4px;
 }
 
-.game-details__block {
-  margin-bottom: 12px;
+.game-details__empty-title {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.game-details__empty-hint {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  max-width: 34ch;
+  line-height: var(--line-height-normal);
+}
+
+/* ── Hero: cover + identity + the one primary action ── */
+.game-details__hero {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.game-details__cover {
+  flex-shrink: 0;
+  width: 72px;
+  height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  background:
+    radial-gradient(circle at 22% 18%, rgba(255, 255, 255, 0.12), transparent 50%),
+    linear-gradient(
+      140deg,
+      var(--color-bg-sidebar),
+      var(--color-bg-secondary) 55%,
+      color-mix(in srgb, var(--color-accent) 42%, var(--color-bg-card))
+    );
+}
+
+.game-details__cover--image {
+  background: var(--color-bg);
+}
+
+.game-details__cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.game-details__identity {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.game-details__title {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+  /* Long titles wrap to two lines, then ellipsize — never overflow. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.game-details__source {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.game-details__source-label {
+  min-width: 0;
+}
+
+/* The single accent fill on the panel — dark graphite ink on jade. Sits in the
+   identity column under the title; left-aligned and self-sized at any width. */
+.game-details__launch {
+  align-self: flex-start;
+  margin-top: 2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.5rem 1.1rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: var(--color-accent);
+  color: var(--color-bg-primary);
+  font: inherit;
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition: background-color var(--transition-fast) var(--ease-out);
+}
+
+.game-details__launch:hover:not(:disabled) {
+  background: var(--color-accent-hover);
+}
+
+.game-details__launch:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+/* ── Meta: borderless definition grid (replaces the nested fact boxes) ── */
+.game-details__meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 11px 16px;
+  margin: 0;
+  padding: 14px 0;
+  border-top: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.game-details__meta-item {
+  min-width: 0;
+}
+
+.game-details__meta-item--wide {
+  grid-column: 1 / -1;
+}
+
+.game-details__meta dt {
+  margin-bottom: 3px;
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-medium);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+  color: var(--color-text-secondary);
+}
+
+.game-details__meta dd {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+}
+
+.game-details__mono {
+  font-family: var(--font-mono);
+}
+
+.game-details__path {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  word-break: break-all;
+  line-height: var(--line-height-snug);
+}
+
+/* ── Sections: hairline-divided, collapsible, icon-headed ── */
+.game-details__sections {
+  display: flex;
+  flex-direction: column;
+}
+
+.game-details__section {
+  border-top: 1px solid var(--color-border);
+}
+
+.game-details__section:first-child {
+  border-top: none;
+}
+
+.game-details__section-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 13px 6px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-text-primary);
+  font: inherit;
+  font-weight: var(--font-weight-semibold);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--transition-fast) var(--ease-out);
+}
+
+.game-details__section-head:hover {
+  background: var(--color-bg-hover);
+}
+
+.game-details__section-icon {
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+  transition: color var(--transition-fast) var(--ease-out);
+}
+
+/* Jade marks the open (active) section — kept scarce and meaningful. */
+.game-details__section.is-open .game-details__section-icon {
+  color: var(--color-accent);
+}
+
+.game-details__section-title {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.game-details__caret {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  transition: transform var(--transition-fast) var(--ease-out);
+}
+
+.game-details__section.is-open .game-details__caret {
+  transform: rotate(180deg);
+}
+
+.game-details__summary {
+  padding: 0 6px 13px;
+}
+
+.game-details__body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 2px 6px 16px;
+  animation: gd-reveal var(--transition-base) var(--ease-out);
+}
+
+@keyframes gd-reveal {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Status chips ── */
+.game-details__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-bold);
+  white-space: nowrap;
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  color: var(--color-accent);
+}
+
+.game-details__chip--neutral {
+  background: color-mix(in srgb, var(--color-text-secondary) 16%, transparent);
+  color: var(--color-text-secondary);
+}
+
+.game-details__chip--warning {
+  background: color-mix(in srgb, var(--color-warning) 16%, transparent);
+  color: var(--color-warning);
+}
+
+/* ── Fields, labels, helpers, code previews ── */
+.game-details__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .game-details__label {
   font-size: var(--font-size-sm);
-  margin-bottom: 6px;
-  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
 }
 
 .game-details__helper {
+  margin: 0;
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
+  line-height: var(--line-height-snug);
 }
 
 .game-details__helper--spaced {
-  margin-top: 8px;
-  margin-bottom: 4px;
+  margin-top: 6px;
 }
 
 .game-details__stack {
@@ -420,39 +680,222 @@
 
 .game-details__pre {
   margin: 0;
+  padding: 9px 11px;
   white-space: pre-wrap;
+  word-break: break-word;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-normal);
+  color: var(--color-text-secondary);
+  background: var(--color-bg-sidebar);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
 }
 
-.game-details__pre--spaced {
+/* Panel-owned form controls (env textarea, wrapper input) — were unstyled. */
+.game-details textarea,
+.game-details__field input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border-input);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-input);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  resize: vertical;
+}
+
+.game-details textarea:focus,
+.game-details__field input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+/* Panel-owned buttons (kept distinct from child-component button styles). */
+.game-details__actions button,
+.game-details__recommend {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.42rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-card);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: border-color var(--transition-fast) var(--ease-out),
+    background-color var(--transition-fast) var(--ease-out);
+}
+
+.game-details__actions button:hover:not(:disabled),
+.game-details__recommend:hover:not(:disabled) {
+  border-color: var(--color-accent);
+  background: var(--color-bg-hover);
+}
+
+.game-details__actions button:disabled,
+.game-details__recommend:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.game-details__actions button.game-details__primary {
+  background: color-mix(in srgb, var(--color-accent) 18%, var(--color-bg-card));
+  border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
+}
+
+.game-details__actions button.game-details__primary:hover:not(:disabled) {
+  border-color: var(--color-accent);
+}
+
+.game-details__actions button.game-details__danger {
+  color: var(--color-error);
+  border-color: color-mix(in srgb, var(--color-error) 35%, var(--color-border));
+}
+
+.game-details__actions button.game-details__danger:hover:not(:disabled) {
+  border-color: var(--color-error);
+  background: color-mix(in srgb, var(--color-error) 12%, transparent);
+}
+
+.game-details__recommend {
+  align-self: flex-start;
   margin-top: 8px;
+  text-align: left;
 }
 
-.game-details__muted--tight {
-  margin-top: 0;
-  margin-bottom: 8px;
-}
-
-.game-details__muted--loose {
-  margin-top: 0;
-  margin-bottom: 16px;
-}
-
-.library-grid__badge--inline {
-  margin-left: 8px;
-  font-size: 0.7rem;
-}
-
+/* ── Installed-content rows ── */
 .game-details__list {
-  display: grid;
-  gap: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
 .game-details__list li {
-  display: grid;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-bg) 50%, transparent);
+}
+
+.game-details__list-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.game-details__list-main strong {
+  font-size: var(--font-size-sm);
+}
+
+.game-details__list-main span {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+/* Identity editor labels (formerly shared with the old facts grid). */
+.game-identity-editor span {
+  display: block;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  margin-bottom: 4px;
+}
+
+/* ── Profile summary (compact, inside the Profiles section) — was unstyled ── */
+.profile-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.profile-summary--loading,
+.profile-summary--empty {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.profile-summary__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.profile-summary__label {
+  font-size: var(--font-size-2xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+  color: var(--color-text-secondary);
+}
+
+.profile-summary__name {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.profile-summary__badge {
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-bold);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  color: var(--color-accent);
+}
+
+.profile-summary__stats {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.profile-summary__changes {
+  display: flex;
+  flex-direction: column;
   gap: 4px;
+  margin: 0;
+  padding: 8px 10px;
+  list-style: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-sidebar);
+}
+
+.profile-summary__change {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: var(--font-size-xs);
+}
+
+.profile-summary__key {
+  min-width: 0;
+  font-family: var(--font-mono);
+  color: var(--color-text-secondary);
+  word-break: break-all;
+}
+
+.profile-summary__val {
+  font-family: var(--font-mono);
+  color: var(--color-text-primary);
+  text-align: right;
+}
+
+.profile-summary__more {
+  justify-content: flex-start;
+  color: var(--color-text-muted);
 }
 
 .game-identity-editor {
@@ -843,7 +1286,6 @@
 
   .patch-dropzone,
   .manage-patches__header,
-  .game-details__section-header,
   .patch-chooser__header {
     flex-direction: column;
   }

@@ -1,4 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
+import {
+  AlertTriangle,
+  ChevronDown,
+  Gamepad2,
+  Package,
+  Play,
+  Save,
+  Settings2,
+  SlidersHorizontal,
+  Tag,
+  Wrench,
+  type LucideIcon,
+} from "lucide-react";
+import { convertFileSrc } from "../../../platform/bridge";
 import { detectSteamInstall, exportGameToSteam, getGameXeniaPatches, inspectGameContent } from "../api/libraryClient";
 import type { GameXeniaPatches } from "../api/libraryClient";
 import type { GameInstalledContent, LibraryGameDetails } from "../model/libraryTypes";
@@ -25,6 +40,8 @@ interface GameDetailsPanelProps {
   contentRefreshToken: number;
   appDataPath: string;
   libraryMetadataPath: string;
+  launchPending: boolean;
+  onLaunch: () => Promise<void>;
   onSaveIdentity: (payload: {
     game_id: string;
     title: string;
@@ -121,6 +138,81 @@ function applyPreset(raw: string, preset: Record<string, string>): string {
     .join("\n");
 }
 
+/** Square cover thumbnail with an on-brand initial-glyph fallback (mirrors the
+ *  library grid's asset-protocol + onError retry pattern). */
+function CoverThumb({ artworkPath, title }: { artworkPath: string | null; title: string }) {
+  const [failedPath, setFailedPath] = useState<string | null>(null);
+
+  if (artworkPath && failedPath !== artworkPath) {
+    return (
+      <div className="game-details__cover game-details__cover--image" aria-hidden="true">
+        <img
+          src={convertFileSrc(artworkPath)}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          onError={() => setFailedPath(artworkPath)}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="game-details__cover" aria-hidden="true">
+      <span>{title.slice(0, 1).toUpperCase()}</span>
+    </div>
+  );
+}
+
+type ChipTone = "accent" | "neutral" | "warning";
+
+/** One collapsible, icon-headed concern. The header is the disclosure control;
+ *  a status chip carries the glanceable state so a collapsed section still
+ *  communicates. `summary` shows when collapsed, `children` when open. */
+function DetailSection({
+  icon: Icon,
+  title,
+  chip,
+  chipTone = "accent",
+  open,
+  onToggle,
+  summary,
+  children,
+}: {
+  icon: LucideIcon;
+  title: string;
+  chip?: ReactNode;
+  chipTone?: ChipTone;
+  open: boolean;
+  onToggle: () => void;
+  summary?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <section className={`game-details__section${open ? " is-open" : ""}`}>
+      <button
+        type="button"
+        className="game-details__section-head"
+        aria-expanded={open}
+        onClick={onToggle}
+      >
+        <Icon className="game-details__section-icon" size={16} strokeWidth={2} aria-hidden />
+        <span className="game-details__section-title">{title}</span>
+        {chip != null && (
+          <span
+            className={`game-details__chip${chipTone !== "accent" ? ` game-details__chip--${chipTone}` : ""}`}
+          >
+            {chip}
+          </span>
+        )}
+        <ChevronDown className="game-details__caret" size={16} strokeWidth={2} aria-hidden />
+      </button>
+      {!open && summary != null && <div className="game-details__summary">{summary}</div>}
+      {open && <div className="game-details__body">{children}</div>}
+    </section>
+  );
+}
+
 export function GameDetailsPanel({
   details,
   shortcutExportPending,
@@ -128,6 +220,8 @@ export function GameDetailsPanel({
   contentRefreshToken,
   appDataPath,
   libraryMetadataPath,
+  launchPending,
+  onLaunch,
   onSaveIdentity,
   onExportDesktopShortcut,
   onOpenShortcutFolder,
@@ -185,6 +279,10 @@ export function GameDetailsPanel({
   const [launchEnvValue, setLaunchEnvValue] = useState("");
   const [launchWrapperEditing, setLaunchWrapperEditing] = useState(false);
   const [launchWrapperValue, setLaunchWrapperValue] = useState("");
+  // Locally-disclosed sections (those without an externally-managed open state).
+  const [contentOpen, setContentOpen] = useState(false);
+  const [launchOptionsOpen, setLaunchOptionsOpen] = useState(false);
+  const [identityOpen, setIdentityOpen] = useState(false);
   const effectiveLaunchEnv = useMemo(
     () => mergeLaunchEnvironment(
       settingsState.settings?.launch_environment || "",
@@ -204,6 +302,14 @@ export function GameDetailsPanel({
     setLaunchWrapperValue(details?.launch_wrapper ?? "");
     setLaunchWrapperEditing(false);
   }, [details?.game_id, details?.launch_environment, details?.launch_wrapper]);
+
+  // Collapse locally-disclosed sections when the selected game changes, so a new
+  // selection always opens in the calm, scannable default state.
+  useEffect(() => {
+    setContentOpen(false);
+    setLaunchOptionsOpen(false);
+    setIdentityOpen(false);
+  }, [details?.game_id]);
 
   const handleLaunchEnvSave = useCallback(async () => {
     await onGameLaunchEnvironmentChange(launchEnvValue.trim() ? launchEnvValue : null);
@@ -282,9 +388,14 @@ export function GameDetailsPanel({
 
   if (!details) {
     return (
-      <aside className="game-details">
-        <div className="library-page__empty-state">
-          Select a title to inspect identity and source evidence.
+      <aside className="game-details game-details--empty">
+        <div className="game-details__empty">
+          <Gamepad2 className="game-details__empty-icon" size={28} strokeWidth={1.5} aria-hidden />
+          <p className="game-details__empty-title">No title selected</p>
+          <p className="game-details__empty-hint">
+            Pick a game from the library to launch it, manage patches and profiles,
+            or correct its identity.
+          </p>
         </div>
       </aside>
     );
@@ -293,217 +404,82 @@ export function GameDetailsPanel({
   const hasTitleUpdate =
     installedContent?.entries.some((entry) => entry.content_type === "000B0000") ?? false;
 
+  const patchEntryCount =
+    patchInfo?.files.reduce((sum, file) => sum + file.entries.length, 0) ?? 0;
+  const activeProfile = profileInventory?.profiles.find((profile) => profile.active) ?? null;
+  const contentEntryCount = installedContent?.entries.length ?? 0;
+  const hasLaunchOverrides = Boolean(
+    details.launch_environment?.trim() ||
+      details.launch_wrapper?.trim() ||
+      details.preferred_xenia_tag,
+  );
+  // The "effective" previews only add information when a GLOBAL value (set in
+  // Settings) is merged in. With no global value, effective == the per-game value
+  // shown just above, so the second box would be pure duplication.
+  const hasGlobalEnv = Boolean(settingsState.settings?.launch_environment?.trim());
+  const hasGlobalWrapper = Boolean(settingsState.settings?.launch_wrapper?.trim());
+
   return (
     <aside className="game-details">
-      <header className="game-details__header">
-        <div>
-          <h2>{details.title}</h2>
-          <p>{details.source_label}</p>
-        </div>
-        {details.manual && <span className="library-grid__badge">Manual</span>}
-      </header>
-
-      <section className="game-details__facts">
-        <div>
-          <span>Executable</span>
-          <strong title={details.executable_path}>{details.executable_path}</strong>
-        </div>
-        <div>
-          <span>Last played</span>
-          <strong>{formatTimestamp(details.last_played_at)}</strong>
-        </div>
-      </section>
-
-      {installedXeniaBuildOptions.length > 0 && (
-        <div className="game-details__block">
-          <div className="game-details__label">
-            Preferred Xenia build for this game
-          </div>
-          <CustomSelect
-            value={details.preferred_xenia_tag ?? ""}
-            options={[
-              { value: "", label: "Use active global build" },
-              ...installedXeniaBuildOptions,
-            ]}
-            onChange={(v) => void onPreferredXeniaBuildChange(v || null)}
-          />
-        </div>
-      )}
-      <div className="game-details__block">
-        <div className="game-details__label">
-          Per-game launch environment variables
-        </div>
-        <div className="game-details__helper">
-          Effective launch environment preview (global + per-game, with per-game overrides winning)
-        </div>
-        {launchEnvEditing ? (
-          <div className="game-details__stack">
-            <textarea
-              value={launchEnvValue}
-              onChange={(e) => setLaunchEnvValue(e.target.value)}
-              placeholder={"MANGOHUD=1\nMANGOHUD_CONFIG=fps,gpu_temp\n# KEY=VALUE per line"}
-              rows={5}
-            />
-            <div className="game-details__actions">
-              <button
-                type="button"
-                onClick={() => setLaunchEnvValue((current) => applyPreset(current, { MANGOHUD: "1" }))}
-              >
-                Preset: MangoHud
-              </button>
-              <button
-                type="button"
-                onClick={() => setLaunchEnvValue((current) => applyPreset(current, { LD_PRELOAD: "libgamemodeauto.so.0" }))}
-              >
-                Preset: GameMode
-              </button>
-              <button
-                type="button"
-                title="gamescope is normally a wrapper command; this preset adds common env hints only"
-                onClick={() => setLaunchEnvValue((current) => applyPreset(current, { ENABLE_GAMESCOPE_WSI: "1" }))}
-              >
-                Preset: gamescope
-              </button>
-            </div>
-            <div className="game-details__actions">
-              <button type="button" onClick={() => void handleLaunchEnvSave()}>
-                Save launch env
-              </button>
-              <button type="button" onClick={() => setLaunchEnvEditing(false)}>
-                Cancel
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="game-details__stack">
-            <pre className="game-details__pre">
-              {details.launch_environment?.trim() || "Not set"}
-            </pre>
-            <div>
-              <button
-                type="button"
-                onClick={() => {
-                  setLaunchEnvValue(details.launch_environment ?? "");
-                  setLaunchEnvEditing(true);
-                }}
-              >
-                Edit launch env
-              </button>
-            </div>
-          </div>
-        )}
-        <pre className="game-details__pre game-details__pre--spaced">
-          {effectiveLaunchEnv || "Not set"}
-        </pre>
-      </div>
-      <div className="game-details__block">
-        <div className="game-details__label">
-          Per-game launch wrapper / prefix
-        </div>
-        {launchWrapperEditing ? (
-          <div className="game-details__stack">
-            <input
-              value={launchWrapperValue}
-              onChange={(e) => setLaunchWrapperValue(e.target.value)}
-              placeholder="gamemoderun or gamescope --mangoapp --"
-            />
-            <div className="game-details__actions">
-              <button type="button" onClick={() => setLaunchWrapperValue("gamemoderun")}>
-                Preset: GameMode
-              </button>
-              <button type="button" onClick={() => setLaunchWrapperValue("gamescope --mangoapp --")}>
-                Preset: gamescope
-              </button>
-            </div>
-            <div className="game-details__actions">
-              <button type="button" onClick={() => void handleLaunchWrapperSave()}>
-                Save launch wrapper
-              </button>
-              <button type="button" onClick={() => setLaunchWrapperEditing(false)}>
-                Cancel
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="game-details__stack">
-            <pre className="game-details__pre">
-              {details.launch_wrapper?.trim() || "Not set"}
-            </pre>
-            <div>
-              <button
-                type="button"
-                onClick={() => {
-                  setLaunchWrapperValue(details.launch_wrapper ?? "");
-                  setLaunchWrapperEditing(true);
-                }}
-              >
-                Edit launch wrapper
-              </button>
-            </div>
-          </div>
-        )}
-        <div className="game-details__helper game-details__helper--spaced">
-          Effective launch wrapper preview
-        </div>
-        <pre className="game-details__pre">
-          {effectiveLaunchWrapper || "Not set"}
-        </pre>
-      </div>
-      <div className="game-details__actions game-details__block">
-        <button
-          type="button"
-          disabled={shortcutExportPending}
-          onClick={() => void onExportDesktopShortcut("applications")}
-        >
-          {shortcutExportPending ? "Creating shortcut..." : "Create App Launcher"}
-        </button>
-        <button
-          type="button"
-          disabled={shortcutExportPending}
-          onClick={() => void onExportDesktopShortcut("desktop")}
-        >
-          {shortcutExportPending ? "Creating shortcut..." : "Add to Desktop"}
-        </button>
-        <button type="button" onClick={() => void onOpenShortcutFolder("applications")}>
-          Open Applications Folder
-        </button>
-        <button type="button" onClick={() => void onOpenShortcutFolder("desktop")}>
-          Open Desktop Folder
-        </button>
-        <button
-          type="button"
-          disabled={steamExportPending}
-          onClick={() => void handleSteamExport()}
-        >
-          {steamExportPending ? "Exporting to Steam..." : "Export to Steam"}
-        </button>
-      </div>
-      {steamExportMessage && (
-        <p className="game-details__muted game-details__muted--tight">
-          {steamExportMessage}
-        </p>
-      )}
-      {shortcutStatusMessage && (
-        <p className="game-details__muted game-details__muted--loose">
-          {shortcutStatusMessage}
-        </p>
-      )}
-
-      <section className="game-details__section">
-        <div className="game-details__section-header">
-          <h3>
-            Patches
-            {!managePatchesOpen && patchInfo && patchInfo.files.length > 0 && (
-              <span className="library-grid__badge library-grid__badge--inline">
-                {patchInfo.files.reduce((sum, f) => sum + f.entries.length, 0)} patches available
+      <header className="game-details__hero">
+        <CoverThumb artworkPath={details.artwork_path} title={details.title} />
+        <div className="game-details__identity">
+          <h2 className="game-details__title" title={details.title}>{details.title}</h2>
+          <p className="game-details__source">
+            <span className="game-details__source-label">{details.source_label}</span>
+            {details.manual && (
+              <span className="game-details__chip game-details__chip--neutral">Manual</span>
+            )}
+            {details.review_flag && (
+              <span className="game-details__chip game-details__chip--warning">
+                <AlertTriangle size={11} strokeWidth={2.25} aria-hidden /> Review
               </span>
             )}
-          </h3>
-          <button type="button" onClick={onManagePatchesToggle}>
-            {managePatchesOpen ? "Hide patch manager" : "Manage patches"}
+          </p>
+          <button
+            type="button"
+            className="game-details__launch"
+            disabled={launchPending}
+            onClick={() => void onLaunch()}
+          >
+            <Play size={16} strokeWidth={2.5} aria-hidden />
+            {launchPending ? "Launching…" : "Launch in Xenia"}
           </button>
         </div>
-        {managePatchesOpen ? (
+      </header>
+
+      <dl className="game-details__meta">
+        <div className="game-details__meta-item">
+          <dt>Last played</dt>
+          <dd>{formatTimestamp(details.last_played_at)}</dd>
+        </div>
+        <div className="game-details__meta-item">
+          <dt>{details.title_id ? "Title ID" : "Kind"}</dt>
+          <dd className={details.title_id ? "game-details__mono" : undefined}>
+            {details.title_id ?? details.kind}
+          </dd>
+        </div>
+        <div className="game-details__meta-item game-details__meta-item--wide">
+          <dt>Executable</dt>
+          <dd className="game-details__mono game-details__path">{details.executable_path}</dd>
+        </div>
+      </dl>
+
+      <div className="game-details__sections">
+        <DetailSection
+          icon={Wrench}
+          title="Patches"
+          chip={patchEntryCount > 0 ? `${patchEntryCount} available` : undefined}
+          open={managePatchesOpen}
+          onToggle={onManagePatchesToggle}
+          summary={
+            <p className="game-details__muted">
+              {patchInfo && patchInfo.files.length > 0
+                ? `${patchInfo.files.length} patch file(s) found. Open to toggle entries.`
+                : "No patches found. Download from Sources & Scan or import manually."}
+            </p>
+          }
+        >
           <ManagePatchesPanel
             titleId={details.title_id ?? null}
             appDataPath={appDataPath}
@@ -511,120 +487,135 @@ export function GameDetailsPanel({
             onImport={onImportPatch}
             importPending={patchImportPending}
           />
-        ) : (
-          <p className="game-details__muted">
-            {patchInfo && patchInfo.files.length > 0
-              ? `${patchInfo.files.length} patch file(s) found. Open to toggle entries.`
-              : "No patches found. Download from Sources & Scan or import manually."}
-          </p>
-        )}
-      </section>
+        </DetailSection>
 
-      <section className="game-details__section">
-        <div className="game-details__section-header">
-          <h3>Profiles</h3>
-          <button type="button" onClick={onProfileEditorToggle}>
-            {profileEditorOpen ? "Hide profile editor" : "Edit profiles"}
-          </button>
-        </div>
-
-        {!profileEditorOpen && (
-          <>
-            <ProfileSummaryCard
+        <DetailSection
+          icon={SlidersHorizontal}
+          title="Profiles"
+          chip={activeProfile?.name}
+          chipTone="neutral"
+          open={profileEditorOpen}
+          onToggle={onProfileEditorToggle}
+          summary={
+            <>
+              <ProfileSummaryCard
+                inventory={profileInventory}
+                effectiveConfig={profileEffectiveConfig}
+                loading={profileEffectiveLoading}
+              />
+              {recommendationAvailability?.status === "available" && (
+                <button
+                  type="button"
+                  className="game-details__recommend"
+                  disabled={applyRecommendationPending}
+                  onClick={onApplyRecommendation}
+                >
+                  {applyRecommendationPending
+                    ? "Applying…"
+                    : `Apply recommended settings from ${recommendationAvailability.source_label}`}
+                </button>
+              )}
+            </>
+          }
+        >
+          {profileInventory && (
+            <ProfileEditorPanel
               inventory={profileInventory}
               effectiveConfig={profileEffectiveConfig}
-              loading={profileEffectiveLoading}
+              effectiveLoading={profileEffectiveLoading}
+              draft={profileDraft}
+              dirty={profileDirty}
+              onDraftChange={onProfileDraftChange}
+              onSave={onProfileSave}
+              onDiscard={onProfileDiscard}
+              onCreateProfile={onProfileCreate}
+              onDeleteProfile={onProfileDelete}
+              onRenameProfile={onProfileRename}
+              onSelectProfile={onProfileSelect}
+              onLoadEffective={onLoadEffective}
+              savePending={profileSavePending}
             />
-            {recommendationAvailability?.status === "available" && (
-              <button
-                type="button"
-                disabled={applyRecommendationPending}
-                onClick={onApplyRecommendation}
-              >
-                {applyRecommendationPending
-                  ? "Applying..."
-                  : `Apply recommended settings from ${recommendationAvailability.source_label}`}
-              </button>
-            )}
-          </>
-        )}
+          )}
+        </DetailSection>
 
-        {profileEditorOpen && profileInventory && (
-          <ProfileEditorPanel
-            inventory={profileInventory}
-            effectiveConfig={profileEffectiveConfig}
-            effectiveLoading={profileEffectiveLoading}
-            draft={profileDraft}
-            dirty={profileDirty}
-            onDraftChange={onProfileDraftChange}
-            onSave={onProfileSave}
-            onDiscard={onProfileDiscard}
-            onCreateProfile={onProfileCreate}
-            onDeleteProfile={onProfileDelete}
-            onRenameProfile={onProfileRename}
-            onSelectProfile={onProfileSelect}
-            onLoadEffective={onLoadEffective}
-            savePending={profileSavePending}
-          />
-        )}
-      </section>
-
-      <section className="game-details__section">
-        <div className="game-details__section-header">
-          <h3>Installed Content</h3>
+        <DetailSection
+          icon={Package}
+          title="Installed content"
+          chip={contentEntryCount > 0 ? `${contentEntryCount}` : undefined}
+          open={contentOpen}
+          onToggle={() => setContentOpen((v) => !v)}
+          summary={
+            contentEntryCount === 0 ? (
+              <p className="game-details__muted">
+                {installedContent?.exists
+                  ? "Content folder exists — no DLC or title updates yet."
+                  : "No Xenia content folder detected yet."}
+              </p>
+            ) : undefined
+          }
+        >
           <div className="game-details__actions">
             <button type="button" onClick={() => void onOpenContentFolder()}>
-              Open Content Folder
+              Open content folder
             </button>
             <button type="button" onClick={() => void onImportContent("dlc")}>
               Import DLC
             </button>
             <button type="button" onClick={() => void onImportContent("title_update")}>
-              Import Title Update
+              Import title update
             </button>
           </div>
-        </div>
-        {!installedContent || !installedContent.exists ? (
-          <p className="game-details__muted">
-            No Xenia content folder was detected for this game yet.
-          </p>
-        ) : installedContent.entries.length === 0 ? (
-          <>
-            <p className="game-details__muted">Content root exists, but no DLC or title update folders were found yet.</p>
-            <p className="game-details__muted">{installedContent.content_root}</p>
-          </>
-        ) : (
-          <>
-            <p className="game-details__muted">{installedContent.content_root}</p>
-            <ul className="game-details__list">
-              {installedContent.entries.map((entry) => (
-                <li key={entry.path}>
-                  <strong>{entry.content_type_label}</strong>
-                  <span>{entry.content_type}</span>
-                  <span>{entry.item_count} item{entry.item_count === 1 ? "" : "s"}</span>
-                  <span className="game-details__actions">
-                    <button type="button" onClick={() => void onOpenContentFolder()}>
-                      Open Root
-                    </button>
-                    <button type="button" onClick={() => void onRemoveContentEntry(entry.path)}>
-                      Remove
-                    </button>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </>
-        )}
-      </section>
+          {!installedContent || !installedContent.exists ? (
+            <p className="game-details__muted">
+              No Xenia content folder was detected for this game yet.
+            </p>
+          ) : installedContent.entries.length === 0 ? (
+            <>
+              <p className="game-details__muted">Content root exists, but no DLC or title update folders were found yet.</p>
+              <p className="game-details__muted game-details__path">{installedContent.content_root}</p>
+            </>
+          ) : (
+            <>
+              <p className="game-details__muted game-details__path">{installedContent.content_root}</p>
+              <ul className="game-details__list">
+                {installedContent.entries.map((entry) => (
+                  <li key={entry.path}>
+                    <div className="game-details__list-main">
+                      <strong>{entry.content_type_label}</strong>
+                      <span className="game-details__mono">{entry.content_type}</span>
+                      <span>{entry.item_count} item{entry.item_count === 1 ? "" : "s"}</span>
+                    </div>
+                    <div className="game-details__actions">
+                      <button type="button" onClick={() => void onOpenContentFolder()}>
+                        Open root
+                      </button>
+                      <button
+                        type="button"
+                        className="game-details__danger"
+                        onClick={() => void onRemoveContentEntry(entry.path)}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </DetailSection>
 
-      <section className="game-details__section">
-        <div className="game-details__section-header">
-          <h3>Saves</h3>
-          <button type="button" onClick={onSaveQuickActionsToggle}>
-            {saveQuickActionsOpen ? "Hide save actions" : "Save actions"}
-          </button>
-        </div>
-        {saveQuickActionsOpen ? (
+        <DetailSection
+          icon={Save}
+          title="Saves"
+          open={saveQuickActionsOpen}
+          onToggle={onSaveQuickActionsToggle}
+          summary={
+            <p className="game-details__muted">
+              Export and import save data for this game, or use the dedicated Saves
+              page for archive-first imports.
+            </p>
+          }
+        >
           <SaveQuickActions
             gameId={details.game_id}
             gameTitle={details.title}
@@ -639,18 +630,210 @@ export function GameDetailsPanel({
             onImportNavigate={onImportNavigate}
             onClearResults={onClearSaveResults}
           />
-        ) : (
-          <p className="game-details__muted">
-            Export and import save data for this game from here, or use the
-            dedicated Saves page for archive-first imports.
-          </p>
-        )}
-      </section>
+        </DetailSection>
 
-      <section className="game-details__section">
-        <h3>Identity corrections</h3>
-        <GameIdentityEditor details={details} onSave={onSaveIdentity} />
-      </section>
+        <DetailSection
+          icon={Settings2}
+          title="Launch options"
+          chip={hasLaunchOverrides ? "Custom" : undefined}
+          chipTone="neutral"
+          open={launchOptionsOpen}
+          onToggle={() => setLaunchOptionsOpen((v) => !v)}
+        >
+          {installedXeniaBuildOptions.length > 0 && (
+            <div className="game-details__field">
+              <div className="game-details__label">Preferred Xenia build for this game</div>
+              <CustomSelect
+                value={details.preferred_xenia_tag ?? ""}
+                options={[
+                  { value: "", label: "Use active global build" },
+                  ...installedXeniaBuildOptions,
+                ]}
+                onChange={(v) => void onPreferredXeniaBuildChange(v || null)}
+              />
+            </div>
+          )}
+
+          <div className="game-details__field">
+            <div className="game-details__label">Per-game launch environment variables</div>
+            <p className="game-details__helper">
+              Layered on top of the global environment from Settings. One KEY=VALUE per line.
+            </p>
+            {launchEnvEditing ? (
+              <div className="game-details__stack">
+                <textarea
+                  value={launchEnvValue}
+                  onChange={(e) => setLaunchEnvValue(e.target.value)}
+                  placeholder={"MANGOHUD=1\nMANGOHUD_CONFIG=fps,gpu_temp\n# KEY=VALUE per line"}
+                  rows={5}
+                />
+                <div className="game-details__actions">
+                  <button
+                    type="button"
+                    onClick={() => setLaunchEnvValue((current) => applyPreset(current, { MANGOHUD: "1" }))}
+                  >
+                    Preset: MangoHud
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLaunchEnvValue((current) => applyPreset(current, { LD_PRELOAD: "libgamemodeauto.so.0" }))}
+                  >
+                    Preset: GameMode
+                  </button>
+                  <button
+                    type="button"
+                    title="gamescope is normally a wrapper command; this preset adds common env hints only"
+                    onClick={() => setLaunchEnvValue((current) => applyPreset(current, { ENABLE_GAMESCOPE_WSI: "1" }))}
+                  >
+                    Preset: gamescope
+                  </button>
+                </div>
+                <div className="game-details__actions">
+                  <button type="button" className="game-details__primary" onClick={() => void handleLaunchEnvSave()}>
+                    Save launch env
+                  </button>
+                  <button type="button" onClick={() => setLaunchEnvEditing(false)}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="game-details__stack">
+                <pre className="game-details__pre">
+                  {details.launch_environment?.trim() || "Not set"}
+                </pre>
+                <div className="game-details__actions">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLaunchEnvValue(details.launch_environment ?? "");
+                      setLaunchEnvEditing(true);
+                    }}
+                  >
+                    Edit launch env
+                  </button>
+                </div>
+              </div>
+            )}
+            {hasGlobalEnv && (
+              <>
+                <p className="game-details__helper game-details__helper--spaced">
+                  Effective environment (global + per-game)
+                </p>
+                <pre className="game-details__pre">
+                  {effectiveLaunchEnv || "Not set"}
+                </pre>
+              </>
+            )}
+          </div>
+
+          <div className="game-details__field">
+            <div className="game-details__label">Per-game launch wrapper / prefix</div>
+            {launchWrapperEditing ? (
+              <div className="game-details__stack">
+                <input
+                  value={launchWrapperValue}
+                  onChange={(e) => setLaunchWrapperValue(e.target.value)}
+                  placeholder="gamemoderun or gamescope --mangoapp --"
+                />
+                <div className="game-details__actions">
+                  <button type="button" onClick={() => setLaunchWrapperValue("gamemoderun")}>
+                    Preset: GameMode
+                  </button>
+                  <button type="button" onClick={() => setLaunchWrapperValue("gamescope --mangoapp --")}>
+                    Preset: gamescope
+                  </button>
+                </div>
+                <div className="game-details__actions">
+                  <button type="button" className="game-details__primary" onClick={() => void handleLaunchWrapperSave()}>
+                    Save launch wrapper
+                  </button>
+                  <button type="button" onClick={() => setLaunchWrapperEditing(false)}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="game-details__stack">
+                <pre className="game-details__pre">
+                  {details.launch_wrapper?.trim() || "Not set"}
+                </pre>
+                <div className="game-details__actions">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLaunchWrapperValue(details.launch_wrapper ?? "");
+                      setLaunchWrapperEditing(true);
+                    }}
+                  >
+                    Edit launch wrapper
+                  </button>
+                </div>
+              </div>
+            )}
+            {hasGlobalWrapper && (
+              <>
+                <p className="game-details__helper game-details__helper--spaced">
+                  Effective wrapper (global + per-game)
+                </p>
+                <pre className="game-details__pre">
+                  {effectiveLaunchWrapper || "Not set"}
+                </pre>
+              </>
+            )}
+          </div>
+
+          <div className="game-details__field">
+            <div className="game-details__label">Shortcuts &amp; export</div>
+            <div className="game-details__actions">
+              <button
+                type="button"
+                disabled={shortcutExportPending}
+                onClick={() => void onExportDesktopShortcut("applications")}
+              >
+                {shortcutExportPending ? "Creating shortcut…" : "Create app launcher"}
+              </button>
+              <button
+                type="button"
+                disabled={shortcutExportPending}
+                onClick={() => void onExportDesktopShortcut("desktop")}
+              >
+                {shortcutExportPending ? "Creating shortcut…" : "Add to desktop"}
+              </button>
+              <button type="button" onClick={() => void onOpenShortcutFolder("applications")}>
+                Open applications folder
+              </button>
+              <button type="button" onClick={() => void onOpenShortcutFolder("desktop")}>
+                Open desktop folder
+              </button>
+              <button
+                type="button"
+                disabled={steamExportPending}
+                onClick={() => void handleSteamExport()}
+              >
+                {steamExportPending ? "Exporting to Steam…" : "Export to Steam"}
+              </button>
+            </div>
+            {steamExportMessage && (
+              <p className="game-details__muted">{steamExportMessage}</p>
+            )}
+            {shortcutStatusMessage && (
+              <p className="game-details__muted">{shortcutStatusMessage}</p>
+            )}
+          </div>
+        </DetailSection>
+
+        <DetailSection
+          icon={Tag}
+          title="Identity corrections"
+          chip={details.review_flag ? "Needs review" : undefined}
+          chipTone="warning"
+          open={identityOpen}
+          onToggle={() => setIdentityOpen((v) => !v)}
+        >
+          <GameIdentityEditor details={details} onSave={onSaveIdentity} />
+        </DetailSection>
+      </div>
 
       <UnsavedProfileChangesDialog
         visible={unsavedDialogVisible}
