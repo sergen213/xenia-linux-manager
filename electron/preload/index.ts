@@ -11,4 +11,15 @@ contextBridge.exposeInMainWorld('xlm', {
   },
   openDialog: (opts: object) => ipcRenderer.invoke('xlm:openDialog', opts),
   convertFileSrc: (path: string) => `xlm-asset://local/${encodeURIComponent(path)}`,
+  win: {
+    minimize: () => ipcRenderer.invoke('xlm:win:minimize'),
+    toggleMaximize: () => ipcRenderer.invoke('xlm:win:toggleMaximize'),
+    close: () => ipcRenderer.invoke('xlm:win:close'),
+    isMaximized: () => ipcRenderer.invoke('xlm:win:isMaximized'),
+    onMaximizeChange: (cb: (maximized: boolean) => void) => {
+      const listener = (_e: unknown, maximized: boolean) => cb(maximized)
+      ipcRenderer.on('xlm:win:maximize-changed', listener)
+      return () => ipcRenderer.removeListener('xlm:win:maximize-changed', listener)
+    },
+  },
 })
