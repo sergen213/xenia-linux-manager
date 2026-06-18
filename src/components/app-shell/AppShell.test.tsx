@@ -21,6 +21,12 @@ vi.mock("../../platform/bridge", () => ({
   listen: vi.fn(async () => () => {}),
   convertFileSrc: (path: string) => `xlm-asset://local/${encodeURIComponent(path)}`,
   open: vi.fn(async () => null),
+  hasWindowControls: () => false,
+  windowMinimize: vi.fn(() => Promise.resolve()),
+  windowToggleMaximize: vi.fn(() => Promise.resolve()),
+  windowClose: vi.fn(() => Promise.resolve()),
+  windowIsMaximized: vi.fn(() => Promise.resolve(false)),
+  onWindowMaximizeChange: vi.fn(() => () => {}),
 }));
 
 function renderWithRouter(ui: React.ReactNode, initialRoute = "/") {
@@ -96,6 +102,18 @@ describe("AppShell", () => {
 
     expect(
       screen.getByRole("status", { name: /system status/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("renders the window title bar", () => {
+    renderWithRouter(
+      <AppShell>
+        <div>Content</div>
+      </AppShell>,
+    );
+
+    expect(
+      screen.getByLabelText(/window title bar/i),
     ).toBeInTheDocument();
   });
 });
