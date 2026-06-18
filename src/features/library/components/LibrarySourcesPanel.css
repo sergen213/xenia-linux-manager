@@ -47,7 +47,8 @@
   font-size: var(--font-size-xs);
   font-weight: 500;
   cursor: pointer;
-  transition: background-color 0.15s;
+  transition: background-color var(--transition-fast) var(--ease-out),
+    border-color var(--transition-fast) var(--ease-out);
 }
 
 .sources-panel__btn:hover {
@@ -56,13 +57,15 @@
 
 .sources-panel__btn--primary {
   background-color: var(--color-accent);
-  color: var(--color-text-primary);
+  /* Dark ink on the light-blue accent — frost text fails contrast here. */
+  color: var(--color-bg-primary);
   border-color: var(--color-accent);
   font-weight: 600;
 }
 
 .sources-panel__btn--primary:hover {
-  opacity: 0.85;
+  background-color: var(--color-accent-hover);
+  border-color: var(--color-accent-hover);
 }
 
 .sources-panel__btn--spaced-top {
@@ -107,19 +110,19 @@
 }
 
 .sources-panel__badge {
-  font-size: 0.75rem;
+  font-size: var(--font-size-xs);
   padding: 2px 8px;
   border-radius: 999px;
   font-weight: 600;
 }
 
 .sources-panel__badge--warning {
-  background: rgba(245, 158, 11, 0.18);
+  background: color-mix(in srgb, var(--color-warning) 18%, transparent);
   color: var(--color-warning);
 }
 
 .sources-panel__meta {
-  font-size: 0.85rem;
+  font-size: var(--font-size-sm);
   margin-bottom: 8px;
   color: var(--color-text-secondary);
 }
@@ -139,7 +142,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 12px;
-  background-color: var(--color-bg-surface, var(--color-bg-card));
+  background-color: var(--color-bg-card);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
 }
@@ -178,36 +181,40 @@
 .source-item__btn {
   padding: 4px 10px;
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm, 4px);
+  border-radius: var(--radius-sm);
   background-color: transparent;
   color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
   cursor: pointer;
-  transition: background-color 0.15s;
+  transition: background-color var(--transition-fast) var(--ease-out),
+    border-color var(--transition-fast) var(--ease-out),
+    color var(--transition-fast) var(--ease-out);
 }
 
 .source-item__btn:hover {
   background-color: var(--color-bg-hover);
 }
 
+/* Danger hover: faint red tint + red text (the danger token is a light red
+   meant as ink, not a fill — white-on-it fails contrast). */
 .source-item__btn--danger:hover {
-  background-color: var(--color-danger, #ef4444);
-  color: white;
-  border-color: var(--color-danger, #ef4444);
+  background-color: color-mix(in srgb, var(--color-danger) 15%, transparent);
+  color: var(--color-danger);
+  border-color: color-mix(in srgb, var(--color-danger) 40%, var(--color-border));
 }
 
 .sources-panel__warnings {
   margin-top: 12px;
   padding: 10px;
-  background-color: rgba(245, 158, 11, 0.1);
-  border: 1px solid var(--color-warning, #f59e0b);
+  background-color: color-mix(in srgb, var(--color-warning) 10%, transparent);
+  border: 1px solid var(--color-warning);
   border-radius: var(--radius-md);
 }
 
 .sources-panel__warning-title {
   font-size: var(--font-size-xs);
   font-weight: 600;
-  color: var(--color-warning, #f59e0b);
+  color: var(--color-warning);
   margin-bottom: 4px;
 }
 
@@ -219,9 +226,9 @@
 .sources-panel__error {
   margin-top: 12px;
   padding: 10px;
-  background-color: rgba(239, 68, 68, 0.1);
-  border: 1px solid var(--color-danger, #ef4444);
+  background-color: color-mix(in srgb, var(--color-danger) 10%, transparent);
+  border: 1px solid var(--color-danger);
   border-radius: var(--radius-md);
   font-size: var(--font-size-xs);
-  color: var(--color-danger, #ef4444);
+  color: var(--color-danger);
 }

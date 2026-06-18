@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { useTasks } from "../tasks/state/tasksStore";
+import { useTasks, selectTaskSummary } from "../tasks/state/tasksStore";
 import { useLibrary } from "../library/state/libraryStore";
 import { TaskStatusStrip } from "../tasks/components/TaskStatusStrip";
 import { XeniaLifecycleCard } from "../xenia/components/XeniaLifecycleCard";
@@ -10,6 +10,8 @@ export function DashboardHome() {
   const navigate = useNavigate();
   const { state: tasksState } = useTasks();
   const { state: libraryState } = useLibrary();
+
+  const taskSummary = selectTaskSummary(tasksState);
 
   const libraryCounts = useMemo(() => {
     return {
@@ -84,11 +86,22 @@ export function DashboardHome() {
 
         <XeniaLifecycleCard channel="edge" />
 
-        <div className="dashboard__card">
+        <button
+          type="button"
+          className="dashboard__card dashboard__card--interactive"
+          onClick={() => navigate("/tasks")}
+        >
           <h3 className="dashboard__card-title">Tasks</h3>
-          <p className="dashboard__card-value">0</p>
-          <p className="dashboard__card-label">Active tasks</p>
-        </div>
+          <p className="dashboard__card-value">{taskSummary.running}</p>
+          <p className="dashboard__card-label">
+            {taskSummary.running === 1 ? "Active task" : "Active tasks"}
+          </p>
+          {taskSummary.failed > 0 && (
+            <p className="dashboard__card-meta">
+              {taskSummary.failed} failed
+            </p>
+          )}
+        </button>
       </div>
 
       <section className="dashboard__section">

@@ -19,6 +19,8 @@
     "dist": "npm run build:sidecar && npm run build && electron-builder --linux AppImage"
   },
   "dependencies": {
+    "@fontsource/ibm-plex-mono": "^5.2.7",
+    "@fontsource/ibm-plex-sans": "^5.2.8",
     "electron-log": "^5.4.4",
     "electron-updater": "^6.8.9",
     "react": "^19.2.4",
@@ -54,11 +56,34 @@
   "build": {
     "appId": "com.xenia-linux-manager.app",
     "productName": "Xenia Manager for Linux",
-    "directories": { "output": "release", "buildResources": "build" },
-    "files": ["out/**/*", "package.json"],
-    "extraResources": [{ "from": "core/target/release/xlm-core", "to": "xlm-core" }],
-    "linux": { "target": ["AppImage"], "category": "Game", "icon": "build/icon.png" },
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "out/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "core/target/release/xlm-core",
+        "to": "xlm-core"
+      }
+    ],
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Game",
+      "icon": "build/icon.png"
+    },
     "asar": true,
-    "publish": [{ "provider": "github", "owner": "REPLACE_OWNER", "repo": "xenia-linux-manager" }]
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "REPLACE_OWNER",
+        "repo": "xenia-linux-manager"
+      }
+    ]
   }
 }

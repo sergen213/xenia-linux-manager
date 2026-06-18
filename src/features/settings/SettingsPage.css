@@ -48,11 +48,11 @@
   color: var(--color-accent);
   font-size: var(--font-size-xs);
   cursor: pointer;
-  transition: background-color 0.15s;
+  transition: background-color var(--transition-fast) var(--ease-out);
 }
 
 .settings-page__edit-btn:hover {
-  background: rgba(56, 189, 248, 0.1);
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
 }
 
 .settings-page__paths {
@@ -75,7 +75,7 @@
 }
 
 .settings-page__path-value {
-  font-family: monospace;
+  font-family: var(--font-mono);
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
   word-break: break-all;
@@ -125,7 +125,7 @@
 
 .settings-page__pref-value--multiline {
   white-space: pre-wrap;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-family: var(--font-mono);
 }
 
 .settings-page__pref-edit {
@@ -165,9 +165,16 @@
   background: var(--color-accent);
   border: none;
   border-radius: var(--radius-sm);
-  color: white;
+  /* Dark ink on the light-blue accent — white here fails contrast. */
+  color: var(--color-bg-primary);
+  font-weight: 600;
   font-size: var(--font-size-xs);
   cursor: pointer;
+  transition: background-color var(--transition-fast) var(--ease-out);
+}
+
+.settings-page__save-btn:hover {
+  background: var(--color-accent-hover);
 }
 
 .settings-page__cancel-btn {

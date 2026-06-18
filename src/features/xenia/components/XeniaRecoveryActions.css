@@ -1,6 +1,6 @@
 .xenia-recovery {
   background-color: var(--color-bg-card);
-  border: 1px solid var(--color-danger, #ef4444);
+  border: 1px solid var(--color-danger);
   border-radius: var(--radius-lg);
   padding: 16px;
   margin-bottom: 16px;
@@ -16,7 +16,7 @@
 .xenia-recovery__title {
   font-size: var(--font-size-sm);
   font-weight: 600;
-  color: var(--color-danger, #ef4444);
+  color: var(--color-danger);
 }
 
 .xenia-recovery__details-toggle {
@@ -82,7 +82,7 @@
   color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
   cursor: pointer;
-  transition: background-color 0.15s;
+  transition: background-color var(--transition-fast) var(--ease-out);
 }
 
 .xenia-recovery__action-btn:hover:not(:disabled) {
@@ -95,12 +95,12 @@
 }
 
 .xenia-recovery__action-btn--remove {
-  border-color: var(--color-danger, #ef4444);
-  color: var(--color-danger, #ef4444);
+  border-color: var(--color-danger);
+  color: var(--color-danger);
 }
 
 .xenia-recovery__action-btn--remove:hover:not(:disabled) {
-  background-color: rgba(239, 68, 68, 0.1);
+  background-color: color-mix(in srgb, var(--color-danger) 10%, transparent);
 }
 
 .xenia-recovery__hint {

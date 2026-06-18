@@ -4,11 +4,11 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--color-scrim);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: var(--z-modal);
 }
 
 .edit-paths {
@@ -80,7 +80,7 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   color: var(--color-text-primary);
-  font-family: monospace;
+  font-family: var(--font-mono);
   font-size: var(--font-size-sm);
 }
 
@@ -96,7 +96,7 @@
 }
 
 .edit-paths__impact {
-  background: rgba(56, 189, 248, 0.08);
+  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
   border: 1px solid var(--color-accent);
   border-radius: var(--radius-md);
   padding: 0.75rem 1rem;
@@ -116,7 +116,7 @@
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
   line-height: 1.6;
-  font-family: monospace;
+  font-family: var(--font-mono);
 }
 
 .edit-paths__impact-actions {
@@ -156,7 +156,7 @@
 }
 
 .edit-paths__warnings {
-  background: rgba(251, 191, 36, 0.1);
+  background: color-mix(in srgb, var(--color-warning) 10%, transparent);
   border: 1px solid var(--color-warning);
   border-radius: var(--radius-md);
   padding: 0.75rem 1rem;
@@ -169,7 +169,7 @@
 }
 
 .edit-paths__save-error {
-  background: rgba(248, 113, 113, 0.1);
+  background: color-mix(in srgb, var(--color-error) 10%, transparent);
   border: 1px solid var(--color-error);
   border-radius: var(--radius-md);
   padding: 0.75rem 1rem;

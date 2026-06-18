@@ -37,16 +37,17 @@
   width: 100%;
   text-align: left;
   cursor: pointer;
-  transition: border-color 0.15s ease, transform 0.15s ease;
+  transition: border-color var(--transition-fast) var(--ease-out),
+    transform var(--transition-fast) var(--ease-out);
 }
 
 .dashboard__card--interactive:hover {
-  border-color: var(--color-accent, var(--color-border));
+  border-color: var(--color-accent);
   transform: translateY(-1px);
 }
 
 .dashboard__card--interactive:focus-visible {
-  outline: 2px solid var(--color-accent, #6ea8fe);
+  outline: 2px solid var(--color-accent);
   outline-offset: 2px;
 }
 
@@ -60,7 +61,7 @@
 }
 
 .dashboard__card-value {
-  font-size: 1.5rem;
+  font-size: var(--font-size-2xl);
   font-weight: 700;
   color: var(--color-text-primary);
   margin-bottom: 4px;

@@ -5,7 +5,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 100;
+  z-index: var(--z-modal);
 }
 
 .xenia-dialog {
@@ -20,7 +20,7 @@
 }
 
 .xenia-dialog__title {
-  font-size: var(--font-size-lg, 1.125rem);
+  font-size: var(--font-size-lg);
   font-weight: 600;
   color: var(--color-text-primary);
   margin-bottom: 16px;
@@ -166,10 +166,10 @@
 }
 
 .xenia-dialog__job-id code {
-  font-family: monospace;
+  font-family: var(--font-mono);
   background-color: var(--color-bg-hover);
   padding: 2px 6px;
-  border-radius: var(--radius-sm, 4px);
+  border-radius: var(--radius-sm);
 }
 
 .xenia-dialog__update-notice {
@@ -206,7 +206,7 @@
 .xenia-dialog__link {
   color: var(--color-accent);
   text-decoration: none;
-  transition: opacity 0.15s;
+  transition: opacity var(--transition-fast) var(--ease-out);
 }
 
 .xenia-dialog__link:hover {

@@ -6,16 +6,18 @@
   margin-bottom: 12px;
 }
 
+/* Status reads from a full tinted border + the labelled pill below — no
+   side-stripe (DESIGN.md "Don't"). Border tint matches the card convention. */
 .task-card--completed {
-  border-left: 3px solid var(--color-success, #22c55e);
+  border-color: color-mix(in srgb, var(--color-success) 30%, var(--color-border));
 }
 
 .task-card--failed {
-  border-left: 3px solid var(--color-error, #ef4444);
+  border-color: color-mix(in srgb, var(--color-error) 50%, var(--color-border));
 }
 
 .task-card--interrupted {
-  border-left: 3px solid var(--color-warning, #f59e0b);
+  border-color: color-mix(in srgb, var(--color-warning) 45%, var(--color-border));
 }
 
 .task-card__header {
@@ -31,22 +33,22 @@
   text-transform: uppercase;
   letter-spacing: 0.05em;
   padding: 2px 8px;
-  border-radius: var(--radius-sm, 4px);
+  border-radius: var(--radius-sm);
 }
 
 .task-card__status--completed {
-  color: var(--color-success, #22c55e);
-  background-color: rgba(34, 197, 94, 0.1);
+  color: var(--color-success);
+  background-color: color-mix(in srgb, var(--color-success) 12%, transparent);
 }
 
 .task-card__status--failed {
-  color: var(--color-error, #ef4444);
-  background-color: rgba(239, 68, 68, 0.1);
+  color: var(--color-error);
+  background-color: color-mix(in srgb, var(--color-error) 12%, transparent);
 }
 
 .task-card__status--interrupted {
-  color: var(--color-warning, #f59e0b);
-  background-color: rgba(245, 158, 11, 0.1);
+  color: var(--color-warning);
+  background-color: color-mix(in srgb, var(--color-warning) 12%, transparent);
 }
 
 .task-card__label {
@@ -63,19 +65,19 @@
 
 .task-card__error {
   font-size: var(--font-size-xs);
-  color: var(--color-error, #ef4444);
-  background-color: rgba(239, 68, 68, 0.08);
+  color: var(--color-error);
+  background-color: color-mix(in srgb, var(--color-error) 9%, transparent);
   padding: 8px 12px;
-  border-radius: var(--radius-sm, 4px);
+  border-radius: var(--radius-sm);
   margin-bottom: 8px;
 }
 
 .task-card__interrupted-notice {
   font-size: var(--font-size-xs);
-  color: var(--color-warning, #f59e0b);
-  background-color: rgba(245, 158, 11, 0.08);
+  color: var(--color-warning);
+  background-color: color-mix(in srgb, var(--color-warning) 9%, transparent);
   padding: 10px 12px;
-  border-radius: var(--radius-sm, 4px);
+  border-radius: var(--radius-sm);
   margin-bottom: 8px;
 }
 
@@ -87,15 +89,16 @@
   font-size: var(--font-size-xs);
   font-weight: 600;
   padding: 4px 12px;
-  border: 1px solid var(--color-warning, #f59e0b);
-  border-radius: var(--radius-sm, 4px);
+  border: 1px solid var(--color-warning);
+  border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--color-warning, #f59e0b);
+  color: var(--color-warning);
   cursor: pointer;
+  transition: background-color var(--transition-fast) var(--ease-out);
 }
 
 .task-card__retry-btn:hover {
-  background-color: rgba(245, 158, 11, 0.15);
+  background-color: color-mix(in srgb, var(--color-warning) 15%, transparent);
 }
 
 .task-card__logs {
@@ -107,6 +110,7 @@
   color: var(--color-text-secondary);
   cursor: pointer;
   padding: 4px 0;
+  transition: color var(--transition-fast) var(--ease-out);
 }
 
 .task-card__logs-toggle:hover {
@@ -119,7 +123,7 @@
   margin: 8px 0 0 0;
   max-height: 200px;
   overflow-y: auto;
-  font-family: monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   line-height: 1.5;
 }
@@ -132,11 +136,11 @@
 }
 
 .task-card__log-entry--warn {
-  color: var(--color-warning, #f59e0b);
+  color: var(--color-warning);
 }
 
 .task-card__log-entry--error {
-  color: var(--color-error, #ef4444);
+  color: var(--color-error);
 }
 
 .task-card__log-time {

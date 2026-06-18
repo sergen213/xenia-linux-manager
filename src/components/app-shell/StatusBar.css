@@ -82,5 +82,5 @@
 
 .status-bar__build-version {
   color: var(--color-text-secondary);
-  font-family: monospace;
+  font-family: var(--font-mono);
 }

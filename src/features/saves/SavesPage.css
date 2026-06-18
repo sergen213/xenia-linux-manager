@@ -127,7 +127,7 @@
 }
 
 .save-wizard__warnings {
-  color: #c28b35;
+  color: var(--color-warning);
   font-size: var(--font-size-sm);
   margin: 0;
   padding-left: 18px;
@@ -161,8 +161,8 @@
 }
 
 .save-conflict-preview__item--replace {
-  border-color: rgba(194, 139, 53, 0.5);
-  background: rgba(194, 139, 53, 0.06);
+  border-color: color-mix(in srgb, var(--color-warning) 45%, var(--color-border));
+  background: color-mix(in srgb, var(--color-warning) 8%, transparent);
 }
 
 .save-conflict-preview__action-badge {
@@ -173,23 +173,23 @@
 }
 
 .save-conflict-preview__action-badge--new {
-  background: rgba(47, 143, 87, 0.14);
-  color: #2f8f57;
+  background: color-mix(in srgb, var(--color-success) 14%, transparent);
+  color: var(--color-success);
 }
 
 .save-conflict-preview__action-badge--replace {
-  background: rgba(194, 139, 53, 0.16);
-  color: #c28b35;
+  background: color-mix(in srgb, var(--color-warning) 16%, transparent);
+  color: var(--color-warning);
 }
 
 .save-conflict-preview__action-badge--rename {
-  background: rgba(51, 109, 214, 0.14);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
   color: var(--color-accent);
 }
 
 .save-conflict-preview__action-badge--skip {
   color: var(--color-text-secondary);
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--color-bg-hover);
 }
 
 .save-conflict-preview__explanation {
@@ -256,8 +256,8 @@
 }
 
 .save-results__item--failed {
-  border-color: rgba(200, 60, 60, 0.4);
-  background: rgba(200, 60, 60, 0.06);
+  border-color: color-mix(in srgb, var(--color-error) 40%, var(--color-border));
+  background: color-mix(in srgb, var(--color-error) 8%, transparent);
 }
 
 .save-results__item--skipped {
@@ -273,15 +273,15 @@
 /* Backup failure dialog */
 
 .backup-failure-dialog {
-  border: 1px solid rgba(200, 60, 60, 0.4);
+  border: 1px solid color-mix(in srgb, var(--color-error) 40%, var(--color-border));
   border-radius: var(--radius-md);
-  background: rgba(200, 60, 60, 0.06);
+  background: color-mix(in srgb, var(--color-error) 8%, transparent);
   padding: 14px;
 }
 
 .backup-failure-dialog__warning {
   font-weight: 600;
-  color: #c83c3c;
+  color: var(--color-error);
 }
 
 /* Quick actions */
@@ -329,7 +329,7 @@
 }
 
 .save-export-dialog__blockers {
-  color: #c83c3c;
+  color: var(--color-error);
   font-size: var(--font-size-sm);
   margin: 0;
   padding-left: 18px;

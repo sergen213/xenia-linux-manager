@@ -28,7 +28,7 @@ export function TaskStatusStrip({ state }: TaskStatusStripProps) {
           <div className="task-strip__progress-bar">
             <div
               className="task-strip__progress-fill"
-              style={{ width: `${activeJob.progress ?? 0}%` }}
+              style={{ transform: `scaleX(${(activeJob.progress ?? 0) / 100})` }}
             />
           </div>
           {summary.running > 1 && (

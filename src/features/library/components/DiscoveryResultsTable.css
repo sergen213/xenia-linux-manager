@@ -45,16 +45,20 @@
   color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
   cursor: pointer;
-  transition: background-color 0.15s;
+  transition: background-color var(--transition-fast) var(--ease-out),
+    border-color var(--transition-fast) var(--ease-out),
+    color var(--transition-fast) var(--ease-out);
 }
 
 .discovery-table__filter-btn:hover {
   background-color: var(--color-bg-hover);
 }
 
+/* Active filter uses the quiet tinted-accent emphasis (matches library tabs),
+   not a solid accent slab — keeps text contrast and the One Signal Rule. */
 .discovery-table__filter-btn--active {
-  background-color: var(--color-accent);
-  color: var(--color-text-primary);
+  background-color: color-mix(in srgb, var(--color-accent) 16%, transparent);
+  color: var(--color-accent);
   border-color: var(--color-accent);
   font-weight: 600;
 }
@@ -72,7 +76,7 @@
   align-items: flex-start;
   justify-content: space-between;
   padding: 10px 12px;
-  background-color: var(--color-bg-surface, var(--color-bg-card));
+  background-color: var(--color-bg-card);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   gap: 12px;
@@ -86,8 +90,11 @@
   opacity: 0.5;
 }
 
+/* Warning state reads from a full tinted border + faint fill + the warning
+   text below — no side-stripe (DESIGN.md "Don't"). */
 .candidate-row--warning {
-  border-left: 3px solid var(--color-warning, #f59e0b);
+  border-color: color-mix(in srgb, var(--color-warning) 35%, var(--color-border));
+  background-color: color-mix(in srgb, var(--color-warning) 6%, var(--color-bg-card));
 }
 
 .candidate-row__main {
@@ -110,7 +117,7 @@
 
 .candidate-row__warning {
   font-size: var(--font-size-xs);
-  color: var(--color-warning, #f59e0b);
+  color: var(--color-warning);
   margin-top: 4px;
 }
 
@@ -123,20 +130,18 @@
 
 .candidate-row__badge {
   padding: 2px 6px;
-  border-radius: var(--radius-sm, 4px);
+  border-radius: var(--radius-sm);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.05em;
 }
 
-.candidate-row__badge--xex {
-  background-color: rgba(59, 130, 246, 0.15);
-  color: #3b82f6;
-}
-
+/* File-format tags are neutral metadata, not status — the XEX/ISO label
+   carries the meaning, so no decorative hue (palette is one accent + status). */
+.candidate-row__badge--xex,
 .candidate-row__badge--iso {
-  background-color: rgba(168, 85, 247, 0.15);
-  color: #a855f7;
+  background-color: var(--color-bg-hover);
+  color: var(--color-text-secondary);
 }
 
 .candidate-row__status {
@@ -146,7 +151,7 @@
 }
 
 .candidate-row__status--found {
-  color: var(--color-success, #22c55e);
+  color: var(--color-success);
 }
 
 .candidate-row__status--duplicate {
@@ -154,7 +159,7 @@
 }
 
 .candidate-row__status--warning {
-  color: var(--color-warning, #f59e0b);
+  color: var(--color-warning);
 }
 
 .candidate-row__status--skipped {
@@ -166,11 +171,11 @@
 }
 
 .candidate-row__confidence--high {
-  color: var(--color-success, #22c55e);
+  color: var(--color-success);
 }
 
 .candidate-row__confidence--medium {
-  color: var(--color-warning, #f59e0b);
+  color: var(--color-warning);
 }
 
 .candidate-row__confidence--low {

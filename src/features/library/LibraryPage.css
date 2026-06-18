@@ -172,7 +172,7 @@
 
 .library-grid__card--selected {
   border-color: var(--color-accent);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-accent) 35%, transparent);
+  box-shadow: var(--ring-accent);
 }
 
 .library-grid__cover {
@@ -180,9 +180,16 @@
   align-items: center;
   justify-content: center;
   aspect-ratio: 1 / 1;
+  /* On-brand cover placeholder: navy depth with an accent wash, not the
+     off-palette teal/amber gradient. Subtle sheen reads as box art. */
   background:
-    radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.12), transparent 40%),
-    linear-gradient(135deg, #0d1a2b, #1e4b5c 55%, #c28b35);
+    radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.1), transparent 45%),
+    linear-gradient(
+      135deg,
+      var(--color-bg-sidebar),
+      var(--color-bg-secondary) 55%,
+      color-mix(in srgb, var(--color-accent) 45%, var(--color-bg-card))
+    );
   color: white;
   font-size: 3rem;
   font-weight: 800;
@@ -384,13 +391,13 @@
 }
 
 .game-details__label {
-  font-size: 0.85rem;
+  font-size: var(--font-size-sm);
   margin-bottom: 6px;
   color: var(--color-text-secondary);
 }
 
 .game-details__helper {
-  font-size: 0.8rem;
+  font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
 }
 
@@ -577,7 +584,7 @@
   align-items: center;
   justify-content: center;
   padding: 24px;
-  z-index: 20;
+  z-index: var(--z-modal);
 }
 
 .patch-chooser__content {
@@ -792,7 +799,7 @@
 }
 
 .profile-raw-editor__key {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-family: var(--font-mono);
 }
 
 .profile-raw-editor__empty {
@@ -885,7 +892,7 @@
 
 .custom-select__menu {
   position: absolute;
-  z-index: 50;
+  z-index: var(--z-dropdown);
   top: 100%;
   left: 0;
   right: 0;
@@ -895,7 +902,7 @@
   background: var(--color-bg-card);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-card);
   max-height: 240px;
   overflow-y: auto;
 }
@@ -912,15 +919,15 @@
   cursor: pointer;
   text-align: left;
   font: inherit;
-  font-size: 0.85rem;
+  font-size: var(--font-size-sm);
 }
 
 .custom-select__option:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--color-bg-hover);
 }
 
 .custom-select__option.is-active {
-  background: rgba(255, 255, 255, 0.1);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
   font-weight: 600;
 }
 
@@ -932,7 +939,7 @@
 
 .patch-version-picker__label {
   display: block;
-  font-size: 0.75rem;
+  font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
   margin-bottom: 4px;
 }

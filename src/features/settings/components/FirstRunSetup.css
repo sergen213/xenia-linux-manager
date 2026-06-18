@@ -74,7 +74,7 @@
   border: 1px solid var(--color-border-input);
   border-radius: var(--radius-sm);
   color: var(--color-text-primary);
-  font-family: monospace;
+  font-family: var(--font-mono);
   font-size: var(--font-size-sm);
 }
 
@@ -90,7 +90,7 @@
 }
 
 .first-run__warnings {
-  background: rgba(251, 191, 36, 0.1);
+  background: color-mix(in srgb, var(--color-warning) 10%, transparent);
   border: 1px solid var(--color-warning);
   border-radius: var(--radius-md);
   padding: 0.75rem 1rem;
@@ -108,7 +108,7 @@
 }
 
 .first-run__error {
-  background: rgba(248, 113, 113, 0.1);
+  background: color-mix(in srgb, var(--color-error) 10%, transparent);
   border: 1px solid var(--color-error);
   border-radius: var(--radius-md);
   padding: 0.75rem 1rem;
@@ -130,7 +130,7 @@
   font-size: var(--font-size-base);
   font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.15s;
+  transition: background-color var(--transition-fast) var(--ease-out);
 }
 
 .first-run__confirm-btn:hover:not(:disabled) {

@@ -28,7 +28,7 @@
 }
 
 .env-notice__error {
-  color: var(--color-danger, #ef4444);
+  color: var(--color-danger);
 }
 
 .env-notice__warnings {
@@ -60,8 +60,8 @@
 }
 
 .env-notice__item--warning {
-  background-color: rgba(234, 179, 8, 0.08);
-  border: 1px solid rgba(234, 179, 8, 0.2);
+  background-color: color-mix(in srgb, var(--color-warning) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-warning) 20%, transparent);
 }
 
 .env-notice__item--info {
@@ -82,7 +82,7 @@
 }
 
 .env-notice__severity-icon--warning {
-  color: var(--color-warning, #eab308);
+  color: var(--color-warning);
 }
 
 .env-notice__severity-icon--info {
@@ -105,7 +105,7 @@
   color: var(--color-accent);
   font-size: var(--font-size-xs);
   cursor: pointer;
-  transition: opacity 0.15s;
+  transition: opacity var(--transition-fast) var(--ease-out);
 }
 
 .env-notice__detail-toggle:hover {
@@ -119,12 +119,12 @@
 }
 
 .env-notice__detail-pre {
-  font-family: monospace;
+  font-family: var(--font-mono);
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
   background-color: var(--color-bg-primary);
   padding: 0.5rem 0.75rem;
-  border-radius: var(--radius-sm, 4px);
+  border-radius: var(--radius-sm);
   white-space: pre-wrap;
   word-break: break-word;
   overflow-x: auto;
