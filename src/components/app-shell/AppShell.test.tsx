@@ -80,10 +80,11 @@ describe("AppShell", () => {
     const labels = Array.from(
       nav.querySelectorAll(".sidebar__label"),
     ).map((el) => el.textContent);
-    expect(labels).toContain("Dashboard");
     expect(labels).toContain("Library");
+    expect(labels).toContain("Saves");
     expect(labels).toContain("Tasks");
     expect(labels).toContain("Settings");
+    expect(labels).not.toContain("Dashboard");
   });
 
   it("renders the system status surface", () => {

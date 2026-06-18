@@ -52,11 +52,28 @@
 }
 
 .sidebar__icon {
-  font-size: var(--font-size-lg);
-  width: 24px;
-  text-align: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  flex-shrink: 0;
+  /* lucide SVGs inherit stroke from currentColor → follow the link's text
+     color (Haze when idle, Heritage Jade when active). */
+  color: currentColor;
 }
 
 .sidebar__label {
   line-height: 1;
+}
+
+/* Footer cluster pinned to the bottom (top nav's flex:1 pushes it down):
+   Settings (config, separated from content nav) → active-job strip → status. */
+.sidebar__footer {
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar__nav--bottom {
+  flex: 0 0 auto;
+  border-top: 1px solid var(--color-border);
 }

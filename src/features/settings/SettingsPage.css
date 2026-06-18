@@ -223,3 +223,23 @@
 .settings-page__radio input {
   cursor: pointer;
 }
+
+/* Xenia emulator builds — moved here from the old dashboard. The lifecycle
+   cards ARE the cards, so they sit directly under a heading (no section-card
+   wrapper, which would nest cards). */
+.settings-page__xenia {
+  margin-bottom: 1rem;
+}
+
+.settings-page__xenia-title {
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin-bottom: 0.75rem;
+}
+
+.settings-page__xenia-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}

@@ -114,24 +114,17 @@ function renderApp(initialRoute = "/") {
 }
 
 describe("router", () => {
-  it("registers Dashboard, Library, Tasks, and Settings routes", () => {
+  it("registers Library, Saves, Tasks, and Settings routes", () => {
     const labels = routes.map((r) => r.label);
-    expect(labels).toContain("Dashboard");
     expect(labels).toContain("Library");
+    expect(labels).toContain("Saves");
     expect(labels).toContain("Tasks");
     expect(labels).toContain("Settings");
+    expect(labels).not.toContain("Dashboard");
   });
 
-  it("renders Dashboard at root path", async () => {
+  it("renders Library at the root path (home)", async () => {
     renderApp("/");
-    expect(await screen.findByText("Dashboard")).toBeInTheDocument();
-    expect(
-      screen.getByText("Your Xbox 360 library at a glance"),
-    ).toBeInTheDocument();
-  });
-
-  it("renders Library page at /library", async () => {
-    renderApp("/library");
     expect(
       await screen.findByRole("heading", { name: "Library" }),
     ).toBeInTheDocument();
@@ -162,9 +155,11 @@ describe("router", () => {
     ).toBeInTheDocument();
   });
 
-  it("redirects unknown routes to Dashboard", async () => {
+  it("redirects unknown routes to Library (home)", async () => {
     renderApp("/nonexistent");
-    expect(await screen.findByText("Dashboard")).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Library" }),
+    ).toBeInTheDocument();
   });
 
   it("getSidebarRoutes returns all routes with showInSidebar=true", () => {

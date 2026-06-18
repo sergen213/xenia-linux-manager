@@ -3,6 +3,8 @@ import { render, screen } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import { SettingsPage } from "../SettingsPage";
 import { SettingsContext, type SettingsState } from "../state/settingsStore";
+import { XeniaContext, INITIAL_XENIA_STATE } from "../../xenia/state/xeniaStore";
+import { TasksContext, INITIAL_TASKS_STATE } from "../../tasks/state/tasksStore";
 import type { AppSettings } from "../model/settingsSchema";
 
 // Mock the platform bridge
@@ -37,7 +39,11 @@ function renderWithContext(state: Partial<SettingsState>) {
   };
   return render(
     <SettingsContext value={{ state: fullState, dispatch: vi.fn() }}>
-      <SettingsPage />
+      <TasksContext value={{ state: INITIAL_TASKS_STATE, dispatch: vi.fn() }}>
+        <XeniaContext value={{ state: INITIAL_XENIA_STATE, dispatch: vi.fn() }}>
+          <SettingsPage />
+        </XeniaContext>
+      </TasksContext>
     </SettingsContext>,
   );
 }

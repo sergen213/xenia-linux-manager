@@ -49,17 +49,18 @@ describe("Sidebar", () => {
     const labels = Array.from(
       nav.querySelectorAll(".sidebar__label"),
     ).map((el) => el.textContent);
-    expect(labels).toContain("Dashboard");
     expect(labels).toContain("Library");
+    expect(labels).toContain("Saves");
     expect(labels).toContain("Tasks");
     expect(labels).toContain("Settings");
+    expect(labels).not.toContain("Dashboard");
   });
 
-  it("marks Dashboard link as active on root route", () => {
+  it("marks Library link as active on root route", () => {
     renderSidebar("/");
 
-    const dashboardLink = screen.getByText("Dashboard").closest("a");
-    expect(dashboardLink).toHaveClass("sidebar__link--active");
+    const libraryLink = screen.getByText("Library").closest("a");
+    expect(libraryLink).toHaveClass("sidebar__link--active");
   });
 
   it("marks Settings link as active on /settings route", () => {
@@ -68,8 +69,8 @@ describe("Sidebar", () => {
     const settingsLink = screen.getByText("Settings").closest("a");
     expect(settingsLink).toHaveClass("sidebar__link--active");
 
-    const dashboardLink = screen.getByText("Dashboard").closest("a");
-    expect(dashboardLink).not.toHaveClass("sidebar__link--active");
+    const libraryLink = screen.getByText("Library").closest("a");
+    expect(libraryLink).not.toHaveClass("sidebar__link--active");
   });
 
   it("displays the app title", () => {

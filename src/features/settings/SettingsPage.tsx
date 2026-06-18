@@ -3,6 +3,7 @@ import { useSettings } from "./state/settingsStore";
 import { EditPathsDialog } from "./components/EditPathsDialog";
 import { ReleaseChannelCard } from "./components/ReleaseChannelCard";
 import { PackagedEnvironmentNotice } from "./components/PackagedEnvironmentNotice";
+import { XeniaLifecycleCard } from "../xenia/components/XeniaLifecycleCard";
 import { PATH_FIELDS, getPathValue } from "./model/settingsSchema";
 import { saveSettings } from "./api/settingsClient";
 import "./SettingsPage.css";
@@ -101,6 +102,14 @@ export function SettingsPage() {
           Configure paths, preferences, and app behavior
         </p>
       </header>
+
+      <section className="settings-page__xenia">
+        <h3 className="settings-page__xenia-title">Xenia Emulator</h3>
+        <div className="settings-page__xenia-grid">
+          <XeniaLifecycleCard channel="canary" />
+          <XeniaLifecycleCard channel="edge" />
+        </div>
+      </section>
 
       <section className="settings-page__section">
         <div className="settings-page__section-header">

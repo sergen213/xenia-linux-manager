@@ -4,8 +4,6 @@ import { lazy, Suspense } from "react";
 // Lazy load all page components for better initial bundle size
 // This significantly reduces the initial JS payload
 // eslint-disable-next-line react-refresh/only-export-components
-const DashboardHome = lazy(() => import("../features/dashboard/DashboardHome").then(m => ({ default: m.DashboardHome })));
-// eslint-disable-next-line react-refresh/only-export-components
 const TasksPage = lazy(() => import("../features/tasks/TasksPage").then(m => ({ default: m.TasksPage })));
 // eslint-disable-next-line react-refresh/only-export-components
 const SettingsPage = lazy(() => import("../features/settings/SettingsPage").then(m => ({ default: m.SettingsPage })));
@@ -21,6 +19,8 @@ export interface AppRoute {
   element: ReactNode;
   /** Whether this route appears in the sidebar navigation */
   showInSidebar: boolean;
+  /** Sidebar placement: content nav at the top, config pinned to the bottom */
+  placement: "top" | "bottom";
 }
 
 // Lazy loading wrapper with simple fallback
@@ -34,23 +34,17 @@ function RouteLoader({ children }: { children: ReactNode }) {
 }
 
 /**
- * Central route registry for all Phase 1 sections.
- * Later phases extend this array with new sections.
+ * Central route registry. Library is home — the primary job is launching a
+ * game. Xenia install/builds live under Settings (setup, not daily nav).
  */
 export const routes: AppRoute[] = [
   {
     path: "/",
-    label: "Dashboard",
-    icon: "dashboard",
-    element: <RouteLoader><DashboardHome /></RouteLoader>,
-    showInSidebar: true,
-  },
-  {
-    path: "/library",
     label: "Library",
     icon: "library",
     element: <RouteLoader><LibraryPage /></RouteLoader>,
     showInSidebar: true,
+    placement: "top",
   },
   {
     path: "/saves",
@@ -58,6 +52,7 @@ export const routes: AppRoute[] = [
     icon: "save",
     element: <RouteLoader><SavesPage /></RouteLoader>,
     showInSidebar: true,
+    placement: "top",
   },
   {
     path: "/tasks",
@@ -65,6 +60,7 @@ export const routes: AppRoute[] = [
     icon: "tasks",
     element: <RouteLoader><TasksPage /></RouteLoader>,
     showInSidebar: true,
+    placement: "top",
   },
   {
     path: "/settings",
@@ -72,6 +68,7 @@ export const routes: AppRoute[] = [
     icon: "settings",
     element: <RouteLoader><SettingsPage /></RouteLoader>,
     showInSidebar: true,
+    placement: "bottom",
   },
 ];
 
