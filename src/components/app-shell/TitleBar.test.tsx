@@ -45,6 +45,9 @@ describe("TitleBar", () => {
 
   it("swaps to a restore control when the window becomes maximized", async () => {
     render(<TitleBar />);
+    // Let the mount effect's windowIsMaximized() seed (false) settle first, so
+    // firing the event below is what drives the state — not a leftover microtask.
+    await act(async () => {});
     expect(screen.getByRole("button", { name: /maximize/i })).toBeInTheDocument();
     await act(async () => {
       h.maxCb?.(true);
