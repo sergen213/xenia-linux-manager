@@ -157,11 +157,6 @@ impl JobRegistry {
         self.jobs.lock().unwrap().get(id).cloned()
     }
 
-    /// Get snapshots of all jobs.
-    pub fn get_all(&self) -> Vec<Job> {
-        self.jobs.lock().unwrap().values().cloned().collect()
-    }
-
     /// Apply a mutation to a job. Returns the updated job or None if not found.
     pub fn update<F>(&self, id: &str, f: F) -> Option<Job>
     where
@@ -174,16 +169,6 @@ impl JobRegistry {
         } else {
             None
         }
-    }
-
-    /// Remove a job from the registry and return it.
-    pub fn remove(&self, id: &str) -> Option<Job> {
-        self.jobs.lock().unwrap().remove(id)
-    }
-
-    /// Clear all jobs from the registry.
-    pub fn clear(&self) {
-        self.jobs.lock().unwrap().clear();
     }
 
     /// Mark all currently-running jobs as interrupted.
@@ -316,15 +301,6 @@ mod tests {
         // Verify the completed job was not changed
         let job1 = reg.get(&id1).unwrap();
         assert_eq!(job1.status, JobStatus::Completed);
-    }
-
-    #[test]
-    fn registry_clear_removes_all() {
-        let reg = JobRegistry::new();
-        reg.register("A".into(), "test".into());
-        reg.register("B".into(), "test".into());
-        reg.clear();
-        assert!(reg.get_all().is_empty());
     }
 
     #[test]

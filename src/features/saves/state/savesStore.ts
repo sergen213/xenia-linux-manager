@@ -1,5 +1,4 @@
-import { createContext, useContext } from "react";
-import type { Dispatch } from "react";
+import { createStoreContext, type StoreContextValue } from "../../shared/storeContext";
 import type {
   BackupEntry,
   ConflictPlan,
@@ -149,17 +148,9 @@ export function savesReducer(state: SavesState, action: SavesAction): SavesState
   }
 }
 
-export interface SavesContextValue {
-  state: SavesState;
-  dispatch: Dispatch<SavesAction>;
-}
+export type SavesContextValue = StoreContextValue<SavesState, SavesAction>;
 
-export const SavesContext = createContext<SavesContextValue | null>(null);
+const { Context: SavesContext, useStore: useSaves } =
+  createStoreContext<SavesState, SavesAction>("Saves");
 
-export function useSaves(): SavesContextValue {
-  const context = useContext(SavesContext);
-  if (!context) {
-    throw new Error("useSaves must be used within a SavesProvider");
-  }
-  return context;
-}
+export { SavesContext, useSaves };

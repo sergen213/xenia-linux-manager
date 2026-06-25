@@ -1,6 +1,4 @@
-import { useEffect, useState, useRef } from "react";
 import { useSettings } from "../state/settingsStore";
-import { getReleaseMetadata } from "../api/releaseClient";
 import "./ReleaseChannelCard.css";
 
 /**
@@ -12,44 +10,15 @@ import "./ReleaseChannelCard.css";
  * AppImage build versus a development session.
  */
 export function ReleaseChannelCard() {
-  const { state, dispatch } = useSettings();
-  const [loading, setLoading] = useState(true); // Start with loading=true to avoid setState in effect
-  const [error, setError] = useState<string | null>(null);
+  const { state } = useSettings();
+  // Release metadata is fetched once by SettingsProvider; read it from state.
   const metadata = state.releaseMetadata;
 
-  const loadAttemptedRef = useRef(false);
-  useEffect(() => {
-    if (metadata || loadAttemptedRef.current) return;
-
-    loadAttemptedRef.current = true;
-
-    getReleaseMetadata()
-      .then((m) => {
-        dispatch({ type: "SET_RELEASE_METADATA", metadata: m });
-        setLoading(false);
-      })
-      .catch((err) => {
-        setError(
-          err instanceof Error ? err.message : "Failed to load release info",
-        );
-        setLoading(false);
-      });
-  }, [metadata, dispatch]);
-
-  if (loading) {
+  if (!state.initialized) {
     return (
       <div className="release-card" data-testid="release-card-loading">
         <h3 className="release-card__title">Release Information</h3>
         <p className="release-card__loading">Loading release metadata...</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="release-card" data-testid="release-card-error">
-        <h3 className="release-card__title">Release Information</h3>
-        <p className="release-card__error">{error}</p>
       </div>
     );
   }

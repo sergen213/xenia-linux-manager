@@ -3,6 +3,7 @@ import { open as openDialog } from "../../../platform/bridge";
 import { openPath } from "../api/libraryClient";
 import {
   launchLibraryGame,
+  browseLibrary,
   exportGameDesktopShortcut,
   getShortcutLocations,
   inspectGameContent,
@@ -36,7 +37,7 @@ export function useLaunchActions() {
       try {
         await launchLibraryGame(appDataPath, libPath, gameId, allowUnsafe);
         // Refresh library to update last played times
-        const browse = await import("../api/libraryClient").then((m) => m.browseLibrary(libPath));
+        const browse = await browseLibrary(libPath);
         dispatch({ type: "BROWSE_LOADED", browse });
       } catch (error) {
         dispatch({
@@ -183,46 +184,38 @@ export function useLaunchActions() {
     [appDataPath, libPath, state.selectedGameId, dispatch],
   );
 
-  const changePreferredXeniaBuild = useCallback(
-    async (tag: string | null) => {
+  const updateThenRefresh = useCallback(
+    async (update: (gameId: string) => Promise<unknown>) => {
       if (!state.selectedGameId) return;
-
-      await updatePreferredXeniaBuild(libPath, {
-        game_id: state.selectedGameId,
-        preferred_xenia_tag: tag,
-      });
+      await update(state.selectedGameId);
       const details = await getLibraryGameDetails(libPath, state.selectedGameId);
       dispatch({ type: "GAME_DETAILS_LOADED", details });
     },
     [libPath, state.selectedGameId, dispatch],
+  );
+
+  const changePreferredXeniaBuild = useCallback(
+    (tag: string | null) =>
+      updateThenRefresh((game_id) =>
+        updatePreferredXeniaBuild(libPath, { game_id, preferred_xenia_tag: tag }),
+      ),
+    [updateThenRefresh, libPath],
   );
 
   const changeGameLaunchEnvironment = useCallback(
-    async (launchEnvironment: string | null) => {
-      if (!state.selectedGameId) return;
-
-      await updateGameLaunchEnvironment(libPath, {
-        game_id: state.selectedGameId,
-        launch_environment: launchEnvironment,
-      });
-      const details = await getLibraryGameDetails(libPath, state.selectedGameId);
-      dispatch({ type: "GAME_DETAILS_LOADED", details });
-    },
-    [libPath, state.selectedGameId, dispatch],
+    (launchEnvironment: string | null) =>
+      updateThenRefresh((game_id) =>
+        updateGameLaunchEnvironment(libPath, { game_id, launch_environment: launchEnvironment }),
+      ),
+    [updateThenRefresh, libPath],
   );
 
   const changeGameLaunchWrapper = useCallback(
-    async (launchWrapper: string | null) => {
-      if (!state.selectedGameId) return;
-
-      await updateGameLaunchWrapper(libPath, {
-        game_id: state.selectedGameId,
-        launch_wrapper: launchWrapper,
-      });
-      const details = await getLibraryGameDetails(libPath, state.selectedGameId);
-      dispatch({ type: "GAME_DETAILS_LOADED", details });
-    },
-    [libPath, state.selectedGameId, dispatch],
+    (launchWrapper: string | null) =>
+      updateThenRefresh((game_id) =>
+        updateGameLaunchWrapper(libPath, { game_id, launch_wrapper: launchWrapper }),
+      ),
+    [updateThenRefresh, libPath],
   );
 
   const clearStatusMessage = useCallback(() => {

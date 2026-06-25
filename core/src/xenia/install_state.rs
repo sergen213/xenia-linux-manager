@@ -152,7 +152,7 @@ pub fn builds_root_dir(xenia_path: &str) -> PathBuf {
 pub fn install_dir_for_release(release: &LinuxRelease, xenia_path: &str) -> PathBuf {
     builds_root_dir(xenia_path)
         .join(release.channel.as_str())
-        .join(sanitize_tag(&release.tag))
+        .join(super::archive::sanitize_tag(&release.tag))
 }
 
 pub fn build_id(channel: ReleaseChannel, tag: &str) -> String {
@@ -311,18 +311,6 @@ fn upsert_installed_build(state: &mut InstallState, manifest: InstallManifest) {
     state
         .installed_builds
         .sort_by(|left, right| right.installed_at.cmp(&left.installed_at));
-}
-
-fn sanitize_tag(tag: &str) -> String {
-    tag.chars()
-        .map(|c| {
-            if c.is_alphanumeric() || c == '.' || c == '-' || c == '_' {
-                c
-            } else {
-                '_'
-            }
-        })
-        .collect()
 }
 
 fn now_millis() -> u64 {

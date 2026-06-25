@@ -6,7 +6,7 @@
  * to sidecar events keep the state live as background work progresses.
  */
 
-import { createContext, useContext } from "react";
+import { createStoreContext, type StoreContextValue } from "../../shared/storeContext";
 import type { Job, JobLogPayload, JobProgressPayload } from "../model/taskTypes";
 import { isTerminal } from "../model/taskTypes";
 
@@ -162,16 +162,6 @@ export function selectRunningJobs(state: TasksState): Job[] {
   return selectAllJobs(state).filter((j) => j.status === "running");
 }
 
-/** Get only terminal jobs (completed, failed, interrupted). */
-export function selectHistoryJobs(state: TasksState): Job[] {
-  return selectAllJobs(state).filter((j) => isTerminal(j.status));
-}
-
-/** Get interrupted jobs. */
-export function selectInterruptedJobs(state: TasksState): Job[] {
-  return selectAllJobs(state).filter((j) => j.status === "interrupted");
-}
-
 /** Summary counts for the status strip. */
 export function selectTaskSummary(state: TasksState): {
   running: number;
@@ -210,17 +200,9 @@ export function selectLatestTerminalJobByCategory(
 // Context
 // ---------------------------------------------------------------------------
 
-export interface TasksContextValue {
-  state: TasksState;
-  dispatch: React.Dispatch<TasksAction>;
-}
+export type TasksContextValue = StoreContextValue<TasksState, TasksAction>;
 
-export const TasksContext = createContext<TasksContextValue | null>(null);
+const { Context: TasksContext, useStore: useTasks } =
+  createStoreContext<TasksState, TasksAction>("Tasks");
 
-export function useTasks(): TasksContextValue {
-  const ctx = useContext(TasksContext);
-  if (!ctx) {
-    throw new Error("useTasks must be used within a TasksProvider");
-  }
-  return ctx;
-}
+export { TasksContext, useTasks };

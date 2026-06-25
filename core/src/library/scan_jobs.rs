@@ -189,12 +189,6 @@ impl Default for ScanCoordinator {
     }
 }
 
-impl std::fmt::Debug for ScanCoordinator {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("ScanCoordinator").finish()
-    }
-}
-
 // ---------------------------------------------------------------------------
 // Scan execution
 // ---------------------------------------------------------------------------

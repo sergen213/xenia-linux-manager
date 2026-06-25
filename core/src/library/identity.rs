@@ -269,100 +269,100 @@ pub fn create_manual_game(
     Ok(game)
 }
 
+/// Load the store, find a game by id, run `mutate` against it, bump
+/// `updated_at`, and persist. `now` is computed once and handed to the closure
+/// so callers that stamp multiple timestamps keep them equal to `updated_at`.
+fn mutate_game(
+    library_metadata_path: &str,
+    game_id: &str,
+    mutate: impl FnOnce(&mut GameIdentityRecord, u64),
+) -> Result<GameIdentityRecord, String> {
+    let mut store = load_identity_store(library_metadata_path);
+    let now = now_millis();
+    let record = store
+        .games
+        .iter_mut()
+        .find(|game| game.game_id == game_id)
+        .ok_or_else(|| format!("Game not found: {game_id}"))?;
+
+    mutate(record, now);
+    record.updated_at = now;
+    let updated = record.clone();
+    save_identity_store(library_metadata_path, &store)?;
+    Ok(updated)
+}
+
 pub fn update_game_identity(
     library_metadata_path: &str,
     input: UpdateGameIdentityInput,
 ) -> Result<GameIdentityRecord, String> {
-    let mut store = load_identity_store(library_metadata_path);
-    let record = store
-        .games
-        .iter_mut()
-        .find(|game| game.game_id == input.game_id)
-        .ok_or_else(|| format!("Game not found: {}", input.game_id))?;
-
-    record.title = input.title.trim().to_string();
-    record.executable_path = input.executable_path.trim().to_string();
-    record.issue_notes = input
-        .issue_notes
-        .into_iter()
-        .map(|note| note.trim().to_string())
-        .filter(|note| !note.is_empty())
-        .collect();
-    if !record
-        .linked_candidate_paths
-        .iter()
-        .any(|path| path == &record.executable_path)
-    {
-        record
+    let UpdateGameIdentityInput {
+        game_id,
+        title,
+        executable_path,
+        issue_notes,
+    } = input;
+    mutate_game(library_metadata_path, &game_id, |record, _| {
+        record.title = title.trim().to_string();
+        record.executable_path = executable_path.trim().to_string();
+        record.issue_notes = issue_notes
+            .into_iter()
+            .map(|note| note.trim().to_string())
+            .filter(|note| !note.is_empty())
+            .collect();
+        if !record
             .linked_candidate_paths
-            .push(record.executable_path.clone());
-    }
-    record.updated_at = now_millis();
-    let updated = record.clone();
-    save_identity_store(library_metadata_path, &store)?;
-    Ok(updated)
+            .iter()
+            .any(|path| path == &record.executable_path)
+        {
+            record
+                .linked_candidate_paths
+                .push(record.executable_path.clone());
+        }
+    })
 }
 
 pub fn update_preferred_xenia_build(
     library_metadata_path: &str,
     input: UpdatePreferredXeniaBuildInput,
 ) -> Result<GameIdentityRecord, String> {
-    let mut store = load_identity_store(library_metadata_path);
-    let record = store
-        .games
-        .iter_mut()
-        .find(|game| game.game_id == input.game_id)
-        .ok_or_else(|| format!("Game not found: {}", input.game_id))?;
-
-    record.preferred_xenia_tag = input
-        .preferred_xenia_tag
-        .filter(|tag| !tag.trim().is_empty());
-    record.updated_at = now_millis();
-    let updated = record.clone();
-    save_identity_store(library_metadata_path, &store)?;
-    Ok(updated)
+    let UpdatePreferredXeniaBuildInput {
+        game_id,
+        preferred_xenia_tag,
+    } = input;
+    mutate_game(library_metadata_path, &game_id, |record, _| {
+        record.preferred_xenia_tag = preferred_xenia_tag.filter(|tag| !tag.trim().is_empty());
+    })
 }
 
 pub fn update_game_launch_environment(
     library_metadata_path: &str,
     input: UpdateGameLaunchEnvironmentInput,
 ) -> Result<GameIdentityRecord, String> {
-    let mut store = load_identity_store(library_metadata_path);
-    let record = store
-        .games
-        .iter_mut()
-        .find(|game| game.game_id == input.game_id)
-        .ok_or_else(|| format!("Game not found: {}", input.game_id))?;
-
-    record.launch_environment = input
-        .launch_environment
-        .map(|value| value.trim().to_string())
-        .filter(|value| !value.is_empty());
-    record.updated_at = now_millis();
-    let updated = record.clone();
-    save_identity_store(library_metadata_path, &store)?;
-    Ok(updated)
+    let UpdateGameLaunchEnvironmentInput {
+        game_id,
+        launch_environment,
+    } = input;
+    mutate_game(library_metadata_path, &game_id, |record, _| {
+        record.launch_environment = launch_environment
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty());
+    })
 }
 
 pub fn update_game_launch_wrapper(
     library_metadata_path: &str,
     input: UpdateGameLaunchWrapperInput,
 ) -> Result<GameIdentityRecord, String> {
-    let mut store = load_identity_store(library_metadata_path);
-    let record = store
-        .games
-        .iter_mut()
-        .find(|game| game.game_id == input.game_id)
-        .ok_or_else(|| format!("Game not found: {}", input.game_id))?;
-
-    record.launch_wrapper = input
-        .launch_wrapper
-        .map(|value| value.trim().to_string())
-        .filter(|value| !value.is_empty());
-    record.updated_at = now_millis();
-    let updated = record.clone();
-    save_identity_store(library_metadata_path, &store)?;
-    Ok(updated)
+    let UpdateGameLaunchWrapperInput {
+        game_id,
+        launch_wrapper,
+    } = input;
+    mutate_game(library_metadata_path, &game_id, |record, _| {
+        record.launch_wrapper = launch_wrapper
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty());
+    })
 }
 
 pub fn apply_duplicate_resolution(
@@ -398,24 +398,14 @@ pub fn record_launch_started(
     game_id: &str,
     xenia_executable: &str,
 ) -> Result<GameIdentityRecord, String> {
-    let mut store = load_identity_store(library_metadata_path);
-    let now = now_millis();
-    let record = store
-        .games
-        .iter_mut()
-        .find(|game| game.game_id == game_id)
-        .ok_or_else(|| format!("Game not found: {game_id}"))?;
-
-    record.last_played_at = Some(now);
-    record.running_session = Some(RunningSession {
-        started_at: now,
-        xenia_executable: xenia_executable.to_string(),
-        game_executable: record.executable_path.clone(),
-    });
-    record.updated_at = now;
-    let updated = record.clone();
-    save_identity_store(library_metadata_path, &store)?;
-    Ok(updated)
+    mutate_game(library_metadata_path, game_id, |record, now| {
+        record.last_played_at = Some(now);
+        record.running_session = Some(RunningSession {
+            started_at: now,
+            xenia_executable: xenia_executable.to_string(),
+            game_executable: record.executable_path.clone(),
+        });
+    })
 }
 
 fn now_millis() -> u64 {

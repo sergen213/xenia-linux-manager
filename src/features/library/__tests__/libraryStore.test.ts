@@ -98,16 +98,6 @@ describe("libraryReducer", () => {
     expect(next.sources[0].id).toBe("src-2");
   });
 
-  it("SCAN_STARTED updates scan counts", () => {
-    const next = libraryReducer(INITIAL_LIBRARY_STATE, {
-      type: "SCAN_STARTED",
-      activeScans: 1,
-      queuedScans: 2,
-    });
-    expect(next.activeScans).toBe(1);
-    expect(next.queuedScans).toBe(2);
-  });
-
   it("SCAN_FINISHED updates sources and scan counts", () => {
     const updatedSource = {
       ...mockSource,
@@ -157,31 +147,6 @@ describe("libraryReducer", () => {
     expect(next.lastWarnings).toEqual([]);
   });
 
-  it("CATALOGS_LOADED stores catalogs", () => {
-    const catalogs = [
-      {
-        source_id: "src-1",
-        candidates: [],
-        last_scan_summary: {
-          found: 5,
-          duplicates: 1,
-          warnings: 0,
-          skipped: 0,
-          errors: 0,
-          status: "completed",
-          completed_at: 3000,
-          was_cancelled: false,
-        },
-      },
-    ];
-    const next = libraryReducer(INITIAL_LIBRARY_STATE, {
-      type: "CATALOGS_LOADED",
-      catalogs,
-    });
-    expect(next.catalogs).toEqual(catalogs);
-    expect(next.catalogs).toHaveLength(1);
-  });
-
   it("unknown action returns state unchanged", () => {
     const state = { ...INITIAL_LIBRARY_STATE, initialized: true };
     // Use a properly typed unknown action instead of `any`
@@ -198,15 +163,4 @@ describe("libraryReducer", () => {
     expect(next.patchImportPending).toBe(true);
   });
 
-  it("MATERIALIZED_LOADING sets loading flag", () => {
-    const next = libraryReducer(INITIAL_LIBRARY_STATE, {
-      type: "MATERIALIZED_LOADING",
-    });
-    expect(next.materializedLoading).toBe(true);
-  });
-
-  it("initial state includes library defaults", () => {
-    expect(INITIAL_LIBRARY_STATE.materializedLaunchConfig).toBeNull();
-    expect(INITIAL_LIBRARY_STATE.materializedLoading).toBe(false);
-  });
 });

@@ -215,20 +215,6 @@ pub fn get_launch_preflight_with_profile(
     })
 }
 
-pub fn merged_launch_environment_preview(
-    library_metadata_path: &str,
-    game_id: &str,
-) -> Result<Vec<(String, String)>, String> {
-    load_launch_environment(library_metadata_path, game_id)
-}
-
-pub fn merged_launch_wrapper_preview(
-    library_metadata_path: &str,
-    game_id: &str,
-) -> Result<Vec<String>, String> {
-    load_launch_wrapper(library_metadata_path, game_id)
-}
-
 fn load_launch_environment(
     library_metadata_path: &str,
     game_id: &str,
@@ -416,22 +402,12 @@ fn materialized_config_to_toml(materialized: &MaterializedLaunchConfig) -> Resul
 
 fn translate_profile_key_to_xenia_config(key: &str) -> String {
     match key {
+        // Acronym backends remap the leaf to the bare acronym; the rest fall
+        // through to the category-name normalizer below.
         "apu.backend" => "APU.apu".to_string(),
         "cpu.backend" => "CPU.cpu".to_string(),
         "cpu.break_on_unimplemented" => "CPU.break_on_unimplemented_instructions".to_string(),
-        "display.fullscreen" => "Display.fullscreen".to_string(),
-        "display.internal_display_resolution" => "Display.internal_display_resolution".to_string(),
-        "display.postprocess_antialiasing" => "Display.postprocess_antialiasing".to_string(),
         "gpu.backend" => "GPU.gpu".to_string(),
-        "gpu.vsync" => "GPU.vsync".to_string(),
-        "gpu.framerate_limit" => "GPU.framerate_limit".to_string(),
-        "gpu.draw_resolution_scale_x" => "GPU.draw_resolution_scale_x".to_string(),
-        "gpu.draw_resolution_scale_y" => "GPU.draw_resolution_scale_y".to_string(),
-        "gpu.render_target_path_vulkan" => "GPU.render_target_path_vulkan".to_string(),
-        "hid.host_radians_per_second" => "HID.host_radians_per_second".to_string(),
-        "memory.protect_zero" => "Memory.protect_zero".to_string(),
-        "storage.mount_cache" => "Storage.mount_cache".to_string(),
-        "storage.mount_scratch" => "Storage.mount_scratch".to_string(),
         _ => {
             let mut parts = key.split('.');
             let category = parts.next().unwrap_or_default();
@@ -451,9 +427,6 @@ fn to_xenia_category_name(category: &str) -> String {
         "cpu" => "CPU".to_string(),
         "gpu" => "GPU".to_string(),
         "hid" => "HID".to_string(),
-        "display" => "Display".to_string(),
-        "memory" => "Memory".to_string(),
-        "storage" => "Storage".to_string(),
         other => {
             let mut chars = other.chars();
             match chars.next() {

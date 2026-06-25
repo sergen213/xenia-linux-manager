@@ -2,15 +2,10 @@ import { describe, it, expect } from "vitest";
 import {
   xeniaReducer,
   INITIAL_XENIA_STATE,
-  selectPrimaryAction,
-  selectInstalledTag,
-  selectLifecycleStatus,
-  selectHasFailure,
-  selectIsInstalled,
   type XeniaState,
 } from "../state/xeniaStore";
 import type { InstallState, LinuxRelease } from "../model/xeniaTypes";
-import { derivePrimaryAction, primaryActionLabel, lifecycleStatusLabel } from "../model/xeniaTypes";
+import { lifecycleStatusLabel } from "../model/xeniaTypes";
 
 function makeInstallState(overrides: Partial<InstallState> = {}): InstallState {
   return {
@@ -150,134 +145,7 @@ describe("xeniaReducer", () => {
   });
 });
 
-describe("selectors", () => {
-  it("selectPrimaryAction returns install when not installed", () => {
-    expect(selectPrimaryAction(INITIAL_XENIA_STATE)).toBe("install");
-  });
-
-  it("selectPrimaryAction returns update when installed with update", () => {
-    const state: XeniaState = {
-      ...INITIAL_XENIA_STATE,
-      installState: makeInstallState({ status: "installed" }),
-      availableUpdate: makeRelease({ tag: "9132035", build_id: "canary:9132035" }),
-    };
-    expect(selectPrimaryAction(state)).toBe("update");
-  });
-
-  it("selectPrimaryAction returns check_update when installed but no update", () => {
-    const state: XeniaState = {
-      ...INITIAL_XENIA_STATE,
-      installState: makeInstallState({ status: "installed" }),
-    };
-    expect(selectPrimaryAction(state)).toBe("check_update");
-  });
-
-  it("selectPrimaryAction returns retry when install failed", () => {
-    const state: XeniaState = {
-      ...INITIAL_XENIA_STATE,
-      installState: makeInstallState({ status: "install_failed" }),
-    };
-    expect(selectPrimaryAction(state)).toBe("retry");
-  });
-
-  it("selectPrimaryAction returns retry when update failed", () => {
-    const state: XeniaState = {
-      ...INITIAL_XENIA_STATE,
-      installState: makeInstallState({ status: "update_failed" }),
-    };
-    expect(selectPrimaryAction(state)).toBe("retry");
-  });
-
-  it("selectInstalledTag returns tag when installed", () => {
-    const state: XeniaState = {
-      ...INITIAL_XENIA_STATE,
-      installState: makeInstallState({
-        status: "installed",
-        manifest: {
-          channel: "canary",
-          build_id: "canary:9369464",
-          tag: "9369464",
-          release_name: "9369464_canary_experimental",
-          published_at: "2026-03-10",
-          html_url: "https://example.com/9369464",
-          asset_name: "xenia.tar.gz",
-          executable_path: "/opt/xenia/xenia_canary",
-          install_dir: "/opt/xenia",
-          installed_at: 1000,
-        },
-      }),
-    };
-    expect(selectInstalledTag(state)).toBe("9369464");
-  });
-
-  it("selectInstalledTag returns null when not installed", () => {
-    expect(selectInstalledTag(INITIAL_XENIA_STATE)).toBeNull();
-  });
-
-  it("selectLifecycleStatus returns current status", () => {
-    expect(selectLifecycleStatus(INITIAL_XENIA_STATE)).toBe("not_installed");
-  });
-
-  it("selectHasFailure detects failure", () => {
-    const state: XeniaState = {
-      ...INITIAL_XENIA_STATE,
-      installState: makeInstallState({
-        status: "install_failed",
-        failure: {
-          retry_mode: "install",
-          error: "download failed",
-          failed_step: "download",
-          channel: "canary",
-          target_tag: "9369464",
-          target_build_id: "canary:9369464",
-          failed_at: 1000,
-        },
-      }),
-    };
-    expect(selectHasFailure(state)).toBe(true);
-    expect(selectHasFailure(INITIAL_XENIA_STATE)).toBe(false);
-  });
-
-  it("selectIsInstalled checks manifest presence", () => {
-    const installed: XeniaState = {
-      ...INITIAL_XENIA_STATE,
-      installState: makeInstallState({
-        status: "installed",
-        manifest: {
-          channel: "canary",
-          build_id: "canary:9369464",
-          tag: "9369464",
-          release_name: "9369464_canary_experimental",
-          published_at: "2026-03-10",
-          html_url: "https://example.com/9369464",
-          asset_name: "xenia.tar.gz",
-          executable_path: "/opt/xenia/xenia_canary",
-          install_dir: "/opt/xenia",
-          installed_at: 1000,
-        },
-      }),
-    };
-    expect(selectIsInstalled(installed)).toBe(true);
-    expect(selectIsInstalled(INITIAL_XENIA_STATE)).toBe(false);
-  });
-});
-
 describe("type helpers", () => {
-  it("derivePrimaryAction handles all status combinations", () => {
-    expect(derivePrimaryAction("not_installed", false)).toBe("install");
-    expect(derivePrimaryAction("not_installed", true)).toBe("install");
-    expect(derivePrimaryAction("installed", false)).toBe("check_update");
-    expect(derivePrimaryAction("installed", true)).toBe("update");
-    expect(derivePrimaryAction("install_failed", false)).toBe("retry");
-    expect(derivePrimaryAction("update_failed", false)).toBe("retry");
-  });
-
-  it("primaryActionLabel returns correct labels", () => {
-    expect(primaryActionLabel("install")).toBe("Install");
-    expect(primaryActionLabel("update")).toBe("Update");
-    expect(primaryActionLabel("retry")).toBe("Retry");
-  });
-
   it("lifecycleStatusLabel returns readable labels", () => {
     expect(lifecycleStatusLabel("not_installed")).toBe("Not Installed");
     expect(lifecycleStatusLabel("installed")).toBe("Installed");

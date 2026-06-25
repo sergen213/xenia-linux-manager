@@ -1,7 +1,6 @@
 import { useEffect, useCallback } from "react";
 import {
   getLibraryGameDetails,
-  getLaunchPreflight,
   updateLibraryGameIdentity,
 } from "../api/libraryClient";
 import { useLibrary } from "./libraryStore";
@@ -16,7 +15,6 @@ export function useGameDetails({ onError }: UseGameDetailsOptions = {}) {
   const { state: settingsState } = useSettings();
 
   const libPath = settingsState.settings?.library_metadata_path ?? "";
-  const appDataPath = settingsState.settings?.app_data_path ?? "";
 
   const loadGameDetails = useCallback(async () => {
     if (!libPath || !state.selectedGameId) {
@@ -27,15 +25,11 @@ export function useGameDetails({ onError }: UseGameDetailsOptions = {}) {
 
     async function load() {
       try {
-        const [details, preflight] = await Promise.all([
-          getLibraryGameDetails(libPath, state.selectedGameId!),
-          getLaunchPreflight(appDataPath, libPath, state.selectedGameId!),
-        ]);
+        const details = await getLibraryGameDetails(libPath, state.selectedGameId!);
 
         if (cancelled) return;
 
         dispatch({ type: "GAME_DETAILS_LOADED", details });
-        dispatch({ type: "SET_LAUNCH_PREFLIGHT", preflight });
       } catch (error) {
         if (cancelled) return;
         const message = error instanceof Error ? error.message : "Failed to load game details";
@@ -48,7 +42,7 @@ export function useGameDetails({ onError }: UseGameDetailsOptions = {}) {
     return () => {
       cancelled = true;
     };
-  }, [libPath, appDataPath, state.selectedGameId, dispatch, onError]);
+  }, [libPath, state.selectedGameId, dispatch, onError]);
 
   // Load details when selected game changes
   useEffect(() => {
@@ -71,7 +65,6 @@ export function useGameDetails({ onError }: UseGameDetailsOptions = {}) {
 
   return {
     selectedGame: state.selectedGame,
-    launchPreflight: state.launchPreflight,
     loadGameDetails,
     saveIdentity,
   };

@@ -58,57 +58,7 @@ pub fn extract_title_id(path: &Path) -> Option<String> {
 
 /// Extract title ID from an XEX2 file by parsing the Execution ID optional header.
 fn extract_from_xex(path: &Path) -> Option<String> {
-    let mut file = File::open(path).ok()?;
-
-    // Read and verify magic.
-    let mut magic = [0u8; 4];
-    file.read_exact(&mut magic).ok()?;
-    if &magic != XEX2_MAGIC {
-        return None;
-    }
-
-    // Skip to optional header count at offset 0x14.
-    file.seek(SeekFrom::Start(0x14)).ok()?;
-    let mut buf4 = [0u8; 4];
-    file.read_exact(&mut buf4).ok()?;
-    let header_count = u32::from_be_bytes(buf4);
-
-    // Sanity check: header count shouldn't be absurdly large.
-    if header_count > 1000 {
-        return None;
-    }
-
-    // Iterate optional headers starting at offset 0x18.
-    // Each header entry is 8 bytes: 4-byte key + 4-byte value.
-    for i in 0..header_count {
-        let offset = 0x18 + (i as u64) * 8;
-        file.seek(SeekFrom::Start(offset)).ok()?;
-
-        let mut key_buf = [0u8; 4];
-        file.read_exact(&mut key_buf).ok()?;
-        let key = u32::from_be_bytes(key_buf);
-
-        let mut val_buf = [0u8; 4];
-        file.read_exact(&mut val_buf).ok()?;
-        let value = u32::from_be_bytes(val_buf);
-
-        if key == XEX_HEADER_EXECUTION_ID {
-            // Value is an offset to the Execution ID structure.
-            // Title ID is at byte 12 within that structure.
-            let title_id_offset = value as u64 + 12;
-            file.seek(SeekFrom::Start(title_id_offset)).ok()?;
-
-            let mut tid_buf = [0u8; 4];
-            file.read_exact(&mut tid_buf).ok()?;
-            let title_id = u32::from_be_bytes(tid_buf);
-
-            if title_id != 0 {
-                return Some(format!("{:08X}", title_id));
-            }
-        }
-    }
-
-    None
+    extract_xex_title_id_at_offset(&mut File::open(path).ok()?, 0)
 }
 
 /// Extract title ID from a GOD or STFS container.

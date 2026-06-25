@@ -7,6 +7,37 @@ import { retryLastOperation } from "../xenia/api/xeniaClient";
 import type { Job } from "./model/taskTypes";
 import "./TasksPage.css";
 
+function ActiveJobSection({ title, jobs }: { title: string; jobs: Job[] }) {
+  return (
+    <section className="tasks-page__section">
+      <h3 className="tasks-page__section-title">
+        {title} ({jobs.length})
+      </h3>
+      {jobs.map((job) => (
+        <div key={job.id} className="tasks-page__active-job" data-testid={`active-job-${job.id}`}>
+          <div className="tasks-page__active-header">
+            <span className="tasks-page__active-label">{job.label}</span>
+            <span className="tasks-page__active-progress">
+              {job.progress ?? 0}%
+            </span>
+          </div>
+          <div className="tasks-page__progress-bar">
+            <div
+              className="tasks-page__progress-fill"
+              style={{ width: `${job.progress ?? 0}%` }}
+            />
+          </div>
+          {job.logs.length > 0 && (
+            <div className="tasks-page__active-log">
+              {job.logs[job.logs.length - 1].message}
+            </div>
+          )}
+        </div>
+      ))}
+    </section>
+  );
+}
+
 export function TasksPage() {
   const { state, dispatch } = useTasks();
   const { state: settingsState } = useSettings();
@@ -71,62 +102,12 @@ export function TasksPage() {
 
       {/* Xenia lifecycle jobs section */}
       {xeniaRunning.length > 0 && (
-        <section className="tasks-page__section">
-          <h3 className="tasks-page__section-title">
-            Xenia Lifecycle ({xeniaRunning.length})
-          </h3>
-          {xeniaRunning.map((job) => (
-            <div key={job.id} className="tasks-page__active-job" data-testid={`active-job-${job.id}`}>
-              <div className="tasks-page__active-header">
-                <span className="tasks-page__active-label">{job.label}</span>
-                <span className="tasks-page__active-progress">
-                  {job.progress ?? 0}%
-                </span>
-              </div>
-              <div className="tasks-page__progress-bar">
-                <div
-                  className="tasks-page__progress-fill"
-                  style={{ width: `${job.progress ?? 0}%` }}
-                />
-              </div>
-              {job.logs.length > 0 && (
-                <div className="tasks-page__active-log">
-                  {job.logs[job.logs.length - 1].message}
-                </div>
-              )}
-            </div>
-          ))}
-        </section>
+        <ActiveJobSection title="Xenia Lifecycle" jobs={xeniaRunning} />
       )}
 
       {/* Other active jobs section */}
       {otherRunning.length > 0 && (
-        <section className="tasks-page__section">
-          <h3 className="tasks-page__section-title">
-            Active ({otherRunning.length})
-          </h3>
-          {otherRunning.map((job) => (
-            <div key={job.id} className="tasks-page__active-job" data-testid={`active-job-${job.id}`}>
-              <div className="tasks-page__active-header">
-                <span className="tasks-page__active-label">{job.label}</span>
-                <span className="tasks-page__active-progress">
-                  {job.progress ?? 0}%
-                </span>
-              </div>
-              <div className="tasks-page__progress-bar">
-                <div
-                  className="tasks-page__progress-fill"
-                  style={{ width: `${job.progress ?? 0}%` }}
-                />
-              </div>
-              {job.logs.length > 0 && (
-                <div className="tasks-page__active-log">
-                  {job.logs[job.logs.length - 1].message}
-                </div>
-              )}
-            </div>
-          ))}
-        </section>
+        <ActiveJobSection title="Active" jobs={otherRunning} />
       )}
 
       {/* Task history section */}

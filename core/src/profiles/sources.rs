@@ -101,56 +101,6 @@ impl RecommendationSource for NullRecommendationSource {
 }
 
 // ---------------------------------------------------------------------------
-// Static bundled source (for testing and future bundled baselines)
-// ---------------------------------------------------------------------------
-
-/// A source backed by a static in-memory map of game-id -> overrides.
-///
-/// Useful for testing and for bundling known-good baselines with the app.
-pub struct StaticRecommendationSource {
-    id: String,
-    label: String,
-    baselines: HashMap<String, HashMap<String, serde_json::Value>>,
-}
-
-impl StaticRecommendationSource {
-    pub fn new(
-        id: impl Into<String>,
-        label: impl Into<String>,
-        baselines: HashMap<String, HashMap<String, serde_json::Value>>,
-    ) -> Self {
-        Self {
-            id: id.into(),
-            label: label.into(),
-            baselines,
-        }
-    }
-}
-
-impl RecommendationSource for StaticRecommendationSource {
-    fn check_availability(&self, game_id: &str) -> RecommendationAvailability {
-        match self.baselines.get(game_id) {
-            Some(baseline) => RecommendationAvailability::Available {
-                source_id: self.id.clone(),
-                source_label: self.label.clone(),
-                baseline: baseline.clone(),
-            },
-            None => RecommendationAvailability::Unsupported {
-                reason: UnsupportedReason::TitleNotCovered,
-            },
-        }
-    }
-
-    fn source_id(&self) -> &str {
-        &self.id
-    }
-
-    fn source_label(&self) -> &str {
-        &self.label
-    }
-}
-
-// ---------------------------------------------------------------------------
 // Public API: recommendation resolution
 // ---------------------------------------------------------------------------
 
@@ -258,46 +208,6 @@ mod tests {
         match result {
             RecommendationAvailability::Unsupported { reason } => {
                 assert_eq!(reason, UnsupportedReason::NoSourceConfigured);
-            }
-            _ => panic!("Expected unsupported"),
-        }
-    }
-
-    #[test]
-    fn static_source_returns_available_for_known_game() {
-        let mut baselines = HashMap::new();
-        let mut overrides = HashMap::new();
-        overrides.insert("gpu.vsync".to_string(), serde_json::json!(false));
-        overrides.insert("gpu.framerate_limit".to_string(), serde_json::json!(60));
-        baselines.insert("game-1".to_string(), overrides.clone());
-
-        let source = StaticRecommendationSource::new("test-src", "Test Source", baselines);
-        let result = check_recommendation(&source, "game-1");
-        match result {
-            RecommendationAvailability::Available {
-                source_id,
-                source_label,
-                baseline,
-            } => {
-                assert_eq!(source_id, "test-src");
-                assert_eq!(source_label, "Test Source");
-                assert_eq!(baseline, overrides);
-            }
-            _ => panic!("Expected available"),
-        }
-    }
-
-    #[test]
-    fn static_source_returns_unsupported_for_unknown_game() {
-        let source = StaticRecommendationSource::new(
-            "test-src",
-            "Test Source",
-            HashMap::new(),
-        );
-        let result = check_recommendation(&source, "game-unknown");
-        match result {
-            RecommendationAvailability::Unsupported { reason } => {
-                assert_eq!(reason, UnsupportedReason::TitleNotCovered);
             }
             _ => panic!("Expected unsupported"),
         }

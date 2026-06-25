@@ -74,9 +74,9 @@ struct GitTreeEntry {
 ///
 /// 1. If `storage_root` is set (non-empty) in `xenia-canary.config.toml` → use that.
 /// 2. Else if the executable directory contains `portable.txt` → use the executable directory.
-/// 3. Else → `~/.local/share/Xenia/` (Linux) or `<user>/Documents/Xenia` (Windows).
+/// 3. Else → `~/.local/share/Xenia/` (Linux) or `{user}/Documents/Xenia` (Windows).
 ///
-/// The patches directory is always `<storage_root>/patches/`.
+/// The patches directory is always `{storage_root}/patches/`.
 pub fn get_xenia_storage_root(app_data_path: &str) -> Result<PathBuf, String> {
     let state = install_state::load_state(app_data_path);
     let manifest = state.manifest.ok_or("Xenia is not installed")?;
@@ -258,16 +258,16 @@ pub fn find_patches_for_game(
             Err(_) => continue,
         };
 
-        let file_title_id = extract_field(&content, "title_id");
-        let file_title_name = extract_field(&content, "title_name");
-        let file_version = parse_patch_document(&content)
-            .ok()
-            .and_then(|parsed| parsed.version);
+        let parsed = match parse_patch_document(&content) {
+            Ok(parsed) => parsed,
+            Err(_) => continue,
+        };
 
         let name_match = file_name
             .to_uppercase()
             .starts_with(&title_id.to_uppercase());
-        let content_match = file_title_id
+        let content_match = parsed
+            .title_id
             .as_deref()
             .map(|t| t.eq_ignore_ascii_case(title_id))
             .unwrap_or(false);
@@ -276,16 +276,24 @@ pub fn find_patches_for_game(
             continue;
         }
 
-        // Parse patch entries
-        let entries = parse_patch_entries(&content);
+        let entries = parsed
+            .entries
+            .into_iter()
+            .map(|entry| XeniaPatchEntry {
+                name: entry.name,
+                description: entry.description,
+                author: entry.author,
+                is_enabled: entry.is_enabled_by_default,
+            })
+            .collect();
         let hashes = extract_hashes(&content);
 
         files.push(XeniaPatchFile {
             file_name,
             file_path: path.to_string_lossy().to_string(),
-            title_name: file_title_name,
-            title_id: file_title_id,
-            version: file_version,
+            title_name: parsed.title_name,
+            title_id: parsed.title_id,
+            version: parsed.version,
             hashes,
             entries,
         });
@@ -465,17 +473,10 @@ pub fn import_patch_file(
 /// Toggle a patch entry's is_enabled in a file. Does a text-level replacement
 /// to preserve comments and formatting.
 pub fn toggle_patch_entry(file_path: &str, entry_name: &str, enabled: bool) -> Result<(), String> {
-    eprintln!("[DEBUG] toggle_patch_entry called: file_path={}, entry_name={}, enabled={}", file_path, entry_name, enabled);
-    
     let content =
         fs::read_to_string(file_path).map_err(|e| format!("Failed to read patch file: {e}"))?;
 
-    eprintln!("[DEBUG] File content length: {}", content.len());
-    eprintln!("[DEBUG] File content preview: {:?}", &content[..content.len().min(500)]);
-
     let new_content = toggle_entry_in_content(&content, entry_name, enabled)?;
-
-    eprintln!("[DEBUG] New content length: {}", new_content.len());
 
     fs::write(file_path, new_content).map_err(|e| format!("Failed to write patch file: {e}"))?;
 
@@ -555,30 +556,6 @@ fn toggle_entry_in_content(
     Ok(result.join("\n"))
 }
 
-/// Extract a top-level field value like `title_id = "4D5307E6"` (before any [[patch]] section).
-fn extract_field(content: &str, field: &str) -> Option<String> {
-    for line in content.lines() {
-        let trimmed = line.trim();
-        if trimmed.starts_with("[[") {
-            break;
-        }
-        if trimmed.starts_with(field) && trimmed.contains('=') {
-            let value = trimmed.splitn(2, '=').nth(1)?.trim();
-            let value = value.trim_matches('"');
-            let value = value
-                .split('#')
-                .next()
-                .unwrap_or(value)
-                .trim()
-                .trim_matches('"');
-            if !value.is_empty() {
-                return Some(value.to_string());
-            }
-        }
-    }
-    None
-}
-
 /// Extract executable hashes from the `hash = [...]` array in patch content.
 fn extract_hashes(content: &str) -> Vec<String> {
     let mut hashes = Vec::new();
@@ -636,114 +613,9 @@ fn extract_hashes(content: &str) -> Vec<String> {
     hashes
 }
 
-/// Parse [[patch]] entries from the content.
-fn parse_patch_entries(content: &str) -> Vec<XeniaPatchEntry> {
-    let mut entries = Vec::new();
-    let mut current: Option<XeniaPatchEntry> = None;
-
-    for line in content.lines() {
-        let trimmed = line.trim();
-
-        if trimmed == "[[patch]]"
-            || (trimmed.starts_with("[[patch]]") && !trimmed.starts_with("[[patch."))
-        {
-            if let Some(entry) = current.take() {
-                entries.push(entry);
-            }
-            current = Some(XeniaPatchEntry {
-                name: String::new(),
-                description: None,
-                author: None,
-                is_enabled: false,
-            });
-            continue;
-        }
-
-        // Skip sub-tables like [[patch.be32]]
-        if trimmed.starts_with("[[patch.") {
-            continue;
-        }
-
-        let Some(ref mut entry) = current else {
-            continue;
-        };
-
-        if trimmed.starts_with("name") && trimmed.contains('=') {
-            if let Some(val) = extract_inline_string(trimmed) {
-                entry.name = val;
-            }
-        } else if (trimmed.starts_with("desc") || trimmed.starts_with("description"))
-            && trimmed.contains('=')
-        {
-            entry.description = extract_inline_string(trimmed);
-        } else if trimmed.starts_with("author") && trimmed.contains('=') {
-            entry.author = extract_inline_string(trimmed);
-        } else if trimmed.starts_with("is_enabled") && trimmed.contains('=') {
-            let val = trimmed.splitn(2, '=').nth(1).unwrap_or("").trim();
-            entry.is_enabled = val.starts_with("true");
-        }
-    }
-
-    if let Some(entry) = current {
-        entries.push(entry);
-    }
-
-    entries.retain(|e| !e.name.is_empty());
-    entries
-}
-
-/// Extract a string value from a TOML key = "value" line.
-fn extract_inline_string(line: &str) -> Option<String> {
-    let val = line.splitn(2, '=').nth(1)?.trim();
-    let val = val.split('#').next().unwrap_or(val).trim();
-    let val = val.trim_matches('"');
-    if val.is_empty() {
-        None
-    } else {
-        Some(val.to_string())
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn parses_patch_entries() {
-        let content = r#"
-title_name = "Halo 3"
-title_id = "4D5307E6"
-
-[[patch]]
-    name = "60 FPS"
-    desc = "Unlock framerate"
-    is_enabled = false
-
-    [[patch.be32]]
-        address = 0x82000000
-        value = 0x00000001
-
-[[patch]]
-    name = "Aspect Ratio"
-    is_enabled = true
-"#;
-        let entries = parse_patch_entries(content);
-        assert_eq!(entries.len(), 2);
-        assert_eq!(entries[0].name, "60 FPS");
-        assert_eq!(entries[0].description.as_deref(), Some("Unlock framerate"));
-        assert!(!entries[0].is_enabled);
-        assert_eq!(entries[1].name, "Aspect Ratio");
-        assert!(entries[1].is_enabled);
-    }
-
-    #[test]
-    fn extracts_title_id() {
-        let content = "title_id = \"4D5307E6\" # some comment\n[[patch]]\nname = \"test\"";
-        assert_eq!(
-            extract_field(content, "title_id"),
-            Some("4D5307E6".to_string())
-        );
-    }
 
     #[test]
     fn toggles_entry() {

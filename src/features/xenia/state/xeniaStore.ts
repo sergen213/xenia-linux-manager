@@ -6,14 +6,11 @@
  * primary action label for the dashboard.
  */
 
-import { createContext, useContext } from "react";
+import { createStoreContext, type StoreContextValue } from "../../shared/storeContext";
 import type {
   InstallState,
   LinuxRelease,
-  PrimaryAction,
-  LifecycleStatus,
 } from "../model/xeniaTypes";
-import { derivePrimaryAction } from "../model/xeniaTypes";
 
 // ---------------------------------------------------------------------------
 // State shape
@@ -133,52 +130,12 @@ export function xeniaReducer(
 }
 
 // ---------------------------------------------------------------------------
-// Selectors
-// ---------------------------------------------------------------------------
-
-/** Derive the primary action from current lifecycle + update state. */
-export function selectPrimaryAction(state: XeniaState): PrimaryAction {
-  return derivePrimaryAction(
-    state.installState.status,
-    state.availableUpdate != null,
-  );
-}
-
-/** Get the currently installed version tag, or null. */
-export function selectInstalledTag(state: XeniaState): string | null {
-  return state.installState.manifest?.tag ?? null;
-}
-
-/** Get the lifecycle status. */
-export function selectLifecycleStatus(state: XeniaState): LifecycleStatus {
-  return state.installState.status;
-}
-
-/** Whether a failure is present in the lifecycle state. */
-export function selectHasFailure(state: XeniaState): boolean {
-  return state.installState.failure != null;
-}
-
-/** Whether the emulator is installed (possibly with update failure). */
-export function selectIsInstalled(state: XeniaState): boolean {
-  return state.installState.manifest != null;
-}
-
-// ---------------------------------------------------------------------------
 // Context
 // ---------------------------------------------------------------------------
 
-export interface XeniaContextValue {
-  state: XeniaState;
-  dispatch: React.Dispatch<XeniaAction>;
-}
+export type XeniaContextValue = StoreContextValue<XeniaState, XeniaAction>;
 
-export const XeniaContext = createContext<XeniaContextValue | null>(null);
+const { Context: XeniaContext, useStore: useXenia } =
+  createStoreContext<XeniaState, XeniaAction>("Xenia");
 
-export function useXenia(): XeniaContextValue {
-  const ctx = useContext(XeniaContext);
-  if (!ctx) {
-    throw new Error("useXenia must be used within a XeniaProvider");
-  }
-  return ctx;
-}
+export { XeniaContext, useXenia };

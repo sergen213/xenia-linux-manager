@@ -106,20 +106,6 @@ const GameCard = memo(function GameCard({
       </div>
     </button>
   );
-}, (prevProps, nextProps) => {
-  // Custom comparison: only re-render if these specific fields change
-  return (
-    prevProps.card.game_id === nextProps.card.game_id &&
-    prevProps.card.title === nextProps.card.title &&
-    prevProps.card.artwork_path === nextProps.card.artwork_path &&
-    prevProps.card.source_label === nextProps.card.source_label &&
-    prevProps.card.last_played_at === nextProps.card.last_played_at &&
-    prevProps.card.manual === nextProps.card.manual &&
-    prevProps.isSelected === nextProps.isSelected &&
-    prevProps.onSelectGame === nextProps.onSelectGame &&
-    prevProps.onActivateGame === nextProps.onActivateGame &&
-    prevProps.clickBehavior === nextProps.clickBehavior
-  );
 });
 
 export function LibraryGrid({

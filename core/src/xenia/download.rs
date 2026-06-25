@@ -142,15 +142,6 @@ where
     Ok(())
 }
 
-/// Clean up a partially downloaded archive (e.g. after failure).
-pub async fn cleanup_download(app_data_path: &str, release: &LinuxRelease) -> std::io::Result<()> {
-    let path = archive_path(app_data_path, release);
-    if path.exists() {
-        tokio::fs::remove_file(&path).await?;
-    }
-    Ok(())
-}
-
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------

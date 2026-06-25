@@ -146,7 +146,6 @@ async fn resolve_title_id_by_name(library_metadata_path: &str, game_title: &str)
 /// Skips the download if artwork is already cached locally.
 pub async fn fetch_artwork(library_metadata_path: &str, game_id: &str) -> ArtworkResult {
     let cached_path = artwork_file_path(library_metadata_path, game_id);
-    eprintln!("[artwork] fetch_artwork called for game_id={game_id}");
 
     // Already cached?
     if cached_path.exists()
@@ -155,7 +154,6 @@ pub async fn fetch_artwork(library_metadata_path: &str, game_id: &str) -> Artwor
             .unwrap_or(false)
     {
         let path_str = cached_path.to_string_lossy().to_string();
-        eprintln!("[artwork] Already cached: {path_str}");
         // Ensure the identity store has it recorded.
         let _ = persist_artwork_path(library_metadata_path, game_id, &path_str);
         return ArtworkResult {
@@ -169,9 +167,6 @@ pub async fn fetch_artwork(library_metadata_path: &str, game_id: &str) -> Artwor
     // Resolve title_id.
     let store = identity::load_identity_store(library_metadata_path);
     let game = identity::find_game_by_id(&store, game_id);
-    let game_title = game.map(|g| g.title.as_str()).unwrap_or("(unknown)");
-    eprintln!("[artwork] Resolving title_id for \"{game_title}\" (game_id={game_id})");
-
     // Prefer the stored title_id on the identity record (populated during browse).
     let mut title_id = game
         .and_then(|g| g.title_id.clone())
@@ -184,27 +179,16 @@ pub async fn fetch_artwork(library_metadata_path: &str, game_id: &str) -> Artwor
                 .and_then(resolve_title_id_from_path)
         });
 
-    if let Some(ref tid) = title_id {
-        eprintln!("[artwork] Resolved title_id={tid} (from identity/header/path)");
-    }
-
     // Name-based fallback: search the Xbox Marketplace database by game title.
     if title_id.is_none() {
-        eprintln!("[artwork] No title_id from identity/header/path, trying name-based lookup...");
         if let Some(game_title) = game.map(|g| g.title.as_str()) {
             title_id = resolve_title_id_by_name(library_metadata_path, game_title).await;
-            if let Some(ref tid) = title_id {
-                eprintln!("[artwork] Name-based lookup found title_id={tid}");
-            } else {
-                eprintln!("[artwork] Name-based lookup failed for \"{game_title}\"");
-            }
         }
     }
 
     let title_id = match title_id {
         Some(id) => id,
         None => {
-            eprintln!("[artwork] FAILED: No title_id available for game_id={game_id}");
             return ArtworkResult {
                 game_id: game_id.to_string(),
                 artwork_path: None,
@@ -223,15 +207,10 @@ pub async fn fetch_artwork(library_metadata_path: &str, game_id: &str) -> Artwor
         }
     }
 
-    // Build download URL.
-    let url = XBOX_BOXART_URL.replace("{title_id}", &title_id);
-    eprintln!("[artwork] Downloading: {url}");
-
     // Download using fallbacks.
     match download_artwork_with_fallbacks(&title_id, &cached_path).await {
         Ok(()) => {
             let path_str = cached_path.to_string_lossy().to_string();
-            eprintln!("[artwork] SUCCESS: saved to {path_str}");
             let _ = persist_artwork_path(library_metadata_path, game_id, &path_str);
             ArtworkResult {
                 game_id: game_id.to_string(),
@@ -241,7 +220,6 @@ pub async fn fetch_artwork(library_metadata_path: &str, game_id: &str) -> Artwor
             }
         }
         Err(e) => {
-            eprintln!("[artwork] DOWNLOAD FAILED: {e}");
             // Clean up partial downloads.
             let _ = fs::remove_file(&cached_path);
             ArtworkResult {
@@ -292,7 +270,7 @@ async fn fetch_boxart_urls(title_id: &str) -> Vec<String> {
     urls.push(format!("https://xenia-manager.github.io/x360db/titles/{title_id}/artwork/boxart.jpg"));
     
     // Add the legacy repository URL as final fallback
-    urls.push(format!("https://raw.githubusercontent.com/xenia-manager/xenia-manager-database/main/Assets/Marketplace/Boxarts/{title_id}.jpg"));
+    urls.push(XBOX_BOXART_URL.replace("{title_id}", title_id));
     
     urls
 }
@@ -301,7 +279,6 @@ async fn download_artwork_with_fallbacks(title_id: &str, cached_path: &Path) -> 
     let urls = fetch_boxart_urls(title_id).await;
     
     for url in urls {
-        eprintln!("[artwork] Attempting to download from: {}", url);
         if download_artwork(&url, cached_path).await.is_ok() {
             return Ok(());
         }
@@ -329,24 +306,6 @@ async fn download_artwork(url: &str, dest: &Path) -> Result<(), String> {
 
     if !response.status().is_success() {
         return Err(format!("Server returned {} for {}", response.status(), url));
-    }
-
-    // Soft content-type check: warn but still proceed if the response
-    // looks like binary data. GitHub raw serves .jpg as image/jpeg, but
-    // some CDNs or proxies may use application/octet-stream.
-    let content_type = response
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("")
-        .to_string();
-    if !content_type.is_empty()
-        && !content_type.starts_with("image/")
-        && !content_type.starts_with("application/octet-stream")
-    {
-        eprintln!(
-            "[artwork] WARNING: unexpected content-type \"{content_type}\" for {url}, attempting download anyway"
-        );
     }
 
     let bytes = response
@@ -399,36 +358,21 @@ fn persist_artwork_path(
 /// Returns results for each game attempted.
 pub async fn fetch_all_missing_artwork(library_metadata_path: &str) -> Vec<ArtworkResult> {
     let store = identity::load_identity_store(library_metadata_path);
-    eprintln!(
-        "[artwork] fetch_all_missing_artwork: {} games in store",
-        store.games.len()
-    );
     let mut results = Vec::new();
-    let mut skipped = 0;
 
     for game in &store.games {
         if game.artwork_path.is_some() {
             // Check if the cached file still exists.
             let cached = artwork_file_path(library_metadata_path, &game.game_id);
             if cached.exists() {
-                skipped += 1;
                 continue;
             }
-            eprintln!(
-                "[artwork] Game \"{}\" has artwork_path but file missing, re-fetching",
-                game.title
-            );
         }
 
         let result = fetch_artwork(library_metadata_path, &game.game_id).await;
         results.push(result);
     }
 
-    eprintln!(
-        "[artwork] Done: {} fetched, {} skipped (already cached)",
-        results.len(),
-        skipped
-    );
     results
 }
 

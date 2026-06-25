@@ -94,7 +94,7 @@ fn release_staging_dir(app_data_path: &str, release_tag: &str) -> PathBuf {
 }
 
 /// Sanitize a release tag for use as a directory name.
-fn sanitize_tag(tag: &str) -> String {
+pub(crate) fn sanitize_tag(tag: &str) -> String {
     tag.chars()
         .map(|c| {
             if c.is_alphanumeric() || c == '.' || c == '-' || c == '_' {

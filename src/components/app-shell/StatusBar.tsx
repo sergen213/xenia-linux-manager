@@ -1,8 +1,6 @@
-import { useEffect, useRef } from "react";
 import { useSettings } from "../../features/settings/state/settingsStore";
 import { useTasks, selectTaskSummary } from "../../features/tasks/state/tasksStore";
 import type { ReleaseMetadata } from "../../features/settings/model/releaseTypes";
-import { getReleaseMetadata } from "../../features/settings/api/releaseClient";
 import { useXenia } from "../../features/xenia/state/xeniaStore";
 import "./StatusBar.css";
 
@@ -18,25 +16,12 @@ export interface StatusItem {
  * Shows Xenia install state and packaged build information when available.
  */
 export function StatusBar() {
-  const { state, dispatch } = useSettings();
+  const { state } = useSettings();
   const { state: tasksState } = useTasks();
   const { state: xeniaState } = useXenia();
+  // Release metadata is fetched once by SettingsProvider; read it from state.
   const metadata = state.releaseMetadata;
   const taskSummary = selectTaskSummary(tasksState);
-
-  // Fetch release metadata once on mount if not already loaded
-  // Use ref to track if we've attempted to load, avoiding setState in effect
-  const loadAttemptedRef = useRef(false);
-  useEffect(() => {
-    if (!metadata && !loadAttemptedRef.current) {
-      loadAttemptedRef.current = true;
-      getReleaseMetadata()
-        .then((m) => dispatch({ type: "SET_RELEASE_METADATA", metadata: m }))
-        .catch(() => {
-          // Not in the Electron host -- leave metadata null
-        });
-    }
-  }, [metadata, dispatch]);
 
   const items = buildStatusItems(metadata, xeniaState.installState.status, taskSummary.running);
 

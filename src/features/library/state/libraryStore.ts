@@ -1,4 +1,4 @@
-import { createContext, useContext, type Dispatch } from "react";
+import { createStoreContext, type StoreContextValue } from "../../shared/storeContext";
 import type {
   BrowseLibraryPayload,
   LaunchPreflight,
@@ -6,12 +6,7 @@ import type {
   LibraryGameDetails,
   LibrarySource,
   NestedSourceWarning,
-  ReviewInboxPayload,
-  SourceCatalog,
 } from "../model/libraryTypes";
-import type {
-  MaterializedLaunchConfig,
-} from "../model/profileTypes";
 
 export type LibraryViewMode = "library" | "sources";
 export type LibrarySortMode = "recent" | "title" | "source";
@@ -25,9 +20,7 @@ export interface LibraryState {
   error: string | null;
   initialized: boolean;
   lastWarnings: NestedSourceWarning[];
-  catalogs: SourceCatalog[];
   browse: BrowseLibraryPayload | null;
-  reviewInbox: ReviewInboxPayload | null;
   selectedGameId: string | null;
   selectedGame: LibraryGameDetails | null;
   selectedView: LibraryViewMode;
@@ -38,8 +31,6 @@ export interface LibraryState {
   launchPending: boolean;
   managePatchesOpen: boolean;
   patchImportPending: boolean;
-  materializedLaunchConfig: MaterializedLaunchConfig | null;
-  materializedLoading: boolean;
 }
 
 export const INITIAL_LIBRARY_STATE: LibraryState = {
@@ -50,9 +41,7 @@ export const INITIAL_LIBRARY_STATE: LibraryState = {
   error: null,
   initialized: false,
   lastWarnings: [],
-  catalogs: [],
   browse: null,
-  reviewInbox: null,
   selectedGameId: null,
   selectedGame: null,
   selectedView: "library",
@@ -63,8 +52,6 @@ export const INITIAL_LIBRARY_STATE: LibraryState = {
   launchPending: false,
   managePatchesOpen: false,
   patchImportPending: false,
-  materializedLaunchConfig: null,
-  materializedLoading: false,
 };
 
 export type LibraryAction =
@@ -78,14 +65,11 @@ export type LibraryAction =
   | { type: "LOAD_ERROR"; error: string }
   | { type: "ADD_SOURCE"; source: LibrarySource; warnings: NestedSourceWarning[] }
   | { type: "REMOVE_SOURCE"; sourceId: string }
-  | { type: "SCAN_STARTED"; activeScans: number; queuedScans: number }
   | { type: "SCAN_FINISHED"; sources: LibrarySource[]; activeScans: number; queuedScans: number }
   | { type: "SET_ERROR"; error: string }
   | { type: "CLEAR_ERROR" }
   | { type: "CLEAR_WARNINGS" }
-  | { type: "CATALOGS_LOADED"; catalogs: SourceCatalog[] }
   | { type: "BROWSE_LOADED"; browse: BrowseLibraryPayload }
-  | { type: "REVIEW_INBOX_LOADED"; reviewInbox: ReviewInboxPayload }
   | { type: "SELECT_GAME"; gameId: string | null }
   | { type: "GAME_DETAILS_LOADED"; details: LibraryGameDetails | null }
   | { type: "SET_VIEW"; view: LibraryViewMode }
@@ -95,10 +79,7 @@ export type LibraryAction =
   | { type: "SET_LAUNCH_PREFLIGHT"; preflight: LaunchPreflight | null }
   | { type: "SET_LAUNCH_PENDING"; pending: boolean }
   | { type: "SET_MANAGE_PATCHES_OPEN"; open: boolean }
-  | { type: "SET_PATCH_IMPORT_PENDING"; pending: boolean }
-  | { type: "MATERIALIZED_LOADING" }
-  | { type: "MATERIALIZED_LOADED"; config: MaterializedLaunchConfig }
-  | { type: "MATERIALIZED_ERROR"; error: string };
+  | { type: "SET_PATCH_IMPORT_PENDING"; pending: boolean };
 
 export function libraryReducer(
   state: LibraryState,
@@ -131,8 +112,6 @@ export function libraryReducer(
         ...state,
         sources: state.sources.filter((source) => source.id !== action.sourceId),
       };
-    case "SCAN_STARTED":
-      return { ...state, activeScans: action.activeScans, queuedScans: action.queuedScans };
     case "SCAN_FINISHED":
       return {
         ...state,
@@ -146,8 +125,6 @@ export function libraryReducer(
       return { ...state, error: null };
     case "CLEAR_WARNINGS":
       return { ...state, lastWarnings: [] };
-    case "CATALOGS_LOADED":
-      return { ...state, catalogs: action.catalogs };
     case "BROWSE_LOADED":
       return {
         ...state,
@@ -157,8 +134,6 @@ export function libraryReducer(
           action.browse.cards[0]?.game_id ??
           null,
       };
-    case "REVIEW_INBOX_LOADED":
-      return { ...state, reviewInbox: action.reviewInbox };
     case "SELECT_GAME":
       return {
         ...state,
@@ -168,8 +143,6 @@ export function libraryReducer(
         managePatchesOpen: action.gameId === state.selectedGameId ? state.managePatchesOpen : false,
         patchImportPending:
           action.gameId === state.selectedGameId ? state.patchImportPending : false,
-        materializedLaunchConfig:
-          action.gameId === state.selectedGameId ? state.materializedLaunchConfig : null,
       };
     case "GAME_DETAILS_LOADED":
       return { ...state, selectedGame: action.details };
@@ -189,12 +162,6 @@ export function libraryReducer(
       return { ...state, managePatchesOpen: action.open };
     case "SET_PATCH_IMPORT_PENDING":
       return { ...state, patchImportPending: action.pending };
-    case "MATERIALIZED_LOADING":
-      return { ...state, materializedLoading: true };
-    case "MATERIALIZED_LOADED":
-      return { ...state, materializedLoading: false, materializedLaunchConfig: action.config };
-    case "MATERIALIZED_ERROR":
-      return { ...state, materializedLoading: false, error: action.error };
     default:
       return state;
   }
@@ -229,17 +196,9 @@ export function selectVisibleLibraryCards(state: LibraryState): LibraryBrowseCar
   });
 }
 
-export interface LibraryContextValue {
-  state: LibraryState;
-  dispatch: Dispatch<LibraryAction>;
-}
+export type LibraryContextValue = StoreContextValue<LibraryState, LibraryAction>;
 
-export const LibraryContext = createContext<LibraryContextValue | null>(null);
+const { Context: LibraryContext, useStore: useLibrary } =
+  createStoreContext<LibraryState, LibraryAction>("Library");
 
-export function useLibrary(): LibraryContextValue {
-  const context = useContext(LibraryContext);
-  if (!context) {
-    throw new Error("useLibrary must be used within a LibraryProvider");
-  }
-  return context;
-}
+export { LibraryContext, useLibrary };

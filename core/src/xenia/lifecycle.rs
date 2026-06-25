@@ -60,13 +60,6 @@ pub async fn promote_staged_build(
     Ok((target_dir.join(relative_exec), target_dir))
 }
 
-pub async fn rollback_promotion(
-    _app_data_path: &str,
-    _xenia_path: &str,
-) -> Result<bool, LifecycleError> {
-    Ok(false)
-}
-
 /// Remove one installed build, or all managed builds when `manifest` is `None`.
 pub async fn remove_install(
     xenia_path: &str,

@@ -5,7 +5,7 @@
  * read current settings and dispatch save/load actions.
  */
 
-import { createContext, useContext } from "react";
+import { createStoreContext, type StoreContextValue } from "../../shared/storeContext";
 import type {
   AppSettings,
   SettingsValidation,
@@ -135,17 +135,9 @@ export function settingsReducer(
 // Context (provided at the app root)
 // ---------------------------------------------------------------------------
 
-export interface SettingsContextValue {
-  state: SettingsState;
-  dispatch: React.Dispatch<SettingsAction>;
-}
+export type SettingsContextValue = StoreContextValue<SettingsState, SettingsAction>;
 
-export const SettingsContext = createContext<SettingsContextValue | null>(null);
+const { Context: SettingsContext, useStore: useSettings } =
+  createStoreContext<SettingsState, SettingsAction>("Settings");
 
-export function useSettings(): SettingsContextValue {
-  const ctx = useContext(SettingsContext);
-  if (!ctx) {
-    throw new Error("useSettings must be used within a SettingsProvider");
-  }
-  return ctx;
-}
+export { SettingsContext, useSettings };

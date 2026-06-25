@@ -1,5 +1,4 @@
-import { createContext, useContext } from "react";
-import type { Dispatch } from "react";
+import { createStoreContext, type StoreContextValue } from "../../shared/storeContext";
 import type {
   EffectiveConfig,
   ProfileInventory,
@@ -155,17 +154,9 @@ export function profilesReducer(
   }
 }
 
-export interface ProfilesContextValue {
-  state: ProfilesState;
-  dispatch: Dispatch<ProfilesAction>;
-}
+export type ProfilesContextValue = StoreContextValue<ProfilesState, ProfilesAction>;
 
-export const ProfilesContext = createContext<ProfilesContextValue | null>(null);
+const { Context: ProfilesContext, useStore: useProfiles } =
+  createStoreContext<ProfilesState, ProfilesAction>("Profiles");
 
-export function useProfiles(): ProfilesContextValue {
-  const context = useContext(ProfilesContext);
-  if (!context) {
-    throw new Error("useProfiles must be used within a ProfilesProvider");
-  }
-  return context;
-}
+export { ProfilesContext, useProfiles };

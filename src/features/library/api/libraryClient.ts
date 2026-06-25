@@ -6,8 +6,6 @@ import { invoke } from "../../../platform/bridge";
 import type {
   AddSourceResult,
   BrowseLibraryPayload,
-  DuplicateResolutionInput,
-  DuplicateResolutionRecord,
   ContentImportResult,
   ContentRemoveResult,
   GameIdentityRecord,
@@ -19,7 +17,6 @@ import type {
   LibraryStatus,
   ManualGameInput,
   SourceCatalog,
-  ReviewInboxPayload,
   UpdateGameIdentityInput,
 } from "../model/libraryTypes";
 import type {
@@ -27,10 +24,8 @@ import type {
 } from "../model/patchTypes";
 import type {
   EffectiveConfig,
-  MaterializedLaunchConfig,
   ProfileDocument,
   ProfileInventory,
-  RecommendationAvailability,
 } from "../model/profileTypes";
 import type {
   BackupEntry,
@@ -49,14 +44,6 @@ export async function addLibrarySource(
   return invoke<AddSourceResult>("add_library_source", {
     libraryMetadataPath,
     path,
-  });
-}
-
-export async function listLibrarySources(
-  libraryMetadataPath: string,
-): Promise<LibrarySource[]> {
-  return invoke<LibrarySource[]>("list_library_sources", {
-    libraryMetadataPath,
   });
 }
 
@@ -88,31 +75,11 @@ export async function scanAllSources(
   });
 }
 
-export async function cancelScan(
-  appDataPath: string,
-  jobId: string,
-): Promise<void> {
-  return invoke<void>("cancel_scan", {
-    appDataPath,
-    jobId,
-  });
-}
-
 export async function getLibraryStatus(
   libraryMetadataPath: string,
 ): Promise<LibraryStatus> {
   return invoke<LibraryStatus>("get_library_status", {
     libraryMetadataPath,
-  });
-}
-
-export async function getSourceCatalog(
-  libraryMetadataPath: string,
-  sourceId: string,
-): Promise<SourceCatalog> {
-  return invoke<SourceCatalog>("get_source_catalog", {
-    libraryMetadataPath,
-    sourceId,
   });
 }
 
@@ -128,14 +95,6 @@ export async function browseLibrary(
   libraryMetadataPath: string,
 ): Promise<BrowseLibraryPayload> {
   return invoke<BrowseLibraryPayload>("browse_library", {
-    libraryMetadataPath,
-  });
-}
-
-export async function getReviewInbox(
-  libraryMetadataPath: string,
-): Promise<ReviewInboxPayload> {
-  return invoke<ReviewInboxPayload>("get_review_inbox", {
     libraryMetadataPath,
   });
 }
@@ -237,16 +196,6 @@ export async function updateGameLaunchWrapper(
   input: { game_id: string; launch_wrapper: string | null },
 ): Promise<GameIdentityRecord> {
   return invoke<GameIdentityRecord>("update_game_launch_wrapper", {
-    libraryMetadataPath,
-    input,
-  });
-}
-
-export async function resolveDuplicateReview(
-  libraryMetadataPath: string,
-  input: DuplicateResolutionInput,
-): Promise<DuplicateResolutionRecord> {
-  return invoke<DuplicateResolutionRecord>("resolve_duplicate_review", {
     libraryMetadataPath,
     input,
   });
@@ -391,49 +340,11 @@ export interface GameXeniaPatches {
   files: XeniaPatchFile[];
 }
 
-export interface CommunityXeniaPatchCandidate {
-  remote_key: string;
-  file_name: string;
-  download_url: string;
-  installed_file_path: string | null;
-  title_name: string | null;
-  title_id: string | null;
-  version: string | null;
-  entry_count: number;
-  update_available: boolean;
-}
-
-export interface FetchCommunityXeniaPatchResult {
-  file_name: string;
-  file_path: string;
-  overwritten: boolean;
-}
-
 export async function getGameXeniaPatches(
   appDataPath: string,
   titleId: string,
 ): Promise<GameXeniaPatches> {
   return invoke<GameXeniaPatches>("get_game_xenia_patches", { appDataPath, titleId });
-}
-
-export async function listXeniaCommunityPatchCandidates(
-  appDataPath: string,
-  titleId: string,
-): Promise<CommunityXeniaPatchCandidate[]> {
-  return invoke<CommunityXeniaPatchCandidate[]>("list_xenia_community_patch_candidates", {
-    appDataPath,
-    titleId,
-  });
-}
-
-export async function fetchXeniaCommunityPatch(
-  appDataPath: string,
-  remoteKey: string,
-): Promise<FetchCommunityXeniaPatchResult> {
-  return invoke<FetchCommunityXeniaPatchResult>("fetch_xenia_community_patch", {
-    appDataPath,
-    remoteKey,
-  });
 }
 
 export async function importXeniaPatchFile(
@@ -543,33 +454,8 @@ export async function saveProfileOverrides(
 }
 
 // ---------------------------------------------------------------------------
-// Materialization commands
-// ---------------------------------------------------------------------------
-
-export async function getMaterializedLaunchConfig(
-  appDataPath: string,
-  libraryMetadataPath: string,
-  gameId: string,
-): Promise<MaterializedLaunchConfig> {
-  return invoke<MaterializedLaunchConfig>("get_materialized_launch_config", {
-    appDataPath,
-    libraryMetadataPath,
-    gameId,
-  });
-}
-
-// ---------------------------------------------------------------------------
 // Recommendation commands
 // ---------------------------------------------------------------------------
-
-export async function checkRecommendationAvailability(
-  gameId: string,
-): Promise<RecommendationAvailability> {
-  return invoke<RecommendationAvailability>(
-    "check_recommendation_availability",
-    { gameId },
-  );
-}
 
 export async function applyRecommendedProfile(
   libraryMetadataPath: string,

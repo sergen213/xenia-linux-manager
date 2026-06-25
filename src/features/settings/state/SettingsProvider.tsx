@@ -5,6 +5,7 @@ import {
   INITIAL_STATE,
 } from "./settingsStore";
 import { loadSettings, getDefaultSettings } from "../api/settingsClient";
+import { getReleaseMetadata } from "../api/releaseClient";
 
 interface SettingsProviderProps {
   children: ReactNode;
@@ -22,9 +23,17 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
 
     async function init() {
       dispatch({ type: "LOAD_START" });
+      // Fetch release metadata once for the whole tree (StatusBar,
+      // ReleaseChannelCard, PackagedEnvironmentNotice read it from state).
+      // Failure is non-fatal (e.g. not running inside the Electron host).
+      const releasePromise = getReleaseMetadata().catch(() => null);
       try {
         const [settings, validation] = await loadSettings();
+        const release = await releasePromise;
         if (!cancelled) {
+          if (release) {
+            dispatch({ type: "SET_RELEASE_METADATA", metadata: release });
+          }
           dispatch({ type: "LOAD_SUCCESS", settings, validation });
         }
       } catch {
@@ -32,7 +41,11 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
         // fall back to defaults so the UI still renders.
         try {
           const defaults = await getDefaultSettings();
+          const release = await releasePromise;
           if (!cancelled) {
+            if (release) {
+              dispatch({ type: "SET_RELEASE_METADATA", metadata: release });
+            }
             dispatch({
               type: "LOAD_SUCCESS",
               settings: defaults,

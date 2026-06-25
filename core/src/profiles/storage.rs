@@ -49,7 +49,6 @@ pub struct ProfileManifest {
     pub version: u32,
     pub game_id: String,
     pub active_profile_id: Option<String>,
-    pub profiles: Vec<ProfileRecord>,
 }
 
 /// Sparse explicit overrides keyed by config path.
@@ -95,9 +94,6 @@ pub fn load_inventory(
     library_metadata_path: &str,
     game_id: &str,
 ) -> Result<ProfileInventory, String> {
-    // Migrate any legacy per-game profiles to shared catalog.
-    migrate_legacy_profiles(library_metadata_path, game_id);
-
     let catalog = load_shared_catalog(library_metadata_path);
     let manifest = load_manifest(library_metadata_path, game_id)?;
     let mut summaries = Vec::with_capacity(catalog.len());
@@ -139,53 +135,6 @@ fn save_shared_catalog(
 ) -> Result<(), String> {
     let path = shared_catalog_path(library_metadata_path);
     write_json_atomic(&path, &catalog.to_vec())
-}
-
-/// Migrate legacy per-game profiles to the shared catalog (one-time).
-fn migrate_legacy_profiles(library_metadata_path: &str, game_id: &str) {
-    let manifest = match load_manifest(library_metadata_path, game_id) {
-        Ok(m) => m,
-        Err(_) => return,
-    };
-    if manifest.profiles.is_empty() {
-        return;
-    }
-
-    let mut catalog = load_shared_catalog(library_metadata_path);
-    let mut migrated = false;
-
-    for record in &manifest.profiles {
-        // Skip if already in shared catalog.
-        if catalog.iter().any(|r| r.id == record.id) {
-            continue;
-        }
-
-        // Move the document file to shared location.
-        let legacy_path = legacy_profile_document_path(library_metadata_path, game_id, &record.id);
-        if legacy_path.exists() {
-            let shared_path = profile_document_path(library_metadata_path, game_id, &record.id);
-            if let Some(parent) = shared_path.parent() {
-                let _ = fs::create_dir_all(parent);
-            }
-            let _ = fs::copy(&legacy_path, &shared_path);
-            let _ = fs::remove_file(&legacy_path);
-        }
-
-        catalog.push(record.clone());
-        migrated = true;
-    }
-
-    if migrated {
-        let _ = save_shared_catalog(library_metadata_path, &catalog);
-        // Clear profiles from per-game manifest (keep only active_profile_id).
-        let cleaned = ProfileManifest {
-            version: manifest.version,
-            game_id: game_id.to_string(),
-            active_profile_id: manifest.active_profile_id,
-            profiles: Vec::new(),
-        };
-        let _ = save_manifest(library_metadata_path, game_id, &cleaned);
-    }
 }
 
 /// Create a new blank shared profile.
@@ -302,14 +251,6 @@ pub fn delete_profile(
         }
     }
 
-    // Also remove any legacy shared document if present.
-    let legacy_shared_doc = shared_profiles_root(library_metadata_path)
-        .join("profiles")
-        .join(format!("{}.json", profile_id));
-    if legacy_shared_doc.exists() {
-        let _ = fs::remove_file(&legacy_shared_doc);
-    }
-
     save_shared_catalog(library_metadata_path, &catalog)?;
     load_inventory(library_metadata_path, game_id)
 }
@@ -381,26 +322,12 @@ pub fn load_profile_document(
     match fs::read_to_string(&path) {
         Ok(contents) => serde_json::from_str(&contents)
             .map_err(|e| format!("Failed to parse profile document: {}", e)),
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-            let legacy_shared_path = shared_profiles_root(library_metadata_path)
-                .join("profiles")
-                .join(format!("{}.json", profile_id));
-
-            match fs::read_to_string(&legacy_shared_path) {
-                Ok(contents) => serde_json::from_str(&contents)
-                    .map_err(|e| format!("Failed to parse legacy shared profile document: {}", e)),
-                Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(ProfileDocument {
-                    version: STORE_VERSION,
-                    profile_id: profile_id.to_string(),
-                    game_id: game_id.to_string(),
-                    overrides: HashMap::new(),
-                }),
-                Err(e) => Err(format!(
-                    "Failed to read legacy shared profile document: {}",
-                    e
-                )),
-            }
-        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(ProfileDocument {
+            version: STORE_VERSION,
+            profile_id: profile_id.to_string(),
+            game_id: game_id.to_string(),
+            overrides: HashMap::new(),
+        }),
         Err(e) => Err(format!("Failed to read profile document: {}", e)),
     }
 }
@@ -478,7 +405,6 @@ pub fn load_manifest(
             version: STORE_VERSION,
             game_id: game_id.to_string(),
             active_profile_id: None,
-            profiles: Vec::new(),
         }),
         Err(e) => Err(format!("Failed to read profile manifest: {}", e)),
     }
@@ -593,19 +519,6 @@ fn all_game_ids(library_metadata_path: &str) -> Result<Vec<String>, String> {
     }
 
     Ok(game_ids)
-}
-
-/// Legacy per-game profile document path (for migration).
-fn legacy_profile_document_path(
-    library_metadata_path: &str,
-    game_id: &str,
-    profile_id: &str,
-) -> PathBuf {
-    PathBuf::from(library_metadata_path)
-        .join(PROFILES_DIRNAME)
-        .join(game_id)
-        .join("profiles")
-        .join(format!("{}.json", profile_id))
 }
 
 fn generate_profile_id(name: &str, timestamp: u64) -> String {

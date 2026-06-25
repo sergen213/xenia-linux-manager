@@ -1,9 +1,8 @@
 //! Shared storage helpers for the saves domain.
 //!
-//! Provides backup archive creation, atomic JSON writing, and directory
-//! utilities used by both export and import pipelines.
+//! Provides backup archive creation and directory utilities used by both
+//! export and import pipelines.
 
-use serde::Serialize;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -15,7 +14,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 /// Create a backup archive of a directory's contents.
 ///
 /// Returns the path to the backup zip archive, or an error if backup fails.
-/// The backup is stored under `<app_data_path>/save-backups/` with a
+/// The backup is stored under `{app_data_path}/save-backups/` with a
 /// timestamped filename.
 pub async fn create_backup(
     app_data_path: &str,
@@ -59,15 +58,15 @@ fn write_backup_zip(source: &Path, output: &Path) -> Result<(), String> {
     let mut zip = zip::ZipWriter::new(file);
     let options = FileOptions::<()>::default().compression_method(CompressionMethod::Deflated);
 
-    add_dir_to_backup_zip(&mut zip, source, "", &options)?;
+    zip_add_dir(&mut zip, source, "", &options)?;
 
     zip.finish()
         .map_err(|e| format!("Failed to finalize backup archive: {e}"))?;
     Ok(())
 }
 
-/// Recursively add directory contents to a zip.
-fn add_dir_to_backup_zip(
+/// Recursively add directory contents to a zip under `prefix` (empty = root).
+pub(crate) fn zip_add_dir(
     zip: &mut zip::ZipWriter<fs::File>,
     src: &Path,
     prefix: &str,
@@ -87,7 +86,7 @@ fn add_dir_to_backup_zip(
         };
 
         if path.is_dir() {
-            add_dir_to_backup_zip(zip, &path, &archive_path, options)?;
+            zip_add_dir(zip, &path, &archive_path, options)?;
         } else {
             let contents =
                 fs::read(&path).map_err(|e| format!("Failed to read {}: {e}", path.display()))?;
@@ -143,22 +142,6 @@ pub struct BackupEntry {
     pub filename: String,
     pub path: String,
     pub size_bytes: u64,
-}
-
-// ---------------------------------------------------------------------------
-// Atomic JSON writing
-// ---------------------------------------------------------------------------
-
-/// Write a serializable value to a JSON file atomically (write-to-temp-then-rename).
-pub fn write_json_atomic<T: Serialize>(path: &Path, value: &T) -> Result<(), String> {
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).map_err(|e| format!("Failed to create directory: {e}"))?;
-    }
-    let temp_path = path.with_extension("json.tmp");
-    let contents =
-        serde_json::to_string_pretty(value).map_err(|e| format!("Failed to serialize: {e}"))?;
-    fs::write(&temp_path, contents).map_err(|e| format!("Failed to write: {e}"))?;
-    fs::rename(&temp_path, path).map_err(|e| format!("Failed to finalize: {e}"))
 }
 
 // ---------------------------------------------------------------------------
@@ -234,30 +217,6 @@ mod tests {
         assert_eq!(backups.len(), 2);
         // Should be sorted newest first (by filename, descending).
         assert!(backups[0].filename > backups[1].filename);
-    }
-
-    #[test]
-    fn write_json_atomic_creates_file() {
-        let dir = temp_dir("atomic-write");
-        let path = PathBuf::from(&dir).join("test.json");
-        let data = serde_json::json!({"key": "value"});
-        write_json_atomic(&path, &data).unwrap();
-
-        let contents = fs::read_to_string(&path).unwrap();
-        assert!(contents.contains("\"key\""));
-        assert!(contents.contains("\"value\""));
-    }
-
-    #[test]
-    fn write_json_atomic_creates_parent_dirs() {
-        let dir = temp_dir("atomic-parents");
-        let path = PathBuf::from(&dir)
-            .join("nested")
-            .join("deep")
-            .join("test.json");
-        let data = serde_json::json!(42);
-        write_json_atomic(&path, &data).unwrap();
-        assert!(path.exists());
     }
 
     #[tokio::test]

@@ -62,13 +62,8 @@ export function useRouteRestore() {
     saveTimer.current = window.setTimeout(() => {
       if (!state.settings) return;
       const updated: AppSettings = {
-        xenia_path: state.settings.xenia_path ?? "",
-        app_data_path: state.settings.app_data_path ?? "",
-        library_metadata_path: state.settings.library_metadata_path ?? "",
-        setup_complete: state.settings.setup_complete,
+        ...state.settings,
         last_active_route: location.pathname,
-        gamer_tag: state.settings.gamer_tag ?? null,
-        click_behavior: state.settings.click_behavior ?? "double",
       };
       void saveSettings(updated).catch(() => {
         // Silently ignore -- route restore is not critical.

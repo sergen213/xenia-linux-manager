@@ -55,23 +55,15 @@ pub fn catalog_file_path(library_metadata_path: &str, source_id: &str) -> PathBu
 
 /// Load persisted catalog for a source. Returns empty catalog if missing or corrupt.
 pub fn load_catalog(library_metadata_path: &str, source_id: &str) -> SourceCatalog {
+    let default = || SourceCatalog {
+        source_id: source_id.to_string(),
+        ..Default::default()
+    };
     let path = catalog_file_path(library_metadata_path, source_id);
-    if !path.exists() {
-        return SourceCatalog {
-            source_id: source_id.to_string(),
-            ..Default::default()
-        };
-    }
-    match fs::read_to_string(&path) {
-        Ok(data) => serde_json::from_str(&data).unwrap_or(SourceCatalog {
-            source_id: source_id.to_string(),
-            ..Default::default()
-        }),
-        Err(_) => SourceCatalog {
-            source_id: source_id.to_string(),
-            ..Default::default()
-        },
-    }
+    fs::read_to_string(&path)
+        .ok()
+        .and_then(|data| serde_json::from_str(&data).ok())
+        .unwrap_or_else(default)
 }
 
 /// Save catalog to disk atomically (write-to-temp-then-rename).

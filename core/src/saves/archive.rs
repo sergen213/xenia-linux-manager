@@ -196,7 +196,7 @@ fn write_zip_archive(output: &Path, manifest: &ArchiveManifest) -> Result<(), St
     for item in &manifest.items {
         let src = Path::new(&item.original_path);
         if src.is_dir() {
-            add_dir_to_zip(&mut zip, src, &item.archive_path, &options)?;
+            super::storage::zip_add_dir(&mut zip, src, &item.archive_path, &options)?;
         } else if src.is_file() {
             let contents =
                 fs::read(src).map_err(|e| format!("Failed to read {}: {e}", src.display()))?;
@@ -209,37 +209,6 @@ fn write_zip_archive(output: &Path, manifest: &ArchiveManifest) -> Result<(), St
 
     zip.finish()
         .map_err(|e| format!("Failed to finalize archive: {e}"))?;
-    Ok(())
-}
-
-/// Recursively add a directory to a zip archive.
-fn add_dir_to_zip(
-    zip: &mut zip::ZipWriter<fs::File>,
-    src: &Path,
-    archive_prefix: &str,
-    options: &zip::write::FileOptions<()>,
-) -> Result<(), String> {
-    let entries = fs::read_dir(src)
-        .map_err(|e| format!("Failed to read directory {}: {e}", src.display()))?;
-
-    for entry in entries {
-        let entry = entry.map_err(|e| format!("Failed to read entry: {e}"))?;
-        let entry_path = entry.path();
-        let name = entry.file_name().to_string_lossy().to_string();
-        let archive_path = format!("{archive_prefix}/{name}");
-
-        if entry_path.is_dir() {
-            add_dir_to_zip(zip, &entry_path, &archive_path, options)?;
-        } else {
-            let contents = fs::read(&entry_path)
-                .map_err(|e| format!("Failed to read {}: {e}", entry_path.display()))?;
-            zip.start_file(&archive_path, options.clone())
-                .map_err(|e| format!("Failed to add {archive_path}: {e}"))?;
-            std::io::Write::write_all(zip, &contents)
-                .map_err(|e| format!("Failed to write {archive_path}: {e}"))?;
-        }
-    }
-
     Ok(())
 }
 
@@ -345,36 +314,14 @@ fn validate_manifest(manifest: &ArchiveManifest) -> Result<(), ArchiveError> {
     Ok(())
 }
 
-/// Verify that staged files match the manifest entries.
-pub fn verify_staged_content(
-    staging_dir: &Path,
-    manifest: &ArchiveManifest,
-) -> Vec<ManifestVerification> {
+/// Return the archive paths of manifest entries missing from staged content.
+pub fn verify_staged_content(staging_dir: &Path, manifest: &ArchiveManifest) -> Vec<String> {
     manifest
         .items
         .iter()
-        .map(|item| {
-            let path = staging_dir.join(&item.archive_path);
-            let exists = path.exists();
-            ManifestVerification {
-                archive_path: item.archive_path.clone(),
-                label: item.label.clone(),
-                category: item.category.clone(),
-                expected: true,
-                found: exists,
-            }
-        })
+        .filter(|item| !staging_dir.join(&item.archive_path).exists())
+        .map(|item| item.archive_path.clone())
         .collect()
-}
-
-/// Result of verifying a single manifest entry against staged content.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct ManifestVerification {
-    pub archive_path: String,
-    pub label: String,
-    pub category: ExportCategory,
-    pub expected: bool,
-    pub found: bool,
 }
 
 /// Clean up import staging directory.
@@ -615,10 +562,8 @@ mod tests {
             created_by: "test".to_string(),
         };
 
-        let verifications = verify_staged_content(&staging, &manifest);
-        assert_eq!(verifications.len(), 2);
-        assert!(verifications[0].found);
-        assert!(!verifications[1].found);
+        let missing = verify_staged_content(&staging, &manifest);
+        assert_eq!(missing, vec!["save/slot2".to_string()]);
     }
 
     #[test]

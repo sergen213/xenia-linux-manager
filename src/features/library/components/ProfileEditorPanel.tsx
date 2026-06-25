@@ -49,7 +49,6 @@ interface ProfileFieldRowProps {
   fieldDef: FieldDef;
   displayValue: unknown;
   isHighlighted: boolean;
-  showInView: boolean;
   onChange: (key: string, value: unknown) => void;
   onReset: (key: string) => void;
 }
@@ -58,14 +57,9 @@ const ProfileFieldRow = memo(function ProfileFieldRow({
   fieldDef,
   displayValue,
   isHighlighted,
-  showInView,
   onChange,
   onReset,
 }: ProfileFieldRowProps) {
-  if (!showInView) {
-    return null;
-  }
-
   return (
     <div
       className={`profile-editor__field${isHighlighted ? " profile-editor__field--changed" : ""}`}
@@ -391,7 +385,6 @@ export function ProfileEditorPanel({
                         fieldDef={fieldDef}
                         displayValue={displayValue}
                         isHighlighted={isChanged || draftValue !== undefined}
-                        showInView={!(viewMode === "explicit" && !isChanged && draftValue === undefined)}
                         onChange={handleFieldChange}
                         onReset={handleFieldReset}
                       />

@@ -228,6 +228,32 @@ fn walk_directory<F>(
     }
 }
 
+/// Build a `DiscoveredCandidate`, restating only the fields that vary per site.
+#[allow(clippy::too_many_arguments)]
+fn make_candidate(
+    path: &Path,
+    label: String,
+    source_id: &str,
+    kind: CandidateKind,
+    confidence: Confidence,
+    status: CandidateStatus,
+    size_bytes: u64,
+    warning: Option<String>,
+    discovered_at: u64,
+) -> DiscoveredCandidate {
+    DiscoveredCandidate {
+        path: path.to_path_buf(),
+        label,
+        source_id: source_id.to_string(),
+        kind,
+        confidence,
+        status,
+        size_bytes,
+        warning,
+        discovered_at,
+    }
+}
+
 /// Evaluate a `.xex` file as a candidate.
 fn evaluate_xex_candidate(
     path: &Path,
@@ -241,45 +267,45 @@ fn evaluate_xex_candidate(
 
     // Check for duplicates
     if existing_paths.contains(path) || seen_in_scan.contains(path) {
-        return DiscoveredCandidate {
-            path: path.to_path_buf(),
+        return make_candidate(
+            path,
             label,
-            source_id: source_id.to_string(),
-            kind: CandidateKind::Xex,
-            confidence: Confidence::High,
-            status: CandidateStatus::Duplicate,
-            size_bytes: size,
-            warning: Some("Duplicate: already discovered in a previous or concurrent scan".into()),
-            discovered_at: now,
-        };
+            source_id,
+            CandidateKind::Xex,
+            Confidence::High,
+            CandidateStatus::Duplicate,
+            size,
+            Some("Duplicate: already discovered in a previous or concurrent scan".into()),
+            now,
+        );
     }
 
     // Check for zero-byte or unreadable
     if size == 0 {
-        return DiscoveredCandidate {
-            path: path.to_path_buf(),
+        return make_candidate(
+            path,
             label,
-            source_id: source_id.to_string(),
-            kind: CandidateKind::Xex,
-            confidence: Confidence::High,
-            status: CandidateStatus::Skipped,
-            size_bytes: 0,
-            warning: Some("Skipped: zero-byte file".into()),
-            discovered_at: now,
-        };
+            source_id,
+            CandidateKind::Xex,
+            Confidence::High,
+            CandidateStatus::Skipped,
+            0,
+            Some("Skipped: zero-byte file".into()),
+            now,
+        );
     }
 
-    DiscoveredCandidate {
-        path: path.to_path_buf(),
+    make_candidate(
+        path,
         label,
-        source_id: source_id.to_string(),
-        kind: CandidateKind::Xex,
-        confidence: Confidence::High,
-        status: CandidateStatus::Found,
-        size_bytes: size,
-        warning: None,
-        discovered_at: now,
-    }
+        source_id,
+        CandidateKind::Xex,
+        Confidence::High,
+        CandidateStatus::Found,
+        size,
+        None,
+        now,
+    )
 }
 
 /// Evaluate an ISO-like file as a candidate with heuristic confidence.
@@ -295,32 +321,32 @@ fn evaluate_iso_candidate(
 
     // Duplicate check
     if existing_paths.contains(path) || seen_in_scan.contains(path) {
-        return DiscoveredCandidate {
-            path: path.to_path_buf(),
+        return make_candidate(
+            path,
             label,
-            source_id: source_id.to_string(),
-            kind: CandidateKind::Iso,
-            confidence: Confidence::Medium,
-            status: CandidateStatus::Duplicate,
-            size_bytes: size,
-            warning: Some("Duplicate: already discovered in a previous or concurrent scan".into()),
-            discovered_at: now,
-        };
+            source_id,
+            CandidateKind::Iso,
+            Confidence::Medium,
+            CandidateStatus::Duplicate,
+            size,
+            Some("Duplicate: already discovered in a previous or concurrent scan".into()),
+            now,
+        );
     }
 
     // Zero-byte check
     if size == 0 {
-        return DiscoveredCandidate {
-            path: path.to_path_buf(),
+        return make_candidate(
+            path,
             label,
-            source_id: source_id.to_string(),
-            kind: CandidateKind::Iso,
-            confidence: Confidence::Low,
-            status: CandidateStatus::Skipped,
-            size_bytes: 0,
-            warning: Some("Skipped: zero-byte file".into()),
-            discovered_at: now,
-        };
+            source_id,
+            CandidateKind::Iso,
+            Confidence::Low,
+            CandidateStatus::Skipped,
+            0,
+            Some("Skipped: zero-byte file".into()),
+            now,
+        );
     }
 
     let ext = path
@@ -343,21 +369,22 @@ fn evaluate_iso_candidate(
         } else {
             None
         };
-        return DiscoveredCandidate {
-            path: path.to_path_buf(),
-            label,
-            source_id: source_id.to_string(),
-            kind: CandidateKind::Iso,
-            confidence,
-            status: if warning.is_some() {
-                CandidateStatus::Warning
-            } else {
-                CandidateStatus::Found
-            },
-            size_bytes: size,
-            warning,
-            discovered_at: now,
+        let status = if warning.is_some() {
+            CandidateStatus::Warning
+        } else {
+            CandidateStatus::Found
         };
+        return make_candidate(
+            path,
+            label,
+            source_id,
+            CandidateKind::Iso,
+            confidence,
+            status,
+            size,
+            warning,
+            now,
+        );
     }
 
     // Generic .iso: use size heuristic for confidence.
@@ -376,17 +403,17 @@ fn evaluate_iso_candidate(
         )
     };
 
-    DiscoveredCandidate {
-        path: path.to_path_buf(),
+    make_candidate(
+        path,
         label,
-        source_id: source_id.to_string(),
-        kind: CandidateKind::Iso,
+        source_id,
+        CandidateKind::Iso,
         confidence,
         status,
-        size_bytes: size,
+        size,
         warning,
-        discovered_at: now,
-    }
+        now,
+    )
 }
 
 // ---------------------------------------------------------------------------

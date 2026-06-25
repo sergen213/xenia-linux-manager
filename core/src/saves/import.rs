@@ -7,7 +7,7 @@
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
-use super::archive::{self, ArchiveManifest, ManifestItem};
+use super::archive::{self, ArchiveManifest};
 use super::paths::{self, ExportCategory};
 use super::storage;
 
@@ -129,11 +129,9 @@ pub async fn inspect_archive(
 
     let manifest = archive::read_staging_manifest(&staging).map_err(|e| e.to_string())?;
 
-    let verifications = archive::verify_staged_content(&staging, &manifest);
-    let warnings: Vec<String> = verifications
-        .iter()
-        .filter(|v| !v.found)
-        .map(|v| format!("Missing from archive: {}", v.archive_path))
+    let warnings: Vec<String> = archive::verify_staged_content(&staging, &manifest)
+        .into_iter()
+        .map(|path| format!("Missing from archive: {path}"))
         .collect();
 
     // Check if the game exists in local library.
@@ -170,7 +168,7 @@ pub fn generate_conflict_plan(
 
     for manifest_item in &inspection.manifest.items {
         let local_path =
-            resolve_local_target(&roots, manifest_item, library_metadata_path, xenia_path);
+            resolve_local_target(&roots, &manifest_item.category, &manifest_item.label);
 
         let local_exists = local_path.as_ref().map_or(false, |p| p.exists());
 
@@ -243,17 +241,13 @@ pub fn generate_conflict_plan(
 /// Resolve the local filesystem target for a manifest item.
 fn resolve_local_target(
     roots: &paths::GameSaveRoots,
-    item: &ManifestItem,
-    _library_metadata_path: &str,
-    _xenia_path: &str,
+    category: &ExportCategory,
+    label: &str,
 ) -> Option<PathBuf> {
-    match item.category {
-        ExportCategory::Save => roots.save_root.as_ref().map(|root| root.join(&item.label)),
-        ExportCategory::Settings => roots
-            .profile_root
-            .as_ref()
-            .map(|root| root.join(&item.label)),
-        ExportCategory::Patches => roots.patch_root.as_ref().map(|root| root.join(&item.label)),
+    match category {
+        ExportCategory::Save => roots.save_root.as_ref().map(|root| root.join(label)),
+        ExportCategory::Settings => roots.profile_root.as_ref().map(|root| root.join(label)),
+        ExportCategory::Patches => roots.patch_root.as_ref().map(|root| root.join(label)),
     }
 }
 
@@ -353,18 +347,7 @@ pub async fn apply_import(
         }
 
         let src = staging.join(&item.archive_path);
-        let dest = resolve_local_target(
-            &roots,
-            &ManifestItem {
-                archive_path: item.archive_path.clone(),
-                original_path: String::new(),
-                category: item.category.clone(),
-                label: item.label.clone(),
-                size_bytes: 0,
-            },
-            library_metadata_path,
-            xenia_path,
-        );
+        let dest = resolve_local_target(&roots, &item.category, &item.label);
 
         let dest = match dest {
             Some(d) => d,
@@ -517,14 +500,14 @@ mod tests {
             game_title: "Import Test".to_string(),
             exported_at: 12345,
             items: vec![
-                ManifestItem {
+                archive::ManifestItem {
                     archive_path: "save/slot1".to_string(),
                     original_path: "/old/save/slot1".to_string(),
                     category: ExportCategory::Save,
                     label: "slot1".to_string(),
                     size_bytes: 100,
                 },
-                ManifestItem {
+                archive::ManifestItem {
                     archive_path: "settings/manifest.json".to_string(),
                     original_path: "/old/profiles/manifest.json".to_string(),
                     category: ExportCategory::Settings,

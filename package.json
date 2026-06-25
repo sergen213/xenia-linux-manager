@@ -36,8 +36,8 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.0",
-    "electron": "^33.4.11",
-    "electron-builder": "^25.1.8",
+    "electron": "^42.4.1",
+    "electron-builder": "^26.15.3",
     "electron-vite": "^6.0.0-beta.1",
     "eslint": "^9.39.4",
     "eslint-plugin-react-hooks": "^7.0.1",
@@ -48,11 +48,6 @@
     "typescript-eslint": "^8.56.1",
     "vite": "^8.0.0",
     "vitest": "^3.2.6"
-  },
-  "allowScripts": {
-    "electron@33.4.11": true,
-    "esbuild@0.27.4": true,
-    "esbuild@0.25.12": true
   },
   "build": {
     "appId": "com.xenia-linux-manager.app",

@@ -4,8 +4,6 @@ import {
   INITIAL_TASKS_STATE,
   selectAllJobs,
   selectRunningJobs,
-  selectHistoryJobs,
-  selectInterruptedJobs,
   selectLatestTerminalJobByCategory,
   selectTaskSummary,
   type TasksState,
@@ -160,18 +158,6 @@ describe("selectors", () => {
     const running = selectRunningJobs(state);
     expect(running).toHaveLength(1);
     expect(running[0].id).toBe("a");
-  });
-
-  it("selectHistoryJobs returns terminal jobs", () => {
-    const history = selectHistoryJobs(state);
-    expect(history).toHaveLength(3);
-    expect(history.every((j) => j.status !== "running")).toBe(true);
-  });
-
-  it("selectInterruptedJobs returns only interrupted", () => {
-    const interrupted = selectInterruptedJobs(state);
-    expect(interrupted).toHaveLength(1);
-    expect(interrupted[0].id).toBe("d");
   });
 
   it("selectTaskSummary counts by status", () => {

@@ -5,7 +5,7 @@ import {
   INITIAL_LIBRARY_STATE,
 } from "./libraryStore";
 import { useSettings } from "../../settings/state/settingsStore";
-import { getLibraryStatus, getAllCatalogs } from "../api/libraryClient";
+import { getLibraryStatus } from "../api/libraryClient";
 
 interface LibraryProviderProps {
   children: ReactNode;
@@ -35,15 +35,6 @@ export function LibraryProvider({ children }: LibraryProviderProps) {
           activeScans: status.active_scans,
           queuedScans: status.queued_scans,
         });
-        // Load catalogs after status
-        try {
-          const catalogs = await getAllCatalogs(libPath);
-          if (!cancelled) {
-            dispatch({ type: "CATALOGS_LOADED", catalogs });
-          }
-        } catch {
-          // Catalogs are best-effort; status already loaded
-        }
       } catch {
         if (cancelled) return;
         // Outside the Electron host (dev mode), initialize with empty state

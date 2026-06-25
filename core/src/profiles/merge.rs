@@ -110,16 +110,6 @@ pub fn compute_effective_config(
     })
 }
 
-/// Returns a summary of changed fields for display (e.g. on detail page).
-pub fn changed_fields_summary(
-    library_metadata_path: &str,
-    game_id: &str,
-    profile_id: &str,
-) -> Result<Vec<EffectiveField>, String> {
-    let config = compute_effective_config(library_metadata_path, game_id, profile_id)?;
-    Ok(config.fields.into_iter().filter(|f| f.changed).collect())
-}
-
 // ---------------------------------------------------------------------------
 // Xenia default config model
 // ---------------------------------------------------------------------------
@@ -309,21 +299,6 @@ mod tests {
             .unwrap();
         assert!(custom.changed);
         assert_eq!(custom.value, serde_json::json!(true));
-    }
-
-    #[test]
-    fn changed_fields_summary_returns_only_changed() {
-        let dir = temp_dir("summary");
-        let inv = storage::create_profile(&dir, "game-1", "Test").unwrap();
-        let pid = inv.profiles[0].id.clone();
-
-        let mut overrides = HashMap::new();
-        overrides.insert("apu.mute".to_string(), serde_json::json!(true));
-        storage::save_profile_overrides(&dir, "game-1", &pid, overrides).unwrap();
-
-        let summary = changed_fields_summary(&dir, "game-1", &pid).unwrap();
-        assert_eq!(summary.len(), 1);
-        assert_eq!(summary[0].key, "apu.mute");
     }
 
     #[test]

@@ -72,36 +72,6 @@ export interface InstallState {
 /** The primary action the dashboard should present based on lifecycle state. */
 export type PrimaryAction = "install" | "update" | "retry" | "check_update";
 
-/** Human-readable label for the primary action. */
-export function primaryActionLabel(action: PrimaryAction): string {
-  switch (action) {
-    case "install":
-      return "Install";
-    case "update":
-      return "Update";
-    case "retry":
-      return "Retry";
-    case "check_update":
-      return "Check for updates";
-  }
-}
-
-/** Derive the primary action from lifecycle and update-available state. */
-export function derivePrimaryAction(
-  status: LifecycleStatus,
-  updateAvailable: boolean,
-): PrimaryAction {
-  switch (status) {
-    case "not_installed":
-      return "install";
-    case "installed":
-      return updateAvailable ? "update" : "check_update";
-    case "install_failed":
-    case "update_failed":
-      return "retry";
-  }
-}
-
 /** Human-readable label for a lifecycle status. */
 export function lifecycleStatusLabel(status: LifecycleStatus): string {
   switch (status) {
