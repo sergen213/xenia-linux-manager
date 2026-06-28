@@ -132,16 +132,18 @@ pub fn build_launch_plan(
         write_external_launch_config(app_data_path, game_id, &materialized)?
     };
     let mut launch_env = load_launch_environment(library_metadata_path, game_id)?;
-    // Xenia Canary's bundled SDL auto-selects the Wayland video driver whenever
-    // WAYLAND_DISPLAY is set, which renders a blank gray window. Pin it to X11
-    // (XWayland) so Canary actually draws. Edge is unaffected. A user-set
-    // SDL_VIDEODRIVER always wins.
+    // Xenia Canary draws into a GTK window and presents via an X11 (xcb) Vulkan
+    // surface. Under a Wayland GTK backend it logs "window system not supported"
+    // and renders a blank gray window. Electron exports GDK_BACKEND=wayland,
+    // which the sidecar passes down — that's what makes Canary gray when launched
+    // from the app (a clean shell without it draws fine). Pin GTK (and SDL) to
+    // X11/XWayland for Canary. Edge handles Wayland natively. A value the user
+    // already set for either key always wins.
     let install = install_state::load_state(app_data_path);
     let channel = resolve_xenia_build(&install, details.preferred_xenia_tag.as_deref())
         .map(|build| build.channel);
-    if should_force_x11(channel, &launch_env) {
-        launch_env.push(("SDL_VIDEODRIVER".to_string(), "x11".to_string()));
-    }
+    let overrides = canary_x11_overrides(channel, &launch_env);
+    launch_env.extend(overrides);
     let launch_wrapper = load_launch_wrapper(library_metadata_path, game_id)?;
 
     let mut launch_arguments = Vec::new();
@@ -355,11 +357,22 @@ fn resolve_xenia_executable(
     resolve_xenia_build(install, preferred_tag).map(|build| build.executable_path.clone())
 }
 
-/// Whether to pin SDL to the X11 driver for this launch. Only Xenia Canary
-/// needs it (its bundled SDL renders a blank window under Wayland); a
-/// user-provided SDL_VIDEODRIVER always takes precedence.
-fn should_force_x11(channel: Option<ReleaseChannel>, env: &[(String, String)]) -> bool {
-    channel == Some(ReleaseChannel::Canary) && !env.iter().any(|(k, _)| k == "SDL_VIDEODRIVER")
+/// X11 environment overrides Xenia Canary needs on a Wayland session: its GTK
+/// window and Vulkan surface require the X11 (xcb) backend, so pin both GDK and
+/// SDL to X11. Only Canary needs it (Edge handles Wayland natively). Keys the
+/// caller already set are skipped so a user's choice always wins.
+fn canary_x11_overrides(
+    channel: Option<ReleaseChannel>,
+    env: &[(String, String)],
+) -> Vec<(String, String)> {
+    if channel != Some(ReleaseChannel::Canary) {
+        return Vec::new();
+    }
+    [("GDK_BACKEND", "x11"), ("SDL_VIDEODRIVER", "x11")]
+        .into_iter()
+        .filter(|(key, _)| !env.iter().any(|(k, _)| k == key))
+        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .collect()
 }
 
 fn write_external_launch_config(
@@ -553,17 +566,26 @@ mod tests {
     }
 
     #[test]
-    fn force_x11_only_for_canary_without_user_override() {
+    fn canary_gets_x11_overrides_unless_user_set() {
         let empty: Vec<(String, String)> = vec![];
-        // Canary with no user driver → pin X11.
-        assert!(should_force_x11(Some(ReleaseChannel::Canary), &empty));
-        // Edge never needs it.
-        assert!(!should_force_x11(Some(ReleaseChannel::Edge), &empty));
+        // Canary with nothing set → pin both GDK and SDL to X11.
+        assert_eq!(
+            canary_x11_overrides(Some(ReleaseChannel::Canary), &empty),
+            vec![
+                ("GDK_BACKEND".to_string(), "x11".to_string()),
+                ("SDL_VIDEODRIVER".to_string(), "x11".to_string()),
+            ]
+        );
+        // Edge handles Wayland → no overrides.
+        assert!(canary_x11_overrides(Some(ReleaseChannel::Edge), &empty).is_empty());
         // Unknown/uninstalled build → leave env alone.
-        assert!(!should_force_x11(None, &empty));
-        // User already chose a driver → respect it, even on Canary.
-        let user = vec![("SDL_VIDEODRIVER".to_string(), "wayland".to_string())];
-        assert!(!should_force_x11(Some(ReleaseChannel::Canary), &user));
+        assert!(canary_x11_overrides(None, &empty).is_empty());
+        // User already pinned a key → respect it, only fill the missing one.
+        let user = vec![("GDK_BACKEND".to_string(), "wayland".to_string())];
+        assert_eq!(
+            canary_x11_overrides(Some(ReleaseChannel::Canary), &user),
+            vec![("SDL_VIDEODRIVER".to_string(), "x11".to_string())]
+        );
     }
 
     fn seed_game(app_dir: &str, lib_dir: &str, executable_path: &str) -> String {
