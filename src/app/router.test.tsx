@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Routes, Route, Navigate } from "react-router-dom";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { invoke } from "../platform/bridge";
-import { routes, getSidebarRoutes } from "./router";
+import { routes } from "./router";
 import {
   SettingsContext,
   INITIAL_STATE,
@@ -115,22 +115,17 @@ function renderApp(initialRoute = "/") {
 
 describe("router", () => {
   it("registers Library, Saves, Tasks, and Settings routes", () => {
-    const labels = routes.map((r) => r.label);
-    expect(labels).toContain("Library");
-    expect(labels).toContain("Saves");
-    expect(labels).toContain("Tasks");
-    expect(labels).toContain("Settings");
-    expect(labels).not.toContain("Dashboard");
+    const paths = routes.map((r) => r.path);
+    expect(paths).toContain("/");
+    expect(paths).toContain("/saves");
+    expect(paths).toContain("/tasks");
+    expect(paths).toContain("/settings");
   });
 
   it("renders Library at the root path (home)", async () => {
     renderApp("/");
-    expect(
-      await screen.findByRole("heading", { name: "Library" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(/Manage your Xbox 360 collection/i),
-    ).toBeInTheDocument();
+    // Empty library (no browse cards) shows the Aurora empty state.
+    expect(await screen.findByText("No games yet")).toBeInTheDocument();
   });
 
   it("renders Tasks page at /tasks", async () => {
@@ -145,35 +140,19 @@ describe("router", () => {
 
   it("renders Settings page at /settings", async () => {
     renderApp("/settings");
-    expect(await screen.findByText("Settings")).toBeInTheDocument();
-    // Settings page renders subtitle and shows empty state when no settings loaded
-    expect(
-      screen.getByText("Configure paths, preferences, and app behavior"),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("Settings have not been loaded yet."),
-    ).toBeInTheDocument();
+    // Aurora settings renders a category rail (SETTINGS label + category rows).
+    expect(await screen.findByText("SETTINGS")).toBeInTheDocument();
+    expect(screen.getByText("Appearance")).toBeInTheDocument();
   });
 
   it("redirects unknown routes to Library (home)", async () => {
     renderApp("/nonexistent");
-    expect(
-      await screen.findByRole("heading", { name: "Library" }),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("No games yet")).toBeInTheDocument();
   });
 
-  it("getSidebarRoutes returns all routes with showInSidebar=true", () => {
-    const sidebarRoutes = getSidebarRoutes();
-    expect(sidebarRoutes.length).toBeGreaterThanOrEqual(4);
-    sidebarRoutes.forEach((route) => {
-      expect(route.showInSidebar).toBe(true);
-    });
-  });
-
-  it("every route has a non-empty path and label", () => {
+  it("every route has a non-empty path and element", () => {
     routes.forEach((route) => {
       expect(route.path).toBeTruthy();
-      expect(route.label).toBeTruthy();
       expect(route.element).toBeTruthy();
     });
   });

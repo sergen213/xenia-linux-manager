@@ -74,8 +74,6 @@ export function TasksPage() {
         // Retry failure is non-critical -- the user can retry manually
       }
     }
-
-    dispatch({ type: "DISMISS_INTERRUPTED" });
   };
 
   return (

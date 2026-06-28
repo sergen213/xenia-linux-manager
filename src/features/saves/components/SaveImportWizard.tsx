@@ -18,9 +18,16 @@ interface SaveImportWizardProps {
   wizardStep: ImportWizardStep;
   archivePath: string | null;
   backupFailureError: string | null;
-  backupFailureAccepted: boolean;
   lastImportResult: ImportApplyResult | null;
   dispatch: Dispatch<SavesAction>;
+  /** Open the file picker and inspect the chosen archive. */
+  onChooseArchive: () => void;
+  /** Build and show the conflict plan for the matched target game. */
+  onReviewConflicts: () => void;
+  /** Apply the plan; pass `true` to skip the pre-apply backup. */
+  onApply: (force: boolean) => void;
+  /** Abort the import and clean up staging. */
+  onCancel: () => void;
 }
 
 const STEP_LABELS: { key: ImportWizardStep; label: string }[] = [
@@ -50,19 +57,14 @@ export function SaveImportWizard({
   wizardStep,
   archivePath,
   backupFailureError,
-  backupFailureAccepted,
   lastImportResult,
   dispatch,
+  onChooseArchive,
+  onReviewConflicts,
+  onApply,
+  onCancel,
 }: SaveImportWizardProps) {
   const currentIdx = stepIndex(wizardStep);
-
-  function handleStartImport() {
-    dispatch({ type: "SET_IMPORT_WIZARD_STEP", step: "inspect" });
-  }
-
-  function handleCancel() {
-    dispatch({ type: "CLEAR_SAVE_STATE" });
-  }
 
   if (wizardStep === "idle") {
     return (
@@ -74,7 +76,7 @@ export function SaveImportWizard({
           made to your local save data.
         </p>
         <div className="save-wizard__actions">
-          <button type="button" onClick={handleStartImport}>
+          <button type="button" onClick={onChooseArchive}>
             Choose archive to import
           </button>
         </div>
@@ -141,15 +143,17 @@ export function SaveImportWizard({
                 <button
                   type="button"
                   onClick={() =>
-                    dispatch({
-                      type: "SET_IMPORT_WIZARD_STEP",
-                      step: inspection.game_found ? "conflict_review" : "select_target",
-                    })
+                    inspection.game_found
+                      ? onReviewConflicts()
+                      : dispatch({
+                          type: "SET_IMPORT_WIZARD_STEP",
+                          step: "select_target",
+                        })
                   }
                 >
                   {inspection.game_found ? "Review conflicts" : "Select target game"}
                 </button>
-                <button type="button" onClick={handleCancel}>
+                <button type="button" onClick={onCancel}>
                   Cancel
                 </button>
               </div>
@@ -167,7 +171,7 @@ export function SaveImportWizard({
             to import into, or cancel to abort.
           </p>
           <div className="save-wizard__actions">
-            <button type="button" onClick={handleCancel}>
+            <button type="button" onClick={onCancel}>
               Cancel import
             </button>
           </div>
@@ -177,10 +181,8 @@ export function SaveImportWizard({
       {wizardStep === "conflict_review" && conflictPlan && (
         <SaveConflictPreview
           plan={conflictPlan}
-          onAccept={() =>
-            dispatch({ type: "SET_IMPORT_WIZARD_STEP", step: "applying" })
-          }
-          onCancel={handleCancel}
+          onAccept={() => onApply(false)}
+          onCancel={onCancel}
         />
       )}
 
@@ -193,11 +195,8 @@ export function SaveImportWizard({
       {wizardStep === "backup_warning" && backupFailureError && (
         <BackupFailureDialog
           error={backupFailureError}
-          accepted={backupFailureAccepted}
-          onAcceptRisk={() =>
-            dispatch({ type: "SET_BACKUP_FAILURE", error: backupFailureError, accepted: true })
-          }
-          onCancel={handleCancel}
+          onAcceptRisk={() => onApply(true)}
+          onCancel={onCancel}
         />
       )}
 
@@ -209,9 +208,8 @@ export function SaveImportWizard({
 
       {wizardStep === "result" && lastImportResult && (
         <SaveResultsPanel
-          exportResult={null}
           importResult={lastImportResult}
-          onDismissImport={handleCancel}
+          onDismissImport={onCancel}
         />
       )}
     </div>

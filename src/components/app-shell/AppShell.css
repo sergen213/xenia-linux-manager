@@ -1,4 +1,5 @@
 .app-shell {
+  position: relative;
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -6,19 +7,20 @@
   overflow: hidden;
 }
 
-.app-shell__body {
-  display: flex;
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
+/* Chrome stacks above the field. */
+.app-shell > .blade-nav {
+  position: relative;
+  z-index: 6;
 }
 
 .app-shell__content {
+  position: relative;
+  z-index: 2;
   flex: 1;
   min-width: 0;
   overflow-y: auto;
-  padding: 24px;
-  background-color: var(--color-bg-primary);
+  padding: 24px 34px;
+  background: transparent; /* the Aurora field shows through */
 }
 
 .app-shell__content > * {

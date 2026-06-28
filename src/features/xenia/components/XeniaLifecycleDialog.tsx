@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { focusFirst } from "../../../components/app-shell/spatialNav";
 import { useXenia } from "../state/xeniaStore";
 import { useSettings } from "../../settings/state/settingsStore";
 import {
@@ -15,6 +16,7 @@ import type {
   ReleaseChannel,
 } from "../model/xeniaTypes";
 import { channelLabel } from "../model/xeniaTypes";
+import { formatBytes } from "../../shared/format";
 import "./XeniaLifecycleDialog.css";
 
 interface XeniaLifecycleDialogProps {
@@ -39,6 +41,28 @@ export function XeniaLifecycleDialog({
   const [phase, setPhase] = useState<DialogPhase>("confirm");
   const [error, setError] = useState<string | null>(null);
   const [jobId, setJobId] = useState<string | null>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  // Seed controller focus into the dialog on open and on each phase change (so
+  // the new phase's buttons — e.g. Done — are reachable without hunting down).
+  useEffect(() => {
+    if (document.body.classList.contains("using-controller") && panelRef.current) {
+      focusFirst(panelRef.current);
+    }
+  }, [phase]);
+
+  // Escape closes, matching the overlay click. Capture + stop so AppShell's
+  // global Escape (which would navigate home) doesn't also fire.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [onClose]);
 
   const appDataPath = settingsState.settings?.app_data_path ?? "";
   const xeniaPath = settingsState.settings?.xenia_path ?? "";
@@ -91,7 +115,7 @@ export function XeniaLifecycleDialog({
       onClick={handleOverlayClick}
       data-testid="xenia-dialog-overlay"
     >
-      <div className="xenia-dialog" data-testid="xenia-lifecycle-dialog">
+      <div className="xenia-dialog" data-testid="xenia-lifecycle-dialog" ref={panelRef}>
         {phase === "confirm" && (
           <ConfirmPhase
             actionLabel={actionLabel}
@@ -314,10 +338,4 @@ function ErrorPhase({
       </div>
     </div>
   );
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }

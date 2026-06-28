@@ -154,7 +154,8 @@ pub async fn inspect_archive(
 
 /// Generate a conflict plan comparing staged content against local state.
 pub fn generate_conflict_plan(
-    inspection: &ImportInspection,
+    staging_path: &str,
+    manifest: &ArchiveManifest,
     library_metadata_path: &str,
     xenia_path: &str,
     target_game_id: &str,
@@ -162,11 +163,11 @@ pub fn generate_conflict_plan(
 ) -> Result<ConflictPlan, String> {
     let roots = paths::resolve_game_save_roots(library_metadata_path, xenia_path, target_game_id)?;
 
-    let staging = Path::new(&inspection.staging_path);
+    let staging = Path::new(staging_path);
     let mut items = Vec::new();
     let mut has_conflicts = false;
 
-    for manifest_item in &inspection.manifest.items {
+    for manifest_item in &manifest.items {
         let local_path =
             resolve_local_target(&roots, &manifest_item.category, &manifest_item.label);
 
@@ -230,8 +231,8 @@ pub fn generate_conflict_plan(
     Ok(ConflictPlan {
         game_id: target_game_id.to_string(),
         game_title: roots.game_title,
-        source_game_id: inspection.manifest.game_id.clone(),
-        source_game_title: inspection.manifest.game_title.clone(),
+        source_game_id: manifest.game_id.clone(),
+        source_game_title: manifest.game_title.clone(),
         items,
         has_conflicts,
         policy,
@@ -520,17 +521,6 @@ mod tests {
         }
     }
 
-    fn sample_inspection(staging: &str) -> ImportInspection {
-        ImportInspection {
-            manifest: sample_manifest(),
-            staging_path: staging.to_string(),
-            game_found: true,
-            target_game_id: Some("game-import".to_string()),
-            target_game_title: Some("Import Test".to_string()),
-            verification_warnings: vec![],
-        }
-    }
-
     #[test]
     fn conflict_plan_all_new_when_no_local_roots() {
         let lib_dir = temp_dir("conflict-new");
@@ -563,9 +553,9 @@ mod tests {
         };
         crate::library::identity::save_identity_store(&lib_dir, &store).unwrap();
 
-        let inspection = sample_inspection(&staging_dir);
         let plan = generate_conflict_plan(
-            &inspection,
+            &staging_dir,
+            &sample_manifest(),
             &lib_dir,
             &xenia_dir,
             "game-import",
@@ -616,9 +606,9 @@ mod tests {
         fs::create_dir_all(&profile_dir).unwrap();
         fs::write(profile_dir.join("manifest.json"), "{}").unwrap();
 
-        let inspection = sample_inspection(&staging_dir);
         let plan = generate_conflict_plan(
-            &inspection,
+            &staging_dir,
+            &sample_manifest(),
             &lib_dir,
             &xenia_dir,
             "game-import",
@@ -666,9 +656,9 @@ mod tests {
         };
         crate::library::identity::save_identity_store(&lib_dir, &store).unwrap();
 
-        let inspection = sample_inspection(&staging_dir);
         let plan = generate_conflict_plan(
-            &inspection,
+            &staging_dir,
+            &sample_manifest(),
             &lib_dir,
             &xenia_dir,
             "game-import",
@@ -722,9 +712,9 @@ mod tests {
         fs::create_dir_all(staging.join("settings")).unwrap();
         fs::write(staging.join("settings").join("manifest.json"), "staged").unwrap();
 
-        let inspection = sample_inspection(&staging_dir);
         let plan = generate_conflict_plan(
-            &inspection,
+            &staging_dir,
+            &sample_manifest(),
             &lib_dir,
             &xenia_dir,
             "game-import",

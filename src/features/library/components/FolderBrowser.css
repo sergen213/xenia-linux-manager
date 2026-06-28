@@ -1,0 +1,65 @@
+.folder-browser {
+  width: min(560px, 92vw);
+  max-height: 82vh;
+  gap: 12px;
+  padding: 18px;
+}
+
+.folder-browser__path {
+  font-size: 13px;
+  color: var(--au-sub);
+  word-break: break-all;
+  padding-right: 32px;
+}
+
+.folder-browser__list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 52vh;
+}
+
+.folder-browser__row {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 9px 12px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--au-text, #fff);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.folder-browser__row:hover {
+  background: var(--au-accent-soft, rgba(255, 255, 255, 0.06));
+}
+
+.folder-browser__row:focus-visible,
+body.using-controller .folder-browser__row:focus {
+  outline: none;
+  border-color: var(--au-accent);
+  background: var(--au-accent-soft);
+}
+
+.folder-browser__row--up {
+  color: var(--au-sub);
+}
+
+.folder-browser__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.folder-browser__empty,
+.folder-browser__error {
+  padding: 12px;
+  font-size: 13px;
+  color: var(--au-sub);
+}
+
+.folder-browser__error {
+  color: var(--au-error);
+}

@@ -1,0 +1,64 @@
+.osk {
+  position: fixed;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  z-index: var(--z-modal, 1000);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  border-radius: 14px;
+  background: var(--au-modal-bg, rgba(18, 24, 38, 0.96));
+  border: 1px solid var(--au-glass-border, rgba(255, 255, 255, 0.12));
+  box-shadow: var(--au-glass-shadow, 0 18px 50px rgba(0, 0, 0, 0.5));
+  backdrop-filter: blur(12px);
+}
+
+.osk__row {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+}
+
+.osk__key {
+  min-width: 44px;
+  height: 44px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--au-text, #fff);
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.osk__key:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.osk__key:focus-visible,
+body.using-controller .osk__key:focus {
+  outline: none;
+  border-color: #5fb9ff;
+  background: rgba(95, 185, 255, 0.28);
+}
+
+.osk__key.is-active {
+  border-color: #5fb9ff;
+  background: rgba(95, 185, 255, 0.18);
+}
+
+.osk__key--wide {
+  min-width: 80px;
+}
+
+.osk__key--space {
+  min-width: 240px;
+}
+
+.osk__key--done {
+  background: var(--au-accent, #3ddc84);
+  color: #07210f;
+  font-weight: 600;
+}

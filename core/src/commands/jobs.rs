@@ -4,22 +4,9 @@
 
 use crate::jobs::store;
 
-/// Load persisted task history, recovering any interrupted jobs from
-/// unclean shutdowns.
+/// Load persisted task history.
 pub fn load_task_history(app_data_path: String) -> Result<store::TaskHistory, String> {
-    let (history, interrupted_count) = store::recover_interrupted_jobs(&app_data_path)?;
-    if interrupted_count > 0 {
-        eprintln!(
-            "[jobs] Recovered {} interrupted job(s) from previous session",
-            interrupted_count
-        );
-    }
-    Ok(history)
-}
-
-/// Get task history without recovery (for subsequent reads after init).
-pub fn get_task_history(app_data_path: String) -> store::TaskHistory {
-    store::load_history(&app_data_path)
+    Ok(store::load_history(&app_data_path))
 }
 
 /// Clear all persisted task history.
@@ -30,7 +17,7 @@ pub fn clear_task_history(app_data_path: String) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::jobs::{Job, JobStatus};
+    use crate::jobs::Job;
     use std::env;
 
     fn temp_data_dir(suffix: &str) -> String {
@@ -54,23 +41,7 @@ mod tests {
         job.complete();
         store::append_job(&dir, job).unwrap();
         clear_task_history(dir.clone()).unwrap();
-        let history = get_task_history(dir);
-        assert!(history.jobs.is_empty());
-    }
-
-    #[test]
-    fn load_recovers_interrupted_jobs() {
-        let dir = temp_data_dir("recover");
-        let running = Job::new("cmd-j2".into(), "Running".into(), "install".into());
-        store::save_history(
-            &dir,
-            &store::TaskHistory {
-                jobs: vec![running],
-            },
-        )
-        .unwrap();
-
         let history = load_task_history(dir).unwrap();
-        assert_eq!(history.jobs[0].status, JobStatus::Interrupted);
+        assert!(history.jobs.is_empty());
     }
 }

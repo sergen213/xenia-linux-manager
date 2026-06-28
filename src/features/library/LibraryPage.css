@@ -5,6 +5,11 @@
   width: 100%;
   max-width: none;
   min-width: 0;
+  /* Fill the scroll container so the workspace below can claim the remaining
+     height and let each column scroll within the visible area — instead of the
+     panel using 100vh (which ignores the title bar) and spilling off-screen. */
+  height: 100%;
+  min-height: 0;
 }
 
 .library-page__header {
@@ -16,7 +21,7 @@
 
 .library-page__title {
   font-size: var(--font-size-xl);
-  font-weight: 700;
+  font-weight: var(--font-weight-bold);
   margin-bottom: 6px;
 }
 
@@ -67,8 +72,8 @@
   border-radius: 999px;
   background: color-mix(in srgb, var(--color-warning) 18%, transparent);
   color: var(--color-warning);
-  font-size: 0.65rem;
-  font-weight: 700;
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-bold);
   vertical-align: middle;
 }
 
@@ -80,9 +85,19 @@
   display: grid;
   grid-template-columns: minmax(0, 1.7fr) minmax(320px, 1fr);
   gap: 20px;
-  align-items: start;
+  align-items: stretch;
   width: 100%;
   min-width: 0;
+  /* Claim the remaining content height so the two columns share a bounded box
+     and each scrolls on its own (set below) rather than the whole page. */
+  flex: 1;
+  min-height: 0;
+}
+
+/* Left column scrolls independently within the bounded workspace. */
+.library-page__main {
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .library-page__main,
@@ -150,7 +165,7 @@
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--tracking-caps);
 }
 
 .library-filters__review {
@@ -165,14 +180,34 @@
 }
 
 .library-grid__card {
+  position: relative;
   text-align: left;
   overflow: hidden;
   padding: 0;
+  transition: transform var(--transition-base) var(--ease-out),
+    box-shadow var(--transition-base) var(--ease-out),
+    border-color var(--transition-fast) var(--ease-out);
+}
+
+/* Aurora-flavor "360 dashboard" focus bloom: a cover-forward tile that lifts and
+   glows jade when reached — by mouse, keyboard Tab, OR controller. Styled on
+   :focus (not just :focus-visible) so the gamepad's programmatic .focus() always
+   shows the glow the player is steering by. */
+.library-grid__card:hover,
+.library-grid__card:focus {
+  outline: none;
+  transform: translateY(-3px) scale(1.03);
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px var(--color-accent),
+    0 0 26px color-mix(in srgb, var(--color-accent) 45%, transparent),
+    var(--shadow-card);
+  z-index: 1;
 }
 
 .library-grid__card--selected {
   border-color: var(--color-accent);
-  box-shadow: var(--ring-accent);
+  box-shadow: 0 0 0 2px var(--color-accent),
+    0 0 26px color-mix(in srgb, var(--color-accent) 35%, transparent);
 }
 
 .library-grid__cover {
@@ -191,8 +226,8 @@
       color-mix(in srgb, var(--color-accent) 45%, var(--color-bg-card))
     );
   color: white;
-  font-size: 3rem;
-  font-weight: 800;
+  font-size: var(--font-size-cover);
+  font-weight: var(--font-weight-bold);
   overflow: hidden;
 }
 
@@ -236,8 +271,8 @@
   border-radius: 999px;
   background: color-mix(in srgb, var(--color-accent) 14%, transparent);
   color: var(--color-accent);
-  font-size: 0.7rem;
-  font-weight: 700;
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-bold);
 }
 
 .library-grid__badge--warning {
@@ -344,10 +379,18 @@
   flex-direction: column;
   gap: 16px;
   min-width: 0;
-  position: sticky;
-  top: 20px;
-  max-height: calc(100vh - 40px);
+  /* Fills the workspace row height (align-items:stretch) and scrolls on its own.
+     min-height:0 lets it shrink below content size so overflow-y actually
+     scrolls instead of the panel growing past the viewport. */
+  min-height: 0;
   overflow-y: auto;
+}
+
+/* The panel is its own scroll container. Its flex children must keep their
+   natural height — without this they default to flex-shrink:1 and get squished
+   to fit the box, so expanding a section crams the others instead of scrolling. */
+.game-details > * {
+  flex-shrink: 0;
 }
 
 /* Preserve the launch-preflight box (formerly shared with the old facts grid). */
@@ -991,7 +1034,7 @@
 .manage-patches__unsupported {
   margin: 0;
   color: var(--color-warning);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 
 .patch-checklist__toggle {
@@ -1263,12 +1306,22 @@
 }
 
 @media (max-width: 1080px) {
-  .library-page__workspace {
-    grid-template-columns: 1fr;
+  /* Stacked single column: revert to whole-page scroll instead of two bounded,
+     half-height scroll areas. The two-column desktop layout above bounds each
+     column and scrolls them independently; that only makes sense side by side. */
+  .library-page {
+    height: auto;
   }
 
+  .library-page__workspace {
+    grid-template-columns: 1fr;
+    flex: none;
+    min-height: auto;
+  }
+
+  .library-page__main,
   .game-details {
-    position: static;
+    overflow-y: visible;
   }
 }
 
@@ -1295,6 +1348,13 @@
 .custom-select {
   position: relative;
   isolation: isolate;
+}
+
+/* When open, lift the whole select to the dropdown layer so its menu paints
+   above sibling stacking contexts — notably the sticky .game-details panel,
+   which otherwise covers a filter/sort menu that overflows into the workspace. */
+.custom-select.is-open {
+  z-index: var(--z-dropdown);
 }
 
 .custom-select__trigger {
@@ -1327,7 +1387,7 @@
 
 .custom-select__arrow {
   flex-shrink: 0;
-  font-size: 0.65rem;
+  font-size: var(--font-size-2xs);
   opacity: 0.5;
   margin-left: 8px;
 }
@@ -1370,7 +1430,7 @@
 
 .custom-select__option.is-active {
   background: color-mix(in srgb, var(--color-accent) 14%, transparent);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 
 /* ── Patch version picker (extends custom-select) ── */
@@ -1387,7 +1447,7 @@
 }
 
 .patch-version-picker__badge {
-  font-size: 0.7rem;
+  font-size: var(--font-size-2xs);
   padding: 1px 6px;
   border-radius: 8px;
   background: var(--color-bg-card);

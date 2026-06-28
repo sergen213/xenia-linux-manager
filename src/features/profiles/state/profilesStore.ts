@@ -17,7 +17,6 @@ export interface ProfilesState {
   profileDraft: Record<string, unknown>;
   profileDirty: boolean;
   profileSavePending: boolean;
-  profileEditorOpen: boolean;
   unsavedDialogVisible: boolean;
   unsavedDialogTarget: string | null;
 }
@@ -34,7 +33,6 @@ export const INITIAL_PROFILES_STATE: ProfilesState = {
   profileDraft: {},
   profileDirty: false,
   profileSavePending: false,
-  profileEditorOpen: false,
   unsavedDialogVisible: false,
   unsavedDialogTarget: null,
 };
@@ -43,22 +41,17 @@ export type ProfilesAction =
   | { type: "SET_ACTIVE_GAME"; gameId: string | null }
   | { type: "PROFILES_LOADING" }
   | { type: "PROFILES_LOADED"; inventory: ProfileInventory }
-  | { type: "PROFILES_ERROR"; error: string }
   | { type: "PROFILE_EFFECTIVE_LOADING" }
   | { type: "PROFILE_EFFECTIVE_LOADED"; config: EffectiveConfig }
-  | { type: "PROFILE_EFFECTIVE_ERROR"; error: string }
   | { type: "RECOMMENDATION_LOADING" }
   | { type: "RECOMMENDATION_LOADED"; availability: RecommendationAvailability }
-  | { type: "RECOMMENDATION_ERROR"; error: string }
   | { type: "APPLY_RECOMMENDATION_PENDING"; pending: boolean }
   | { type: "SET_PROFILE_DRAFT"; draft: Record<string, unknown> }
   | { type: "SET_PROFILE_DIRTY"; dirty: boolean }
   | { type: "SET_PROFILE_SAVE_PENDING"; pending: boolean }
-  | { type: "SET_PROFILE_EDITOR_OPEN"; open: boolean }
   | { type: "SHOW_UNSAVED_DIALOG"; target: string | null }
   | { type: "HIDE_UNSAVED_DIALOG" }
-  | { type: "RESET_PROFILE_DRAFT" }
-  | { type: "CLEAR_PROFILE_STATE" };
+  | { type: "RESET_PROFILE_DRAFT" };
 
 export function profilesReducer(
   state: ProfilesState,
@@ -80,7 +73,6 @@ export function profilesReducer(
         recommendationLoading: false,
         profileDraft: {},
         profileDirty: false,
-        profileEditorOpen: false,
         unsavedDialogVisible: false,
         unsavedDialogTarget: null,
       };
@@ -92,8 +84,6 @@ export function profilesReducer(
         profileInventoryLoading: false,
         profileInventory: action.inventory,
       };
-    case "PROFILES_ERROR":
-      return { ...state, profileInventoryLoading: false };
     case "PROFILE_EFFECTIVE_LOADING":
       return { ...state, profileEffectiveLoading: true };
     case "PROFILE_EFFECTIVE_LOADED":
@@ -102,8 +92,6 @@ export function profilesReducer(
         profileEffectiveLoading: false,
         profileEffectiveConfig: action.config,
       };
-    case "PROFILE_EFFECTIVE_ERROR":
-      return { ...state, profileEffectiveLoading: false };
     case "RECOMMENDATION_LOADING":
       return { ...state, recommendationLoading: true };
     case "RECOMMENDATION_LOADED":
@@ -112,8 +100,6 @@ export function profilesReducer(
         recommendationLoading: false,
         recommendationAvailability: action.availability,
       };
-    case "RECOMMENDATION_ERROR":
-      return { ...state, recommendationLoading: false };
     case "APPLY_RECOMMENDATION_PENDING":
       return { ...state, applyRecommendationPending: action.pending };
     case "SET_PROFILE_DRAFT":
@@ -122,8 +108,6 @@ export function profilesReducer(
       return { ...state, profileDirty: action.dirty };
     case "SET_PROFILE_SAVE_PENDING":
       return { ...state, profileSavePending: action.pending };
-    case "SET_PROFILE_EDITOR_OPEN":
-      return { ...state, profileEditorOpen: action.open };
     case "SHOW_UNSAVED_DIALOG":
       return {
         ...state,
@@ -138,17 +122,6 @@ export function profilesReducer(
       };
     case "RESET_PROFILE_DRAFT":
       return { ...state, profileDraft: {}, profileDirty: false };
-    case "CLEAR_PROFILE_STATE":
-      return {
-        ...state,
-        profileInventory: null,
-        profileInventoryLoading: false,
-        profileEffectiveConfig: null,
-        profileEffectiveLoading: false,
-        profileDraft: {},
-        profileDirty: false,
-        profileEditorOpen: false,
-      };
     default:
       return state;
   }

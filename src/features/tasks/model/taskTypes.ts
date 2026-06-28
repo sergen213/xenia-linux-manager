@@ -69,8 +69,3 @@ export function statusLabel(status: JobStatus): string {
       return "Interrupted";
   }
 }
-
-/** CSS modifier class for a job status. */
-export function statusModifier(status: JobStatus): string {
-  return status;
-}

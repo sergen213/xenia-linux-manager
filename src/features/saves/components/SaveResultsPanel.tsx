@@ -1,58 +1,24 @@
-import type { ExportResult, ImportApplyResult } from "../model/saveTypes";
+import type { ImportApplyResult } from "../model/saveTypes";
 
 interface SaveResultsPanelProps {
-  exportResult: ExportResult | null;
   importResult: ImportApplyResult | null;
-  onDismissExport?: () => void;
   onDismissImport?: () => void;
 }
 
 /**
- * Detailed result surfaces for export and import operations.
+ * Detailed result surface for import operations.
  *
  * Shows:
- * - Archive location and reveal-folder cue for exports
  * - Backup artifact location when a pre-import backup was created
  * - Per-item outcomes for imports (success, failed, skipped)
  * - Partial-success messaging with individual item explanations
  */
 export function SaveResultsPanel({
-  exportResult,
   importResult,
-  onDismissExport,
   onDismissImport,
 }: SaveResultsPanelProps) {
   return (
     <div className="save-results">
-      {exportResult && (
-        <div>
-          <h4>Export complete</h4>
-          <div className="save-results__artifact">
-            <strong>{exportResult.archive_filename}</strong>
-            <span className="save-results__artifact-path">
-              {exportResult.archive_path}
-            </span>
-            <span className="saves-page__muted">
-              {exportResult.items_exported} item
-              {exportResult.items_exported !== 1 ? "s" : ""} exported (
-              {(exportResult.total_size_bytes / 1024).toFixed(1)} KB)
-            </span>
-          </div>
-          <p className="saves-page__muted">
-            The archive is a standard .zip file and can be re-imported on any
-            machine running this application. Open the containing folder to
-            locate the file.
-          </p>
-          {onDismissExport && (
-            <div className="save-wizard__actions">
-              <button type="button" onClick={onDismissExport}>
-                Dismiss
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
       {importResult && (
         <div>
           <h4>Import result: {importResult.game_title}</h4>

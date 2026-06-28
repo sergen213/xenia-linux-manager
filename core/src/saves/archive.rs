@@ -7,9 +7,9 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::paths::{ExportCategory, ExportPreflight, ExportableItem};
+use crate::util::now_millis;
 
 // ---------------------------------------------------------------------------
 // Archive format constants
@@ -141,7 +141,6 @@ pub fn build_manifest(
 /// Writes the manifest and selected items directly into a zip archive using
 /// the `zip` crate. No system tool dependency required.
 pub async fn create_export_archive(
-    _app_data_path: &str,
     output_dir: &str,
     filename: &str,
     preflight: &ExportPreflight,
@@ -336,13 +335,6 @@ pub async fn cleanup_import_staging(app_data_path: &str) -> std::io::Result<()> 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-fn now_millis() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis() as u64
-}
 
 // ---------------------------------------------------------------------------
 // Tests

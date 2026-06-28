@@ -14,6 +14,10 @@ import {
   XeniaContext,
   INITIAL_XENIA_STATE,
 } from "../../features/xenia/state/xeniaStore";
+import {
+  LibraryContext,
+  INITIAL_LIBRARY_STATE,
+} from "../../features/library/state/libraryStore";
 
 // Mock the platform bridge so StatusBar's releaseClient call doesn't throw
 vi.mock("../../platform/bridge", () => ({
@@ -21,12 +25,9 @@ vi.mock("../../platform/bridge", () => ({
   listen: vi.fn(async () => () => {}),
   convertFileSrc: (path: string) => `xlm-asset://local/${encodeURIComponent(path)}`,
   open: vi.fn(async () => null),
-  hasWindowControls: () => false,
   windowMinimize: vi.fn(() => Promise.resolve()),
   windowToggleMaximize: vi.fn(() => Promise.resolve()),
   windowClose: vi.fn(() => Promise.resolve()),
-  windowIsMaximized: vi.fn(() => Promise.resolve(false)),
-  onWindowMaximizeChange: vi.fn(() => () => {}),
 }));
 
 function renderWithRouter(ui: React.ReactNode, initialRoute = "/") {
@@ -34,7 +35,9 @@ function renderWithRouter(ui: React.ReactNode, initialRoute = "/") {
     <SettingsContext value={{ state: INITIAL_STATE, dispatch: vi.fn() }}>
       <TasksContext value={{ state: INITIAL_TASKS_STATE, dispatch: vi.fn() }}>
         <XeniaContext value={{ state: INITIAL_XENIA_STATE, dispatch: vi.fn() }}>
-          <MemoryRouter initialEntries={[initialRoute]}>{ui}</MemoryRouter>
+          <LibraryContext value={{ state: INITIAL_LIBRARY_STATE, dispatch: vi.fn() }}>
+            <MemoryRouter initialEntries={[initialRoute]}>{ui}</MemoryRouter>
+          </LibraryContext>
         </XeniaContext>
       </TasksContext>
     </SettingsContext>,
@@ -42,7 +45,7 @@ function renderWithRouter(ui: React.ReactNode, initialRoute = "/") {
 }
 
 describe("AppShell", () => {
-  it("renders sidebar navigation", () => {
+  it("renders the primary blade navigation", () => {
     renderWithRouter(
       <AppShell>
         <div>Content</div>
@@ -50,7 +53,7 @@ describe("AppShell", () => {
     );
 
     expect(
-      screen.getByRole("navigation", { name: /main navigation/i }),
+      screen.getByRole("navigation", { name: /primary navigation/i }),
     ).toBeInTheDocument();
   });
 
@@ -65,35 +68,33 @@ describe("AppShell", () => {
     expect(screen.getByText("Test content")).toBeInTheDocument();
   });
 
-  it("displays the app title in the sidebar", () => {
+  it("renders the floating window controls", () => {
     renderWithRouter(
       <AppShell>
         <div>Content</div>
       </AppShell>,
     );
 
-    expect(screen.getByText("Xenia Manager")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /minimize/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /close/i })).toBeInTheDocument();
   });
 
-  it("renders all four navigation sections", () => {
+  it("renders the four blade tabs (Home, Library, Saves, Settings)", () => {
     renderWithRouter(
       <AppShell>
         <div>Content</div>
       </AppShell>,
     );
 
-    const nav = screen.getByRole("navigation", { name: /main navigation/i });
-    const labels = Array.from(
-      nav.querySelectorAll(".sidebar__label"),
-    ).map((el) => el.textContent);
-    expect(labels).toContain("Library");
-    expect(labels).toContain("Saves");
-    expect(labels).toContain("Tasks");
-    expect(labels).toContain("Settings");
+    const nav = screen.getByRole("navigation", { name: /primary navigation/i });
+    const labels = Array.from(nav.querySelectorAll(".blade-nav__tab")).map(
+      (el) => el.textContent,
+    );
+    expect(labels).toEqual(["Home", "Library", "Saves", "Settings"]);
     expect(labels).not.toContain("Dashboard");
   });
 
-  it("renders the system status surface", () => {
+  it("renders the controller legend bar", () => {
     renderWithRouter(
       <AppShell>
         <div>Content</div>
@@ -101,19 +102,7 @@ describe("AppShell", () => {
     );
 
     expect(
-      screen.getByRole("status", { name: /system status/i }),
-    ).toBeInTheDocument();
-  });
-
-  it("renders the window title bar", () => {
-    renderWithRouter(
-      <AppShell>
-        <div>Content</div>
-      </AppShell>,
-    );
-
-    expect(
-      screen.getByLabelText(/window title bar/i),
+      screen.getByRole("toolbar", { name: /controller actions/i }),
     ).toBeInTheDocument();
   });
 });

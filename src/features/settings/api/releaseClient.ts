@@ -8,7 +8,6 @@
 import { invoke } from "../../../platform/bridge";
 import type {
   ReleaseMetadata,
-  UpdaterReadiness,
   EnvironmentDiagnostic,
 } from "../model/releaseTypes";
 
@@ -20,13 +19,6 @@ import type {
  */
 export async function getReleaseMetadata(): Promise<ReleaseMetadata> {
   return invoke<ReleaseMetadata>("get_release_metadata");
-}
-
-/**
- * Check whether the in-app updater is available and fully configured.
- */
-export async function getUpdaterReadiness(): Promise<UpdaterReadiness> {
-  return invoke<UpdaterReadiness>("get_updater_readiness");
 }
 
 /**

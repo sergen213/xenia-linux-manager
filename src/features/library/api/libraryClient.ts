@@ -2,7 +2,7 @@
  * Sidecar invoke bridge for library management and launch commands.
  */
 
-import { invoke } from "../../../platform/bridge";
+import { invoke, listen, type UnlistenFn } from "../../../platform/bridge";
 import type {
   AddSourceResult,
   BrowseLibraryPayload,
@@ -10,13 +10,11 @@ import type {
   ContentRemoveResult,
   GameIdentityRecord,
   GameInstalledContent,
-  LaunchPreflight,
   LaunchResult,
   LibraryGameDetails,
   LibrarySource,
   LibraryStatus,
   ManualGameInput,
-  SourceCatalog,
   UpdateGameIdentityInput,
 } from "../model/libraryTypes";
 import type {
@@ -28,7 +26,6 @@ import type {
   ProfileInventory,
 } from "../model/profileTypes";
 import type {
-  BackupEntry,
   ConflictPlan,
   ConflictPolicy,
   ExportPreflight,
@@ -36,6 +33,27 @@ import type {
   ImportApplyResult,
   ImportInspection,
 } from "../model/saveTypes";
+
+// ---------------------------------------------------------------------------
+// Directory browsing (gamepad-navigable folder picker)
+// ---------------------------------------------------------------------------
+
+export interface DirEntry {
+  name: string;
+  path: string;
+}
+
+export interface DirListing {
+  path: string;
+  parent: string | null;
+  entries: DirEntry[];
+}
+
+/** List immediate subdirectories of `path` (hidden skipped, sorted). Empty or
+ *  invalid paths fall back to $HOME on the backend. */
+export async function listDirectory(path: string): Promise<DirListing> {
+  return invoke<DirListing>("list_directory", { path });
+}
 
 export async function addLibrarySource(
   libraryMetadataPath: string,
@@ -79,14 +97,6 @@ export async function getLibraryStatus(
   libraryMetadataPath: string,
 ): Promise<LibraryStatus> {
   return invoke<LibraryStatus>("get_library_status", {
-    libraryMetadataPath,
-  });
-}
-
-export async function getAllCatalogs(
-  libraryMetadataPath: string,
-): Promise<SourceCatalog[]> {
-  return invoke<SourceCatalog[]>("get_all_catalogs", {
     libraryMetadataPath,
   });
 }
@@ -201,18 +211,6 @@ export async function updateGameLaunchWrapper(
   });
 }
 
-export async function getLaunchPreflight(
-  appDataPath: string,
-  libraryMetadataPath: string,
-  gameId: string,
-): Promise<LaunchPreflight> {
-  return invoke<LaunchPreflight>("get_launch_preflight", {
-    appDataPath,
-    libraryMetadataPath,
-    gameId,
-  });
-}
-
 export async function launchLibraryGame(
   appDataPath: string,
   libraryMetadataPath: string,
@@ -225,6 +223,21 @@ export async function launchLibraryGame(
     gameId,
     allowWarnings,
   });
+}
+
+export interface GameExitedPayload {
+  game_id: string;
+  pid: number;
+  exit_code: number | null;
+}
+
+/** Subscribe to the `game:exited` event fired when a launched game closes. */
+export function onGameExited(
+  callback: (payload: GameExitedPayload) => void,
+): Promise<UnlistenFn> {
+  return listen<GameExitedPayload>("game:exited", (event) =>
+    callback(event.payload),
+  );
 }
 
 export interface DesktopShortcutExportResult {
@@ -283,6 +296,22 @@ export async function fetchAllArtwork(
 ): Promise<ArtworkResult[]> {
   return invoke<ArtworkResult[]>("fetch_all_artwork", {
     libraryMetadataPath,
+  });
+}
+
+export interface SynopsisResult {
+  game_id: string;
+  synopsis: string | null;
+  error: string | null;
+}
+
+export async function fetchGameSynopsis(
+  libraryMetadataPath: string,
+  gameId: string,
+): Promise<SynopsisResult> {
+  return invoke<SynopsisResult>("fetch_game_synopsis", {
+    libraryMetadataPath,
+    gameId,
   });
 }
 
@@ -355,12 +384,11 @@ export async function importXeniaPatchFile(
 }
 
 export async function toggleXeniaPatchEntry(
-  appDataPath: string,
   filePath: string,
   entryName: string,
   enabled: boolean,
 ): Promise<void> {
-  return invoke<void>("toggle_xenia_patch_entry", { appDataPath, filePath, entryName, enabled });
+  return invoke<void>("toggle_xenia_patch_entry", { filePath, entryName, enabled });
 }
 
 // ---------------------------------------------------------------------------
@@ -520,8 +548,6 @@ export async function getImportConflictPlan(
   xeniaPath: string,
   stagingPath: string,
   targetGameId: string,
-  sourceGameId: string,
-  sourceGameTitle: string,
   policy: ConflictPolicy,
 ): Promise<ConflictPlan> {
   return invoke<ConflictPlan>("get_import_conflict_plan", {
@@ -529,8 +555,6 @@ export async function getImportConflictPlan(
     xeniaPath,
     stagingPath,
     targetGameId,
-    sourceGameId,
-    sourceGameTitle,
     policy,
   });
 }
@@ -557,14 +581,6 @@ export async function cleanupSaveImportStaging(
   appDataPath: string,
 ): Promise<void> {
   return invoke<void>("cleanup_save_import_staging", {
-    appDataPath,
-  });
-}
-
-export async function listSaveBackups(
-  appDataPath: string,
-): Promise<BackupEntry[]> {
-  return invoke<BackupEntry[]>("list_save_backups", {
     appDataPath,
   });
 }

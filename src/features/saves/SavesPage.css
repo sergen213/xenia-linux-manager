@@ -16,7 +16,7 @@
 
 .saves-page__title {
   font-size: var(--font-size-xl);
-  font-weight: 700;
+  font-weight: var(--font-weight-bold);
   margin-bottom: 6px;
 }
 
@@ -54,6 +54,29 @@
   gap: 4px;
 }
 
+.saves-page__export-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.saves-page__export-item {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.saves-page__error {
+  color: var(--color-danger, #e5484d);
+  font-size: var(--font-size-sm);
+}
+
 .saves-page__backup-path {
   color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
@@ -86,7 +109,7 @@
 
 .save-wizard__step-indicator .is-active {
   color: var(--color-accent);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 
 .save-wizard__step-indicator .is-done {
@@ -104,6 +127,7 @@
 .save-conflict-preview button,
 .save-results button,
 .save-quick-actions button,
+.saves-page__export-item button,
 .backup-failure-dialog button {
   border: 1px solid var(--color-border);
   background: var(--color-bg-card);
@@ -169,7 +193,7 @@
   font-size: var(--font-size-xs);
   padding: 2px 8px;
   border-radius: 999px;
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 
 .save-conflict-preview__action-badge--new {
@@ -280,7 +304,7 @@
 }
 
 .backup-failure-dialog__warning {
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   color: var(--color-error);
 }
 

@@ -5,10 +5,7 @@ import {
   INITIAL_XENIA_STATE,
 } from "./xeniaStore";
 import { useSettings } from "../../settings/state/settingsStore";
-import {
-  getInstallStatus,
-  checkForUpdateAuto,
-} from "../api/xeniaClient";
+import { getInstallStatus } from "../api/xeniaClient";
 import {
   useTasks,
   selectLatestTerminalJobByCategory,
@@ -81,39 +78,6 @@ export function XeniaProvider({ children }: XeniaProviderProps) {
 
     void refresh();
   }, [settingsState.settings?.app_data_path, latestLifecycleJob?.id]);
-
-  // Auto-check for updates when installed
-  useEffect(() => {
-    if (!settingsState.settings?.app_data_path) return;
-    if (!state.initialized) return;
-    if (state.installState.status !== "installed") return;
-
-    let cancelled = false;
-
-    async function check() {
-      dispatch({ type: "CHECK_UPDATE_START" });
-      try {
-        const update = await checkForUpdateAuto(
-          settingsState.settings!.app_data_path,
-        );
-        if (cancelled) return;
-        dispatch({ type: "CHECK_UPDATE_SUCCESS", update });
-      } catch {
-        if (cancelled) return;
-        // Update check failure is non-critical -- just clear the flag
-        dispatch({ type: "CHECK_UPDATE_SUCCESS", update: null });
-      }
-    }
-
-    check();
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    settingsState.settings?.app_data_path,
-    state.initialized,
-    state.installState.status,
-  ]);
 
   return (
     <XeniaContext value={{ state, dispatch }}>

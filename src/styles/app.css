@@ -1,79 +1,239 @@
 /* ========================================================================
-   Xenia Linux Manager - Base Styles
+   Xenia Linux Manager — Aurora Dashboard
+   ------------------------------------------------------------------------
+   Xbox 360 "Aurora" reskin: a glossy light field + the heritage jade signal.
+   Dark is the unscoped default; [data-theme="light"] overrides below. Field
+   colors are background-tint scoped ([data-tint=...]). The legacy --color-*
+   names are remapped onto Aurora tokens so existing feature CSS reskins with
+   no per-file edits.
    ======================================================================== */
 
 :root {
-  /* Color palette */
-  /* ── Graphite & Jade ──────────────────────────────────────────────
-     Neutral graphite cockpit (not navy) + a muted heritage-green signal.
-     Three tonal surface steps: Pit → Graphite → Panel. All text/surface
-     pairs verified ≥4.5:1 (WCAG AA); accent fills carry dark ink. */
-  --color-bg-primary: #18181b;   /* Graphite — app canvas */
-  --color-bg-secondary: #1e1e22; /* Slate — nested / inset regions */
-  --color-bg-sidebar: #121214;   /* Pit — deepest: sidebar + inputs */
-  --color-bg-card: #232328;      /* Panel — lifted card / default button */
-  --color-bg-hover: #2e2e34;     /* Hover — panels, buttons, nav rows */
-  --color-bg-input: #121214;     /* Inputs sit at Pit depth */
-  --color-bg: #1e1e22;           /* Alias of Slate (inset input fields) */
-  --color-text-primary: #ececee; /* Frost — primary ink (13:1 on Panel) */
-  --color-text-secondary: #b8b8c0; /* Haze — secondary copy (7.9:1) */
-  /* Muted text floor: AA-compliant body text (≈5.7:1 on Panel). Go no dimmer. */
-  --color-text-muted: #9b9ba3;
-  --color-accent: #3fc488;       /* Heritage Jade — the one signal (action/live/healthy) */
-  --color-accent-hover: #66d3a2; /* Jade Light — hover/active step */
-  --color-success: #6fc79a;      /* Signal Green — positive state (rhymes with accent) */
-  --color-warning: #e0a33e;      /* Amber Alert */
-  --color-error: #e5675f;        /* Fault Red */
-  --color-danger: #e5675f;
-  --color-border: #34343c;       /* Seam — 1px borders / dividers */
-  /* Stronger border for inputs, where the stroke is the only boundary cue. */
-  --color-border-input: #45454f;
-  /* Modal/overlay scrim — one value for every dimmed backdrop. */
-  --color-scrim: rgba(10, 10, 12, 0.6);
+  /* ── Aurora surfaces + text ─────────────────────────────────────────── */
+  --au-glass-bg: rgba(8, 20, 40, 0.5);
+  --au-glass-border: rgba(255, 255, 255, 0.1);
+  --au-glass-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+  --au-heading: #ffffff;
+  --au-text: #eaf2fb;
+  --au-sub: #9fb0c2;
+  --au-faint: rgba(214, 228, 244, 0.5);
+  --au-group-title: #8aa0b6;
+  --au-accent: #3fc488;
+  --au-accent-hover: #66d3a2;
+  --au-accent-ink: #06241a;
+  --au-accent-soft: rgba(63, 196, 136, 0.16);
+  --au-accent-soft-border: rgba(63, 196, 136, 0.32);
+  --au-ghost-border: rgba(255, 255, 255, 0.28);
+  --au-input-bg: #0d131b;
+  --au-input-border: #2a3744;
+  --au-sep: rgba(255, 255, 255, 0.1);
+  --au-rail-text: #aeb8c4;
+  --au-bar-bg: rgba(8, 20, 40, 0.55);
+  --au-bar-border: rgba(255, 255, 255, 0.14);
+  --au-modal-bg: rgba(10, 22, 42, 0.97);
+  --au-switch-off: rgba(255, 255, 255, 0.18);
+  --au-bar-a: #26303b;
+  --au-bar-b: #323d4a;
+  --au-success: #6fc79a;
+  --au-warning: #e0a33e;
+  --au-error: #e5675f;
 
-  /* Spacing */
-  --sidebar-width: 220px;
-  --status-bar-height: 40px;
+  /* ── Chrome ─────────────────────────────────────────────────────────── */
+  --au-title-bg: rgba(6, 16, 36, 0.82);
+  --au-title-border: rgba(255, 255, 255, 0.07);
+  --au-title-text: #dbe8f5;
+  --au-dot: rgba(255, 255, 255, 0.18);
+  --au-nav-bg: linear-gradient(180deg, rgba(4, 16, 38, 0.5), rgba(4, 16, 38, 0));
+  --au-info-bg: linear-gradient(
+    180deg,
+    rgba(8, 18, 38, 0) 0%,
+    rgba(8, 18, 38, 0.82) 34%,
+    rgba(8, 18, 38, 0.86) 100%
+  );
+  --au-grid-title-bg: linear-gradient(
+    180deg,
+    rgba(8, 18, 38, 0) 0%,
+    rgba(8, 18, 38, 0.78) 100%
+  );
+  --au-legend-bg: linear-gradient(0deg, rgba(4, 12, 28, 0.92), rgba(4, 12, 28, 0));
+  --au-legend-label: #dbe8f5;
+  --au-legend-kbd-bg: rgba(255, 255, 255, 0.1);
+  --au-legend-kbd-border: rgba(255, 255, 255, 0.22);
+  --au-legend-kbd: #bcd0e4;
+  --au-legend-neutral: #cfe0f0;
 
-  /* Typography — IBM Plex Sans (self-hosted via @fontsource, see main.tsx).
-     Technical humanist-grotesque: engineered, precise, instrument-like. */
-  --font-family: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI",
+  /* ── Background field (dark, Aurora Blue tint — default) ─────────────── */
+  --au-field-hi: #3f8fd0;
+  --au-field-mid: #1a4e8f;
+  --au-field-deep: #0c2c5c;
+  --au-field-deep2: #06122b;
+  --au-field-c1: #34d0ff;
+  --au-field-c2: #ff5cf0;
+  --au-field-c3: #3df0c8;
+  --au-field-op1: 0.55;
+  --au-field-op2: 0.5;
+  --au-field-op3: 0.5;
+  --au-field-horizon: rgba(255, 255, 255, 0.22);
+  --au-field-horizon-op: 0.5;
+  --au-field-vignette: rgba(0, 0, 0, 0.52);
+  --au-field-sheen: rgba(255, 255, 255, 0.06);
+
+  /* ── Legacy compatibility: old semantic names → Aurora tokens ───────── */
+  --color-bg-primary: transparent; /* field shows through content */
+  --color-bg-secondary: var(--au-glass-bg);
+  --color-bg-sidebar: var(--au-glass-bg);
+  --color-bg-card: var(--au-glass-bg);
+  --color-bg-hover: var(--au-accent-soft);
+  --color-bg-input: var(--au-input-bg);
+  --color-bg: var(--au-input-bg);
+  --color-text-primary: var(--au-text);
+  --color-text-secondary: var(--au-sub);
+  --color-text-muted: var(--au-sub);
+  --color-accent: var(--au-accent);
+  --color-accent-hover: var(--au-accent-hover);
+  --color-success: var(--au-success);
+  --color-warning: var(--au-warning);
+  --color-error: var(--au-error);
+  --color-danger: var(--au-error);
+  --color-border: var(--au-glass-border);
+  --color-border-input: var(--au-input-border);
+  --color-scrim: rgba(4, 9, 20, 0.62);
+
+  /* ── Typography — Titillium Web (UI), Oswald (display), Plex Mono (data) */
+  --font-family: "Titillium Web", -apple-system, BlinkMacSystemFont, "Segoe UI",
     system-ui, sans-serif;
-  /* Mono for paths, versions, job ids, logs — data that must align/disambiguate.
-     IBM Plex Mono is the family's own monospace, so type stays one voice. */
+  --font-display: "Oswald", "Titillium Web", system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Monaco,
     Consolas, "Liberation Mono", monospace;
+  --font-size-2xs: 0.6875rem;
   --font-size-xs: 0.75rem;
   --font-size-sm: 0.875rem;
   --font-size-base: 1rem;
   --font-size-lg: 1.125rem;
   --font-size-xl: 1.25rem;
-  /* Glanceable stat readout (dashboard / Xenia cards). One step above the
-     tight UI ramp; reserved for at-a-glance numbers, never body or labels. */
   --font-size-2xl: 1.5rem;
+  --font-size-cover: 3rem;
+  /* Only 300/400/600/700 (Titillium) are loaded — medium maps to 600 so an
+     unloaded 500 weight is never requested. */
+  --font-weight-normal: 400;
+  --font-weight-medium: 600;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --line-height-tight: 1.3;
+  --line-height-snug: 1.4;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.6;
+  --tracking-tight: -0.01em;
+  --tracking-normal: 0;
+  --tracking-caps: 0.05em;
 
-  /* Borders */
-  --radius-sm: 4px;
+  /* ── Borders ────────────────────────────────────────────────────────── */
+  --radius-sm: 6px;
   --radius-md: 8px;
-  --radius-lg: 12px;
+  --radius-lg: 14px;
 
-  /* Motion — calm, state-driven. Ease-out so changes decelerate naturally. */
+  /* ── Motion ─────────────────────────────────────────────────────────── */
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --transition-fast: 150ms;
   --transition-base: 200ms;
 
-  /* Elevation — ambient lift against the dark canvas (DESIGN.md §4). */
-  --shadow-card: 0 4px 16px rgba(0, 0, 0, 0.4);
-  /* Accent focus/selected ring — the one accent response on surfaces. */
+  /* ── Elevation ──────────────────────────────────────────────────────── */
+  --shadow-card: var(--au-glass-shadow);
   --ring-accent: 0 0 0 1px color-mix(in srgb, var(--color-accent) 35%, transparent);
 
-  /* Semantic z-index scale — never arbitrary 999s. */
+  /* ── Z-index ────────────────────────────────────────────────────────── */
   --z-dropdown: 100;
   --z-sticky: 200;
   --z-modal-backdrop: 300;
   --z-modal: 400;
   --z-toast: 500;
   --z-tooltip: 600;
+}
+
+/* Background tints (dark only) */
+:root[data-tint="violet"] {
+  --au-field-hi: #7a4ad0;
+  --au-field-mid: #3a1f7a;
+  --au-field-deep: #1c0f44;
+  --au-field-deep2: #0e0826;
+  --au-field-c1: #b06cff;
+  --au-field-c2: #ff6cc0;
+  --au-field-c3: #6cd0ff;
+}
+:root[data-tint="jade"] {
+  --au-field-hi: #2f5a48;
+  --au-field-mid: #1b2a24;
+  --au-field-deep: #0f1714;
+  --au-field-deep2: #08100c;
+  --au-field-c1: #3fc488;
+  --au-field-c2: #67e8c0;
+  --au-field-c3: #9be88a;
+}
+
+/* Light theme (defined after tints so its fixed light field wins) */
+:root[data-theme="light"] {
+  --au-glass-bg: rgba(255, 255, 255, 0.62);
+  --au-glass-border: rgba(20, 45, 75, 0.12);
+  --au-glass-shadow: 0 10px 30px rgba(30, 60, 100, 0.16);
+  --au-heading: #10202e;
+  --au-text: #1d2733;
+  --au-sub: #52606e;
+  --au-faint: rgba(25, 45, 65, 0.45);
+  --au-group-title: #71808f;
+  --au-accent: #1f9d68;
+  --au-accent-hover: #178a59;
+  --au-accent-ink: #ffffff;
+  --au-accent-soft: rgba(31, 157, 104, 0.16);
+  --au-accent-soft-border: rgba(31, 157, 104, 0.34);
+  --au-ghost-border: rgba(25, 50, 80, 0.22);
+  --au-input-bg: #ffffff;
+  --au-input-border: #bcc6d2;
+  --au-sep: rgba(20, 45, 75, 0.12);
+  --au-rail-text: #52606e;
+  --au-bar-bg: rgba(255, 255, 255, 0.66);
+  --au-bar-border: rgba(20, 45, 75, 0.14);
+  --au-modal-bg: rgba(248, 251, 254, 0.98);
+  --au-switch-off: #d3d9e0;
+  --au-bar-a: #cdd5de;
+  --au-bar-b: #e6ebf0;
+
+  --au-title-bg: rgba(244, 249, 253, 0.88);
+  --au-title-border: rgba(20, 45, 75, 0.1);
+  --au-title-text: #1d2733;
+  --au-dot: rgba(25, 50, 80, 0.2);
+  --au-nav-bg: linear-gradient(180deg, rgba(238, 246, 252, 0.7), rgba(238, 246, 252, 0));
+  --au-info-bg: linear-gradient(
+    180deg,
+    rgba(236, 244, 251, 0) 0%,
+    rgba(236, 244, 251, 0.85) 34%,
+    rgba(236, 244, 251, 0.92) 100%
+  );
+  --au-grid-title-bg: linear-gradient(
+    180deg,
+    rgba(236, 244, 251, 0) 0%,
+    rgba(236, 244, 251, 0.85) 100%
+  );
+  --au-legend-bg: linear-gradient(0deg, rgba(226, 237, 247, 0.96), rgba(226, 237, 247, 0));
+  --au-legend-label: #1d2733;
+  --au-legend-kbd-bg: rgba(20, 45, 75, 0.08);
+  --au-legend-kbd-border: rgba(20, 45, 75, 0.2);
+  --au-legend-kbd: #52606e;
+  --au-legend-neutral: #52606e;
+
+  --au-field-hi: #f3f8fe;
+  --au-field-mid: #d6e8f7;
+  --au-field-deep: #bcd9f0;
+  --au-field-deep2: #d6e8f6;
+  --au-field-c1: #86cdf7;
+  --au-field-c2: #c4a9f0;
+  --au-field-c3: #8fe6cf;
+  --au-field-op1: 0.34;
+  --au-field-op2: 0.3;
+  --au-field-op3: 0.32;
+  --au-field-horizon: rgba(255, 255, 255, 0.5);
+  --au-field-horizon-op: 0.55;
+  --au-field-vignette: rgba(70, 110, 150, 0.16);
+  --au-field-sheen: rgba(255, 255, 255, 0.35);
 }
 
 /* Reset */
@@ -96,10 +256,25 @@ body,
 body {
   font-family: var(--font-family);
   font-size: var(--font-size-base);
-  color: var(--color-text-primary);
-  background-color: var(--color-bg-primary);
+  line-height: var(--line-height-normal);
+  color: var(--au-text);
+  /* Base behind the field (covers gate screens that don't render the field). */
+  background-color: var(--au-field-deep2);
+  font-kerning: normal;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+:where(h1, h2, h3) {
+  text-wrap: balance;
+}
+
+:where(p, .prose) {
+  text-wrap: pretty;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
 }
 
 /* Utility classes */
@@ -111,13 +286,18 @@ body {
   color: var(--color-text-secondary);
 }
 
-/* Keyboard focus baseline. Zero-specificity (:where) so any component that
-   defines its own focus treatment (inputs use a border-shift per DESIGN.md)
-   overrides this freely. Mouse users see hover/border feedback; keyboard
-   users always get a visible accent ring on actionable controls. */
 :where(button, a, summary, [role="button"], [tabindex]:not([tabindex="-1"])):focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
+}
+
+/* Controller/keyboard steering moves focus programmatically, which doesn't
+   reliably trip :focus-visible. While steering, show a ring on whatever holds
+   focus — inputs and selects included — so the player can see where they are. */
+body.using-controller :focus {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  scroll-margin: 16px;
 }
 
 .ui-button {
@@ -126,11 +306,12 @@ body {
   justify-content: center;
   gap: 0.5rem;
   padding: 0.55rem 0.9rem;
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--au-ghost-border);
   border-radius: var(--radius-md);
-  background: var(--color-bg-card);
-  color: var(--color-text-primary);
+  background: transparent;
+  color: var(--au-text);
   font: inherit;
+  font-weight: var(--font-weight-semibold);
   cursor: pointer;
   transition: border-color var(--transition-fast) var(--ease-out),
     background-color var(--transition-fast) var(--ease-out),
@@ -139,7 +320,7 @@ body {
 
 .ui-button:hover {
   border-color: var(--color-accent);
-  background: var(--color-bg-hover);
+  background: var(--au-accent-soft);
 }
 
 .ui-button:disabled {
@@ -154,13 +335,19 @@ body {
 }
 
 .ui-button--primary {
-  background: color-mix(in srgb, var(--color-accent) 18%, var(--color-bg-card));
-  border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
+  background: var(--au-accent);
+  border-color: var(--au-accent);
+  color: var(--au-accent-ink);
+}
+
+.ui-button--primary:hover {
+  background: var(--au-accent-hover);
+  border-color: var(--au-accent-hover);
 }
 
 .ui-button--danger {
   color: var(--color-error);
-  border-color: color-mix(in srgb, var(--color-error) 35%, var(--color-border));
+  border-color: color-mix(in srgb, var(--color-error) 35%, var(--au-ghost-border));
 }
 
 .ui-button--small {
@@ -179,12 +366,12 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--color-border);
+  background: var(--au-glass-border);
   border-radius: 5px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--color-text-muted);
+  background: var(--au-sub);
 }
 
 /* App loading state */
@@ -201,14 +388,16 @@ body {
 .app-loading__spinner {
   width: 32px;
   height: 32px;
-  border: 3px solid var(--color-border);
+  border: 3px solid var(--au-glass-border);
   border-top-color: var(--color-accent);
   border-radius: 50%;
   animation: app-loading-spin 0.8s linear infinite;
 }
 
 @keyframes app-loading-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Route loader fallback */
@@ -221,10 +410,8 @@ body {
 }
 
 /* ========================================================================
-   Reduced motion (WCAG 2.3.3)
-   Honor prefers-reduced-motion globally: collapse transitions/animations to
-   near-instant. The loading spinner keeps a slow, non-spinning opacity pulse
-   so it still reads as "working" without vestibular-triggering rotation.
+   Reduced motion (WCAG 2.3.3) — collapse transitions/animations globally;
+   the loading spinner keeps a non-rotating opacity pulse.
    ======================================================================== */
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -238,11 +425,69 @@ body {
 
   .app-loading__spinner {
     animation: app-loading-pulse 1.6s ease-in-out infinite !important;
-    border-top-color: var(--color-border);
+    border-top-color: var(--au-glass-border);
   }
 }
 
 @keyframes app-loading-pulse {
-  0%, 100% { opacity: 0.4; }
-  50% { opacity: 1; }
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Shared Aurora modal shell. Lives in the global sheet (not a component CSS)
+   so every consumer — DetailsModal, FolderBrowser, future modals — gets the
+   overlay/centering styles regardless of which component happens to be mounted.
+   FolderBrowser is used during first-run, before DetailsModal ever loads. */
+.aurora-modal {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  background: var(--color-scrim);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.aurora-modal__panel {
+  position: relative;
+  background: var(--au-modal-bg);
+  border: 1px solid var(--au-glass-border);
+  border-radius: 14px;
+  box-shadow: var(--au-glass-shadow);
+  backdrop-filter: blur(12px);
+  width: min(1040px, 94%);
+  max-height: 88%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.aurora-modal__close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 1;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid var(--au-ghost-border);
+  background: transparent;
+  color: var(--au-text);
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.aurora-modal__close:hover {
+  background: var(--au-accent-soft);
+}
+
+.aurora-modal__body {
+  overflow-y: auto;
 }

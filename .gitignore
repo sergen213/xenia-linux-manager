@@ -32,3 +32,12 @@ release/
 
 # git worktrees
 .claude/worktrees/
+
+# Tool-generated state / caches (not source)
+ruvector.db
+agentdb.rvf
+agentdb.rvf.lock
+.impeccable/
+.serena/
+.sisyphus/
+.codex

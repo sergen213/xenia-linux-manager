@@ -4,9 +4,60 @@ import { EditPathsDialog } from "./components/EditPathsDialog";
 import { ReleaseChannelCard } from "./components/ReleaseChannelCard";
 import { PackagedEnvironmentNotice } from "./components/PackagedEnvironmentNotice";
 import { XeniaLifecycleCard } from "../xenia/components/XeniaLifecycleCard";
+import { XeniaMaintenanceCard } from "../xenia/components/XeniaMaintenanceCard";
 import { PATH_FIELDS, getPathValue } from "./model/settingsSchema";
 import { saveSettings } from "./api/settingsClient";
+import { useLibrary } from "../library/state/libraryStore";
+import { browseLibrary, createManualGame } from "../library/api/libraryClient";
+import { LibrarySourcesPanel } from "../library/components/LibrarySourcesPanel";
+import { ManualGameForm } from "../library/components/ManualGameForm";
+import {
+  useAuroraPrefs,
+  THEME_OPTIONS,
+  TINT_OPTIONS,
+  type ViewMode,
+} from "../../theme/auroraPrefs";
+import { AuroraRadio } from "../../components/aurora/AuroraRadio";
 import "./SettingsPage.css";
+import "./AuroraSettings.css";
+
+type SettingsCategory =
+  | "profile"
+  | "library"
+  | "paths"
+  | "xenia"
+  | "launch"
+  | "appearance"
+  | "about";
+
+const CATEGORIES: Array<[SettingsCategory, string]> = [
+  ["profile", "Profile"],
+  ["library", "Library"],
+  ["paths", "Paths"],
+  ["xenia", "Xenia"],
+  ["launch", "Launch"],
+  ["appearance", "Appearance"],
+  ["about", "About"],
+];
+
+function GroupTitle({ children }: { children: React.ReactNode }) {
+  return <div className="aurora-grouptitle">{children}</div>;
+}
+
+function AuroraCheck({ label, checked, onClick }: { label: string; checked: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={checked}
+      className="aurora-check"
+      onClick={onClick}
+    >
+      <span className="aurora-check__box">{checked && <span className="aurora-check__fill" />}</span>
+      <span>{label}</span>
+    </button>
+  );
+}
 
 function parseLaunchEnvironment(raw: string): Array<[string, string]> {
   return raw
@@ -22,22 +73,14 @@ function parseLaunchEnvironment(raw: string): Array<[string, string]> {
 
 function mergeLaunchEnvironment(raw: string): string {
   const merged = new Map<string, string>();
-  for (const [key, value] of parseLaunchEnvironment(raw)) {
-    merged.set(key, value);
-  }
-  return Array.from(merged.entries())
-    .map(([key, value]) => `${key}=${value}`)
-    .join("\n");
+  for (const [key, value] of parseLaunchEnvironment(raw)) merged.set(key, value);
+  return Array.from(merged.entries()).map(([k, v]) => `${k}=${v}`).join("\n");
 }
 
 function applyPreset(raw: string, preset: Record<string, string>): string {
   const merged = new Map<string, string>(parseLaunchEnvironment(raw));
-  for (const [key, value] of Object.entries(preset)) {
-    merged.set(key, value);
-  }
-  return Array.from(merged.entries())
-    .map(([key, value]) => `${key}=${value}`)
-    .join("\n");
+  for (const [key, value] of Object.entries(preset)) merged.set(key, value);
+  return Array.from(merged.entries()).map(([k, v]) => `${k}=${v}`).join("\n");
 }
 
 function mergeLaunchWrapper(raw: string): string {
@@ -47,7 +90,28 @@ function mergeLaunchWrapper(raw: string): string {
 export function SettingsPage() {
   const { state, dispatch } = useSettings();
   const { settings } = state;
+  const { prefs, setPref } = useAuroraPrefs();
+  const { dispatch: libDispatch } = useLibrary();
+  const libPath = settings?.library_metadata_path ?? "";
+  const appDataPath = settings?.app_data_path ?? "";
+
+  // Lightweight re-browse so the grid reflects source/manual-game changes made
+  // here. (We avoid useLibraryBrowse to keep its artwork-fetch effects off the
+  // Settings page.) ponytail: small dup of useLibraryBrowse.refreshLibrary.
+  const refreshLibrary = async (selectGameId?: string | null) => {
+    if (!libPath) return;
+    const browse = await browseLibrary(libPath);
+    libDispatch({ type: "BROWSE_LOADED", browse });
+    if (selectGameId !== undefined) libDispatch({ type: "SELECT_GAME", gameId: selectGameId });
+  };
+  const handleAddManualGame = async (payload: { title: string; executable_path: string }) => {
+    const created = await createManualGame(libPath, payload);
+    await refreshLibrary(created.game_id);
+  };
+  const [cat, setCat] = useState<SettingsCategory>("profile");
   const [editOpen, setEditOpen] = useState(false);
+  // ponytail: Xbox Live toggle is local-only — no Xbox Live backend yet.
+  const [xblEnabled, setXblEnabled] = useState(true);
   const [gamerTagEditing, setGamerTagEditing] = useState(false);
   const [gamerTagValue, setGamerTagValue] = useState("");
   const [launchEnvEditing, setLaunchEnvEditing] = useState(false);
@@ -94,141 +158,161 @@ export function SettingsPage() {
     setLaunchWrapperEditing(false);
   };
 
+  const VIEW_MODES: Array<[ViewMode, string]> = [
+    ["blade", "Blade Carousel"],
+    ["rail", "Rail + Carousel"],
+    ["grid", "Grid Wall"],
+  ];
+
   return (
-    <div className="settings-page">
-      <header className="settings-page__header">
-        <h2 className="settings-page__title">Settings</h2>
-        <p className="settings-page__subtitle">
-          Configure paths, preferences, and app behavior
-        </p>
-      </header>
-
-      <section className="settings-page__xenia">
-        <h3 className="settings-page__xenia-title">Xenia Emulator</h3>
-        <div className="settings-page__xenia-grid">
-          <XeniaLifecycleCard channel="canary" />
-          <XeniaLifecycleCard channel="edge" />
-        </div>
-      </section>
-
-      <section className="settings-page__section">
-        <div className="settings-page__section-header">
-          <h3 className="settings-page__section-title">Storage Paths</h3>
+    <div className="aurora-settings">
+      <nav className="aurora-settings__rail">
+        <div className="aurora-settings__rail-title">SETTINGS</div>
+        {CATEGORIES.map(([id, label]) => (
           <button
-            className="settings-page__edit-btn ui-button ui-button--small"
-            onClick={() => setEditOpen(true)}
+            key={id}
+            type="button"
+            className={`aurora-settings__rail-row ${cat === id ? "is-active" : ""}`}
+            onClick={() => setCat(id)}
           >
-            Edit Paths
+            {label}
           </button>
-        </div>
+        ))}
+      </nav>
 
-        {settings ? (
-          <div className="settings-page__paths">
-            {PATH_FIELDS.map((field) => (
-              <div key={field.key} className="settings-page__path-row">
-                <span className="settings-page__path-label">
-                  {field.label}
-                </span>
-                <span className="settings-page__path-value">
-                  {getPathValue(settings, field.key)}
-                </span>
+      <div className="aurora-settings__panel" key={cat}>
+        {cat === "profile" && settings && (
+          <div className="aurora-settings__cols">
+            <div className="aurora-settings__col">
+              <GroupTitle>Gamer Tag</GroupTitle>
+              <div className="settings-page__pref-row">
+                <label className="settings-page__pref-label">Xbox Live Gamer Tag</label>
+                {gamerTagEditing ? (
+                  <div className="settings-page__pref-edit">
+                    <input
+                      type="text"
+                      className="settings-page__input"
+                      value={gamerTagValue}
+                      onChange={(e) => setGamerTagValue(e.target.value)}
+                      placeholder="Enter your gamer tag"
+                    />
+                    <button className="settings-page__save-btn ui-button ui-button--primary ui-button--small" onClick={handleGamerTagSave}>
+                      Save
+                    </button>
+                    <button className="settings-page__cancel-btn ui-button ui-button--small" onClick={() => setGamerTagEditing(false)}>
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <div className="settings-page__pref-display">
+                    <span className="settings-page__pref-value">{settings.gamer_tag || "Not set"}</span>
+                    <button
+                      className="settings-page__edit-small"
+                      onClick={() => {
+                        setGamerTagValue(settings.gamer_tag || "");
+                        setGamerTagEditing(true);
+                      }}
+                    >
+                      Edit
+                    </button>
+                  </div>
+                )}
+                <p className="settings-page__pref-help">Used for save game import and export operations.</p>
               </div>
-            ))}
+
+              <div style={{ height: 24 }} />
+              <GroupTitle>Profile Picture</GroupTitle>
+              <div className="aurora-profile__avatar-row">
+                <div className="aurora-profile__avatar">
+                  {(settings.gamer_tag || "X").charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <div className="aurora-profile__avatar-name">{settings.gamer_tag || "Player"}</div>
+                  <div className="aurora-profile__avatar-sub">Xbox Live profile</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="aurora-settings__col">
+              <GroupTitle>Xbox Live</GroupTitle>
+              <AuroraCheck label="Enabled" checked={xblEnabled} onClick={() => setXblEnabled((v) => !v)} />
+              <div style={{ height: 16 }} />
+              <div className="settings-page__pref-row">
+                <label className="settings-page__pref-label">Username</label>
+                <div className="settings-page__pref-display">
+                  <span className="settings-page__pref-value">{settings.gamer_tag || "Not set"}</span>
+                </div>
+                <p className="settings-page__pref-help">
+                  Mirrors your gamer tag. Used to match cloud save profiles.
+                </p>
+              </div>
+            </div>
           </div>
-        ) : (
-          <p className="settings-page__empty-state">
-            Settings have not been loaded yet.
-          </p>
         )}
-      </section>
 
-      <section className="settings-page__section">
-        <div className="settings-page__section-header">
-          <h3 className="settings-page__section-title">User Preferences</h3>
-        </div>
+        {cat === "library" && settings && (
+          <>
+            <div className="aurora-settings__cols">
+              <div className="aurora-settings__col">
+                <GroupTitle>Library View</GroupTitle>
+                {VIEW_MODES.map(([id, label]) => (
+                  <AuroraRadio key={id} label={label} active={prefs.viewMode === id} onClick={() => setPref("viewMode", id)} />
+                ))}
+                <p className="aurora-help">Choose how your game library is presented.</p>
+              </div>
+              <div className="aurora-settings__col">
+                <GroupTitle>Click Behavior</GroupTitle>
+                <AuroraRadio label="Single click" active={settings.click_behavior === "single"} onClick={() => handleClickBehaviorChange("single")} />
+                <AuroraRadio label="Double click" active={settings.click_behavior === "double"} onClick={() => handleClickBehaviorChange("double")} />
+                <p className="aurora-help">How to open games in the library.</p>
+              </div>
+            </div>
 
-        {settings && (
+            <div style={{ height: 28 }} />
+            <GroupTitle>Sources &amp; Scan</GroupTitle>
+            <LibrarySourcesPanel onRefreshLibrary={() => refreshLibrary()} appDataPath={appDataPath} />
+            <div style={{ height: 20 }} />
+            <ManualGameForm onSubmit={handleAddManualGame} />
+          </>
+        )}
+
+        {cat === "paths" && (
+          <>
+            <GroupTitle>Storage Paths</GroupTitle>
+            {settings ? (
+              <div className="settings-page__paths">
+                {PATH_FIELDS.map((field) => (
+                  <div key={field.key} className="settings-page__path-row">
+                    <span className="settings-page__path-label">{field.label}</span>
+                    <span className="settings-page__path-value">{getPathValue(settings, field.key)}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="settings-page__empty-state">Settings have not been loaded yet.</p>
+            )}
+            <div style={{ marginTop: 22 }}>
+              <button className="ui-button ui-button--primary ui-button--small" onClick={() => setEditOpen(true)}>
+                Edit Paths
+              </button>
+            </div>
+          </>
+        )}
+
+        {cat === "xenia" && (
+          <section className="settings-page__xenia">
+            <div className="settings-page__xenia-grid">
+              <XeniaLifecycleCard channel="canary" />
+              <XeniaLifecycleCard channel="edge" />
+            </div>
+            <XeniaMaintenanceCard />
+          </section>
+        )}
+
+        {cat === "launch" && settings && (
           <div className="settings-page__preferences">
             <div className="settings-page__pref-row">
-              <label className="settings-page__pref-label">
-                Xbox Live Gamer Tag
-              </label>
-              {gamerTagEditing ? (
-                <div className="settings-page__pref-edit">
-                  <input
-                    type="text"
-                    className="settings-page__input"
-                    value={gamerTagValue}
-                    onChange={(e) => setGamerTagValue(e.target.value)}
-                    placeholder="Enter your gamer tag"
-                  />
-                  <button
-                    className="settings-page__save-btn ui-button ui-button--primary ui-button--small"
-                    onClick={handleGamerTagSave}
-                  >
-                    Save
-                  </button>
-                  <button
-                    className="settings-page__cancel-btn ui-button ui-button--small"
-                    onClick={() => setGamerTagEditing(false)}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              ) : (
-                <div className="settings-page__pref-display">
-                  <span className="settings-page__pref-value">
-                    {settings.gamer_tag || "Not set"}
-                  </span>
-                  <button
-                    className="settings-page__edit-small"
-                    onClick={() => {
-                      setGamerTagValue(settings.gamer_tag || "");
-                      setGamerTagEditing(true);
-                    }}
-                  >
-                    Edit
-                  </button>
-                </div>
-              )}
-              <p className="settings-page__pref-help">
-                Used for save game import/export operations
-              </p>
-            </div>
-
-            <div className="settings-page__pref-row">
-              <label className="settings-page__pref-label">
-                Click Behavior
-              </label>
-              <div className="settings-page__radio-group">
-                <label className="settings-page__radio">
-                  <input
-                    type="radio"
-                    name="clickBehavior"
-                    checked={settings.click_behavior === "single"}
-                    onChange={() => handleClickBehaviorChange("single")}
-                  />
-                  <span>Single click</span>
-                </label>
-                <label className="settings-page__radio">
-                  <input
-                    type="radio"
-                    name="clickBehavior"
-                    checked={settings.click_behavior === "double"}
-                    onChange={() => handleClickBehaviorChange("double")}
-                  />
-                  <span>Double click</span>
-                </label>
-              </div>
-              <p className="settings-page__pref-help">
-                How to open games in the library grid
-              </p>
-            </div>
-
-            <div className="settings-page__pref-row">
-              <label className="settings-page__pref-label">
-                Launch Environment Variables
-              </label>
+              <GroupTitle>Launch Environment</GroupTitle>
               {launchEnvEditing ? (
                 <div className="settings-page__pref-edit settings-page__pref-edit--stacked">
                   <textarea
@@ -239,38 +323,18 @@ export function SettingsPage() {
                     rows={6}
                   />
                   <div className="settings-page__preset-row">
-                    <button
-                      className="settings-page__edit-small"
-                      onClick={() => setLaunchEnvValue((current) => applyPreset(current, { MANGOHUD: "1" }))}
-                    >
+                    <button className="settings-page__edit-small" onClick={() => setLaunchEnvValue((c) => applyPreset(c, { MANGOHUD: "1" }))}>
                       Preset: MangoHud
                     </button>
-                    <button
-                      className="settings-page__edit-small"
-                      onClick={() => setLaunchEnvValue((current) => applyPreset(current, { LD_PRELOAD: "libgamemodeauto.so.0" }))}
-                    >
+                    <button className="settings-page__edit-small" onClick={() => setLaunchEnvValue((c) => applyPreset(c, { LD_PRELOAD: "libgamemodeauto.so.0" }))}>
                       Preset: GameMode
                     </button>
-                    <button
-                      className="settings-page__edit-small"
-                      title="gamescope is normally a wrapper command; this preset adds common env hints only"
-                      onClick={() => setLaunchEnvValue((current) => applyPreset(current, { ENABLE_GAMESCOPE_WSI: "1" }))}
-                    >
+                    <button className="settings-page__edit-small" onClick={() => setLaunchEnvValue((c) => applyPreset(c, { ENABLE_GAMESCOPE_WSI: "1" }))}>
                       Preset: gamescope
                     </button>
                   </div>
-                  <button
-                    className="settings-page__save-btn"
-                    onClick={handleLaunchEnvSave}
-                  >
-                    Save
-                  </button>
-                  <button
-                    className="settings-page__cancel-btn"
-                    onClick={() => setLaunchEnvEditing(false)}
-                  >
-                    Cancel
-                  </button>
+                  <button className="settings-page__save-btn" onClick={handleLaunchEnvSave}>Save</button>
+                  <button className="settings-page__cancel-btn" onClick={() => setLaunchEnvEditing(false)}>Cancel</button>
                 </div>
               ) : (
                 <div className="settings-page__pref-display settings-page__pref-display--stacked">
@@ -288,12 +352,6 @@ export function SettingsPage() {
                   </button>
                 </div>
               )}
-              <p className="settings-page__pref-help">
-                Extra KEY=VALUE entries applied to every launch. MangoHud example: MANGOHUD=1.
-                You can also use MANGOHUD_CONFIG or MANGOHUD_CONFIGFILE for custom overlays.
-                GameMode can often work via LD_PRELOAD=libgamemodeauto.so.0. gamescope usually requires a wrapper command,
-                so the preset here only adds a common env hint.
-              </p>
               <div className="settings-page__effective-env">
                 <div className="settings-page__pref-label">Effective Global Launch Environment</div>
                 <pre className="settings-page__pref-value settings-page__pref-value--multiline">
@@ -303,9 +361,7 @@ export function SettingsPage() {
             </div>
 
             <div className="settings-page__pref-row">
-              <label className="settings-page__pref-label">
-                Launch Wrapper / Prefix
-              </label>
+              <GroupTitle>Launch Wrapper</GroupTitle>
               {launchWrapperEditing ? (
                 <div className="settings-page__pref-edit settings-page__pref-edit--stacked">
                   <input
@@ -315,25 +371,11 @@ export function SettingsPage() {
                     placeholder="gamemoderun or gamescope --mangoapp --"
                   />
                   <div className="settings-page__preset-row">
-                    <button
-                      className="settings-page__edit-small"
-                      onClick={() => setLaunchWrapperValue("gamemoderun")}
-                    >
-                      Preset: GameMode
-                    </button>
-                    <button
-                      className="settings-page__edit-small"
-                      onClick={() => setLaunchWrapperValue("gamescope --mangoapp --")}
-                    >
-                      Preset: gamescope
-                    </button>
+                    <button className="settings-page__edit-small" onClick={() => setLaunchWrapperValue("gamemoderun")}>Preset: GameMode</button>
+                    <button className="settings-page__edit-small" onClick={() => setLaunchWrapperValue("gamescope --mangoapp --")}>Preset: gamescope</button>
                   </div>
-                  <button className="settings-page__save-btn" onClick={handleLaunchWrapperSave}>
-                    Save
-                  </button>
-                  <button className="settings-page__cancel-btn" onClick={() => setLaunchWrapperEditing(false)}>
-                    Cancel
-                  </button>
+                  <button className="settings-page__save-btn" onClick={handleLaunchWrapperSave}>Save</button>
+                  <button className="settings-page__cancel-btn" onClick={() => setLaunchWrapperEditing(false)}>Cancel</button>
                 </div>
               ) : (
                 <div className="settings-page__pref-display settings-page__pref-display--stacked">
@@ -363,11 +405,46 @@ export function SettingsPage() {
             </div>
           </div>
         )}
-      </section>
 
-      <ReleaseChannelCard />
+        {cat === "appearance" && (
+          <div className="aurora-settings__cols">
+            <div className="aurora-settings__col">
+              <GroupTitle>Theme</GroupTitle>
+              {THEME_OPTIONS.map(([id, label]) => (
+                <AuroraRadio key={id} label={label} active={prefs.theme === id} onClick={() => setPref("theme", id)} />
+              ))}
+              <div style={{ height: 18 }} />
+              <GroupTitle>Background</GroupTitle>
+              {TINT_OPTIONS.map(([id, label]) => (
+                <AuroraRadio key={id} label={label} active={prefs.fieldTint === id} onClick={() => setPref("fieldTint", id)} />
+              ))}
+            </div>
+            <div className="aurora-settings__col">
+              <GroupTitle>Effects</GroupTitle>
+              <AuroraCheck label="3D cover art" checked={prefs.cover3D} onClick={() => setPref("cover3D", !prefs.cover3D)} />
+              <AuroraCheck label="Reflections" checked={prefs.reflections} onClick={() => setPref("reflections", !prefs.reflections)} />
+              <AuroraCheck label="Ambient motion" checked={prefs.ambientMotion} onClick={() => setPref("ambientMotion", !prefs.ambientMotion)} />
+              <p className="aurora-help">Visual flourishes for the cover carousel and background.</p>
+            </div>
+          </div>
+        )}
 
-      <PackagedEnvironmentNotice />
+        {cat === "about" && (
+          <div className="aurora-settings__about">
+            <GroupTitle>About</GroupTitle>
+            <h3>Xenia Manager for Linux</h3>
+            <p>
+              A native desktop manager for the Xenia Xbox 360 emulator on Linux — install and
+              update builds, organize your library and saves, and apply per-game profiles and
+              patches, without touching a terminal.
+            </p>
+            <div style={{ marginTop: 24 }}>
+              <ReleaseChannelCard />
+              <PackagedEnvironmentNotice />
+            </div>
+          </div>
+        )}
+      </div>
 
       <EditPathsDialog open={editOpen} onClose={() => setEditOpen(false)} />
     </div>

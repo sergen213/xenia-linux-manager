@@ -12,6 +12,7 @@ use crate::events::EventSink;
 use crate::jobs::events;
 use crate::jobs::store;
 use crate::jobs::{JobRegistry, LogLevel};
+use crate::util::now_millis;
 use crate::xenia::archive;
 use crate::xenia::download;
 use crate::xenia::install_state::{self, InstallState};
@@ -42,22 +43,6 @@ pub fn get_install_status(app_data_path: String) -> InstallState {
     install_state::load_state(&app_data_path)
 }
 
-/// Check whether a newer release is available compared to the given tag.
-///
-/// Returns `Some(release)` if the latest release tag differs from the
-/// installed tag, or `None` if already up to date.
-pub async fn check_for_update(installed_tag: String) -> Result<Option<LinuxRelease>, String> {
-    let latest = releases::fetch_latest_linux_release(ReleaseChannel::Canary)
-        .await
-        .map_err(|e| e.to_string())?;
-
-    if latest.tag != installed_tag {
-        Ok(Some(latest))
-    } else {
-        Ok(None)
-    }
-}
-
 /// Check for updates using persisted install state.
 ///
 /// Combines loading the install state with fetching the latest release
@@ -70,19 +55,100 @@ pub async fn check_for_update_auto(
         Some(m) => m.clone(),
         None => return Ok(None),
     };
+
+    // The renderer calls this on every launch. Hitting GitHub each boot is
+    // wasted network that competes with the renderer's startup (and can trip
+    // Chromium's network service). Reuse a recent cached result for the same
+    // installed build instead of refetching.
+    let cache_path = update_check_cache_path(&app_data_path);
+    if let Some(cache) = read_update_check_cache(&cache_path) {
+        if cache_is_fresh(&cache, &manifest.build_id, now_millis()) {
+            return Ok(cache.latest);
+        }
+    }
+
     let latest = releases::fetch_latest_linux_release(manifest.channel)
         .await
         .map_err(|e| e.to_string())?;
-    if latest.build_id != manifest.build_id {
-        Ok(Some(latest))
-    } else {
-        Ok(None)
+    let result = (latest.build_id != manifest.build_id).then_some(latest);
+
+    write_update_check_cache(
+        &cache_path,
+        &UpdateCheckCache {
+            build_id: manifest.build_id,
+            checked_at_ms: now_millis(),
+            latest: result.clone(),
+        },
+    );
+
+    Ok(result)
+}
+
+/// How long an auto update-check result stays fresh before we refetch.
+const UPDATE_CHECK_TTL_MS: u64 = 6 * 60 * 60 * 1000; // 6 hours
+
+/// Persisted result of the last auto update check, to throttle per-launch
+/// network calls.
+#[derive(serde::Serialize, serde::Deserialize)]
+struct UpdateCheckCache {
+    build_id: String,
+    checked_at_ms: u64,
+    latest: Option<LinuxRelease>,
+}
+
+fn update_check_cache_path(app_data_path: &str) -> std::path::PathBuf {
+    std::path::PathBuf::from(app_data_path).join("xenia-update-check.json")
+}
+
+/// A cached auto-check result is reusable only for the same installed build and
+/// within the TTL — a different build or a stale entry forces a refetch.
+fn cache_is_fresh(cache: &UpdateCheckCache, build_id: &str, now: u64) -> bool {
+    cache.build_id == build_id && now.saturating_sub(cache.checked_at_ms) < UPDATE_CHECK_TTL_MS
+}
+
+fn read_update_check_cache(path: &std::path::Path) -> Option<UpdateCheckCache> {
+    let raw = std::fs::read_to_string(path).ok()?;
+    serde_json::from_str(&raw).ok()
+}
+
+fn write_update_check_cache(path: &std::path::Path, cache: &UpdateCheckCache) {
+    if let Ok(json) = serde_json::to_string(cache) {
+        let _ = std::fs::write(path, json); // best-effort; a miss just refetches
     }
 }
 
 // ---------------------------------------------------------------------------
 // Install and update commands
 // ---------------------------------------------------------------------------
+
+/// Register a lifecycle job, emit its created event, and spawn the pipeline.
+/// Shared by install / update / retry which differ only in label and category.
+fn spawn_lifecycle_job(
+    ctx: &AppCtx,
+    xenia_path: String,
+    app_data_path: String,
+    release: LinuxRelease,
+    label: String,
+    category: &str,
+    is_update: bool,
+) -> String {
+    let job_id = ctx.jobs.register(label, category.into());
+
+    if let Some(job) = ctx.jobs.get(&job_id) {
+        events::emit_job_created(&ctx.events, &job);
+    }
+
+    let reg = Arc::clone(&ctx.jobs);
+    let events = ctx.events.clone();
+    let jid = job_id.clone();
+
+    tokio::spawn(async move {
+        run_lifecycle_pipeline(&xenia_path, events, &reg, &jid, &app_data_path, &release, is_update)
+            .await;
+    });
+
+    job_id
+}
 
 /// Start a Xenia install job in the background.
 ///
@@ -99,26 +165,8 @@ pub async fn start_install(
     app_data_path: String,
     release: LinuxRelease,
 ) -> Result<String, String> {
-    let job_id = ctx.jobs.register(
-        format!("Install {} {}", release.channel.display_name(), &release.tag),
-        "install".into(),
-    );
-
-    // Emit job-created event.
-    if let Some(job) = ctx.jobs.get(&job_id) {
-        events::emit_job_created(&ctx.events, &job);
-    }
-
-    let reg = Arc::clone(&ctx.jobs);
-    let events = ctx.events.clone();
-    let jid = job_id.clone();
-    let data_path = app_data_path.clone();
-
-    tokio::spawn(async move {
-        run_lifecycle_pipeline(&xenia_path, events, &reg, &jid, &data_path, &release, false).await;
-    });
-
-    Ok(job_id)
+    let label = format!("Install {} {}", release.channel.display_name(), &release.tag);
+    Ok(spawn_lifecycle_job(ctx, xenia_path, app_data_path, release, label, "install", false))
 }
 
 /// Start a Xenia update job in the background.
@@ -131,25 +179,8 @@ pub async fn start_update(
     app_data_path: String,
     release: LinuxRelease,
 ) -> Result<String, String> {
-    let job_id = ctx.jobs.register(
-        format!("Update {} to {}", release.channel.display_name(), &release.tag),
-        "update".into(),
-    );
-
-    if let Some(job) = ctx.jobs.get(&job_id) {
-        events::emit_job_created(&ctx.events, &job);
-    }
-
-    let reg = Arc::clone(&ctx.jobs);
-    let events = ctx.events.clone();
-    let jid = job_id.clone();
-    let data_path = app_data_path.clone();
-
-    tokio::spawn(async move {
-        run_lifecycle_pipeline(&xenia_path, events, &reg, &jid, &data_path, &release, true).await;
-    });
-
-    Ok(job_id)
+    let label = format!("Update {} to {}", release.channel.display_name(), &release.tag);
+    Ok(spawn_lifecycle_job(ctx, xenia_path, app_data_path, release, label, "update", true))
 }
 
 /// Retry the last failed lifecycle operation.
@@ -183,22 +214,7 @@ pub async fn retry_last_operation(
         format!("Retry install {} {}", release.channel.display_name(), &release.tag)
     };
 
-    let job_id = ctx.jobs.register(label, category.into());
-
-    if let Some(job) = ctx.jobs.get(&job_id) {
-        events::emit_job_created(&ctx.events, &job);
-    }
-
-    let reg = Arc::clone(&ctx.jobs);
-    let events = ctx.events.clone();
-    let jid = job_id.clone();
-    let data_path = app_data_path.clone();
-
-    tokio::spawn(async move {
-        run_lifecycle_pipeline(&xenia_path, events, &reg, &jid, &data_path, &release, is_update).await;
-    });
-
-    Ok(job_id)
+    Ok(spawn_lifecycle_job(ctx, xenia_path, app_data_path, release, label, category, is_update))
 }
 
 // ---------------------------------------------------------------------------
@@ -401,7 +417,7 @@ async fn run_lifecycle_pipeline(
     log_and_emit(&events, registry, job_id, "Promoting staged build...", LogLevel::Info);
 
     let (final_exec, install_dir) =
-        match lifecycle::promote_staged_build(xenia_path, app_data_path, release, &exec_path).await {
+        match lifecycle::promote_staged_build(xenia_path, release, &exec_path).await {
             Ok(result) => {
                 log_and_emit(
                     &events,
@@ -533,6 +549,22 @@ fn fail_job(
 mod tests {
     use super::*;
     use crate::xenia::install_state::{LifecycleStatus, RetryMode};
+
+    #[test]
+    fn update_check_cache_freshness() {
+        let cache = UpdateCheckCache {
+            build_id: "canary:abc".into(),
+            checked_at_ms: 1_000_000,
+            latest: None,
+        };
+        let now = 1_000_000 + UPDATE_CHECK_TTL_MS - 1;
+        // Same build, within TTL → reuse (skip the GitHub fetch).
+        assert!(cache_is_fresh(&cache, "canary:abc", now));
+        // Past the TTL → refetch.
+        assert!(!cache_is_fresh(&cache, "canary:abc", now + 2));
+        // Different installed build → refetch regardless of age.
+        assert!(!cache_is_fresh(&cache, "edge:xyz", now));
+    }
 
     fn sample_release() -> LinuxRelease {
         LinuxRelease {
@@ -718,7 +750,7 @@ mod tests {
         let dir = temp_dir("remove-install");
 
         // Create install directory.
-        let install = install_state::install_dir(&format!("{}/xenia", dir));
+        let install = std::path::PathBuf::from(format!("{}/xenia", dir));
         std::fs::create_dir_all(&install).unwrap();
         std::fs::write(install.join("xenia_canary"), "build").unwrap();
 

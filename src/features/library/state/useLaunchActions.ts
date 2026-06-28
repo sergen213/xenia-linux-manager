@@ -36,6 +36,8 @@ export function useLaunchActions() {
       dispatch({ type: "SET_LAUNCH_PENDING", pending: true });
       try {
         await launchLibraryGame(appDataPath, libPath, gameId, allowUnsafe);
+        // Mark as playing; cleared by the `game:exited` listener in LibraryProvider.
+        dispatch({ type: "SET_PLAYING", gameId });
         // Refresh library to update last played times
         const browse = await browseLibrary(libPath);
         dispatch({ type: "BROWSE_LOADED", browse });

@@ -55,6 +55,20 @@ const STUB = `
     has_pubkey: false, has_endpoints: false };
   const META = { version: "0.1.0", build_kind: "development", build_kind_label: "Development",
     architecture: "x86_64", release_notes_url: "#", updater: READY };
+  const mkCard = (i, title) => ({ game_id: "g" + i, title,
+    executable_path: "/games/g" + i + "/default.xex", source_id: "s1", source_label: "Games",
+    kind: "Xbox 360", confidence: "high", artwork_path: null, manual: false, review_flag: false,
+    duplicate_badge_count: 0, last_played_at: 1589155200000 - i * 86400000 });
+  const CARDS = [
+    "Peter Jackson's King Kong", "Halo 3", "Gears of War", "Forza Horizon",
+    "Fable II", "Mass Effect", "Crackdown", "Banjo-Kazooie",
+  ].map((t, i) => mkCard(i + 1, t));
+  const CARD = CARDS[0];
+  const DETAILS = { ...CARD, title_id: "4D5307D5", preferred_xenia_tag: null,
+    launch_environment: null, launch_wrapper: null, duplicate_count: 0, issue_notes: [],
+    running_session_started_at: null, evidence: [], scan_history: [] };
+  const CONTENT = { game_id: "g1", game_title: CARD.title, title_id: "4D5307D5",
+    content_root: "/x", exists: false, entries: [] };
   const H = {
     load_settings: () => [S, VAL], get_default_settings: () => S,
     validate_paths: () => VAL, save_settings: () => VAL,
@@ -62,10 +76,26 @@ const STUB = `
     get_release_metadata: () => META, get_updater_readiness: () => READY,
     get_environment_diagnostics: () => [], fetch_latest_release: () => null, fetch_recent_releases: () => [],
     get_library_status: () => ({ sources: [], active_scans: 0, queued_scans: 0 }),
-    browse_library: () => ({ cards: [], total: 0 }), get_review_inbox: () => ({ items: [] }),
+    browse_library: () => ({ cards: CARDS, review_inbox_count: 0, review_duplicate_count: 0, review_low_confidence_count: 0 }),
+    get_library_game_details: () => DETAILS, inspect_game_content: () => CONTENT,
     get_source_catalog: () => ({ candidates: [] }), get_all_catalogs: () => [],
     list_library_sources: () => [], list_save_backups: () => [], list_game_profiles: () => [],
     get_task_history: () => [], load_task_history: () => [],
+    // FolderBrowser (in-app, controller-mode folder picker) expects a
+    // { path, parent, entries } listing; the [] default breaks its shape.
+    // No regex here — backslashes get eaten by the injected-script template.
+    list_directory: (p) => {
+      let path = (p && p.path) || "/home/player";
+      if (path.length > 1 && path.endsWith("/")) path = path.slice(0, -1);
+      const slash = path.lastIndexOf("/");
+      const parent = path === "/" ? null : slash > 0 ? path.slice(0, slash) : "/";
+      const base = path === "/" ? "" : path;
+      const entries = ["Games", "Xbox360", "Saves", "Downloads"].map((name) => ({
+        name,
+        path: base + "/" + name,
+      }));
+      return { path, parent, entries };
+    },
   };
   window.xlm = {
     invoke: (k, p) => Promise.resolve(H[k] ? H[k](p) : []),

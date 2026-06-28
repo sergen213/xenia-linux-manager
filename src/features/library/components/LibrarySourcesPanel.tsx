@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { open as openDialog } from "../../../platform/bridge";
 import { openPath } from "../api/libraryClient";
 import { useLibrary } from "../state/libraryStore";
@@ -14,6 +14,7 @@ import {
 } from "../api/libraryClient";
 import type { PatchesVersionInfo } from "../api/libraryClient";
 import type { LibrarySource } from "../model/libraryTypes";
+import { FolderBrowser } from "./FolderBrowser";
 import "./LibrarySourcesPanel.css";
 
 interface LibrarySourcesPanelProps {
@@ -26,6 +27,19 @@ export function LibrarySourcesPanel({ onRefreshLibrary, appDataPath }: LibrarySo
   const { state: settingsState } = useSettings();
   const [newPath, setNewPath] = useState("");
   const [adding, setAdding] = useState(false);
+  const [browseOpen, setBrowseOpen] = useState(false);
+  const addBtnRef = useRef<HTMLButtonElement>(null);
+  // Set when a folder is picked via the browser, so focus jumps to Add Source
+  // once newPath commits (the button is disabled until then). Typing also sets
+  // newPath but leaves this false, so it never steals focus mid-type.
+  const pendingAddFocus = useRef(false);
+
+  useEffect(() => {
+    if (pendingAddFocus.current && newPath.trim() && addBtnRef.current) {
+      pendingAddFocus.current = false;
+      addBtnRef.current.focus();
+    }
+  }, [newPath]);
   const [patchStatus, setPatchStatus] = useState<PatchesVersionInfo | null>(null);
   const [deploying, setDeploying] = useState(false);
 
@@ -102,6 +116,13 @@ export function LibrarySourcesPanel({ onRefreshLibrary, appDataPath }: LibrarySo
   }, [newPath, libPath, dispatch, refreshStatus]);
 
   const handleBrowse = useCallback(async () => {
+    // Controllers can't navigate the native OS file dialog, so in controller mode
+    // open the in-app, gamepad-steerable folder browser instead. Mouse/keyboard
+    // keep the native picker (familiar and faster).
+    if (document.body.classList.contains("using-controller")) {
+      setBrowseOpen(true);
+      return;
+    }
     try {
       const selected = await openDialog({
         directory: true,
@@ -212,6 +233,7 @@ export function LibrarySourcesPanel({ onRefreshLibrary, appDataPath }: LibrarySo
           Browse
         </button>
         <button
+          ref={addBtnRef}
           className="sources-panel__btn sources-panel__btn--primary ui-button ui-button--primary ui-button--small"
           onClick={handleAdd}
           disabled={adding || !newPath.trim()}
@@ -320,6 +342,18 @@ export function LibrarySourcesPanel({ onRefreshLibrary, appDataPath }: LibrarySo
             Dismiss
           </button>
         </div>
+      )}
+
+      {browseOpen && (
+        <FolderBrowser
+          initialPath={newPath.trim() || undefined}
+          onClose={() => setBrowseOpen(false)}
+          onSelect={(p) => {
+            pendingAddFocus.current = true;
+            setNewPath(p);
+            setBrowseOpen(false);
+          }}
+        />
       )}
     </div>
   );

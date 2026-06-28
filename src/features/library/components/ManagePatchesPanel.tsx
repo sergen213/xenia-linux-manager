@@ -98,7 +98,7 @@ export function ManagePatchesPanel({ titleId, appDataPath, hasTitleUpdate, onImp
     setToggling(entryName);
     setError(null);
     try {
-      await toggleXeniaPatchEntry(appDataPath, filePath, entryName, enabled);
+      await toggleXeniaPatchEntry(filePath, entryName, enabled);
       // Reload without loading spinner to keep scroll position
       await loadPatches(false);
     } catch (err) {

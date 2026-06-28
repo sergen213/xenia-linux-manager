@@ -8,6 +8,8 @@ function fakeWin() {
     unmaximize: vi.fn(),
     close: vi.fn(),
     isMaximized: vi.fn(() => false),
+    isFullScreen: vi.fn(() => false),
+    setFullScreen: vi.fn(),
     isDestroyed: vi.fn(() => false),
   }
 }
@@ -44,6 +46,17 @@ describe('registerWindowControls', () => {
     registerWindowControls({ handle, getWindow: () => win })
     handlers.get('xlm:win:toggleMaximize')!()
     expect(win.maximize).toHaveBeenCalledOnce()
+    expect(win.unmaximize).not.toHaveBeenCalled()
+  })
+
+  it('toggleMaximize exits fullscreen in one click (does not maximize)', () => {
+    const win = fakeWin()
+    win.isFullScreen.mockReturnValue(true)
+    const { handlers, handle } = collectHandlers()
+    registerWindowControls({ handle, getWindow: () => win })
+    handlers.get('xlm:win:toggleMaximize')!()
+    expect(win.setFullScreen).toHaveBeenCalledWith(false)
+    expect(win.maximize).not.toHaveBeenCalled()
     expect(win.unmaximize).not.toHaveBeenCalled()
   })
 

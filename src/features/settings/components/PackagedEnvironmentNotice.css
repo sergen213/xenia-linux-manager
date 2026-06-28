@@ -8,7 +8,7 @@
 
 .env-notice__title {
   font-size: var(--font-size-base);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
   margin-bottom: 0.75rem;
 }
@@ -16,7 +16,7 @@
 .env-notice__summary {
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
-  line-height: 1.5;
+  line-height: var(--line-height-normal);
   margin-bottom: 1rem;
 }
 
@@ -49,7 +49,7 @@
 
 .env-notice__sub-title {
   font-size: var(--font-size-sm);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
   margin-bottom: 0.25rem;
 }
@@ -78,7 +78,7 @@
 .env-notice__severity-icon {
   flex-shrink: 0;
   font-size: var(--font-size-sm);
-  line-height: 1.5;
+  line-height: var(--line-height-normal);
 }
 
 .env-notice__severity-icon--warning {
@@ -92,7 +92,7 @@
 .env-notice__item-summary {
   font-size: var(--font-size-sm);
   color: var(--color-text-primary);
-  line-height: 1.5;
+  line-height: var(--line-height-normal);
 }
 
 .env-notice__detail-toggle {
@@ -130,5 +130,5 @@
   overflow-x: auto;
   max-height: 200px;
   overflow-y: auto;
-  line-height: 1.4;
+  line-height: var(--line-height-snug);
 }

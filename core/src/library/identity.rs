@@ -9,10 +9,31 @@ use std::collections::hash_map::DefaultHasher;
 use std::fs;
 use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Mutex;
+
+use crate::util::now_millis;
 
 const IDENTITY_FILENAME: &str = "library-identity.json";
 const STORE_VERSION: u32 = 1;
+
+/// Serializes every load→mutate→save of the identity store. The sidecar runs
+/// each JSON-RPC request on its own tokio task (see `bin/xlm-core.rs`), so two
+/// writers could otherwise race: each loads a snapshot, mutates one field, and
+/// writes the *whole* store back — the later save reverts the earlier one (a
+/// lost update). On a cold start this blanked freshly-fetched cover art (the
+/// `.jpg` was on disk but its `artwork_path` got clobbered out of the store),
+/// fixed only by a restart. Hold the returned guard across BOTH the load and
+/// the save; never `.await` while holding it (the fs ops here are blocking).
+static IDENTITY_WRITE_LOCK: Mutex<()> = Mutex::new(());
+
+/// Acquire the identity-store write lock. Recovers from poisoning — a panicked
+/// writer must not wedge the whole library.
+pub fn lock_identity_store() -> std::sync::MutexGuard<'static, ()> {
+    IDENTITY_WRITE_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -157,7 +178,11 @@ pub fn save_identity_store(
     }
     let data = serde_json::to_string_pretty(store)
         .map_err(|e| format!("Failed to serialize identity store: {e}"))?;
-    let tmp = path.with_extension("json.tmp");
+    // Unique temp name (pid + counter) so two concurrent saves never write the
+    // same temp file and publish a torn JSON via rename.
+    static TMP_SEQ: AtomicU64 = AtomicU64::new(0);
+    let seq = TMP_SEQ.fetch_add(1, Ordering::Relaxed);
+    let tmp = path.with_extension(format!("json.tmp.{}.{seq}", std::process::id()));
     fs::write(&tmp, data).map_err(|e| format!("Failed to write identity store: {e}"))?;
     fs::rename(&tmp, &path).map_err(|e| format!("Failed to rename identity store: {e}"))?;
     Ok(())
@@ -233,6 +258,7 @@ pub fn create_manual_game(
     library_metadata_path: &str,
     input: ManualGameInput,
 ) -> Result<GameIdentityRecord, String> {
+    let _guard = lock_identity_store();
     let mut store = load_identity_store(library_metadata_path);
     let now = now_millis();
     let manual_key = format!(
@@ -277,6 +303,7 @@ fn mutate_game(
     game_id: &str,
     mutate: impl FnOnce(&mut GameIdentityRecord, u64),
 ) -> Result<GameIdentityRecord, String> {
+    let _guard = lock_identity_store();
     let mut store = load_identity_store(library_metadata_path);
     let now = now_millis();
     let record = store
@@ -369,6 +396,7 @@ pub fn apply_duplicate_resolution(
     library_metadata_path: &str,
     input: DuplicateResolutionInput,
 ) -> Result<DuplicateResolutionRecord, String> {
+    let _guard = lock_identity_store();
     let mut store = load_identity_store(library_metadata_path);
     let now = now_millis();
     let resolution = DuplicateResolutionRecord {
@@ -406,13 +434,6 @@ pub fn record_launch_started(
             game_executable: record.executable_path.clone(),
         });
     })
-}
-
-fn now_millis() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis() as u64
 }
 
 #[cfg(test)]

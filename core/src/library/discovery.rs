@@ -9,7 +9,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::time::SystemTime;
+
+use crate::util::now_millis;
 
 // ---------------------------------------------------------------------------
 // Candidate model
@@ -469,13 +470,6 @@ pub fn derive_label(path: &Path) -> String {
 
 fn file_size(path: &Path) -> u64 {
     fs::metadata(path).map(|m| m.len()).unwrap_or(0)
-}
-
-fn now_millis() -> u64 {
-    SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis() as u64
 }
 
 // ---------------------------------------------------------------------------

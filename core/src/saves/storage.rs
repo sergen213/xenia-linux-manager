@@ -5,7 +5,8 @@
 
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::time::{SystemTime, UNIX_EPOCH};
+
+use crate::util::now_millis;
 
 // ---------------------------------------------------------------------------
 // Backup creation
@@ -161,13 +162,6 @@ fn sanitize_label(label: &str) -> String {
         })
         .take(40)
         .collect()
-}
-
-fn now_millis() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis() as u64
 }
 
 // ---------------------------------------------------------------------------

@@ -35,27 +35,12 @@ function actionLabel(action: ConflictAction): string {
   }
 }
 
-function policyDescription(policy: string): string {
-  switch (policy) {
-    case "replace_all":
-      return "Replace all -- existing local files that conflict with the archive will be overwritten. A backup of your current save state will be created before any changes are applied.";
-    case "keep_both_if_possible":
-      return "Keep both if possible -- conflicting items will be renamed so both the local and imported versions are preserved side by side.";
-    case "cancel":
-      return "Cancel -- no changes will be made.";
-    default:
-      return policy;
-  }
-}
+const POLICY_DESCRIPTION =
+  "Keep both if possible -- conflicting items will be renamed so both the local and imported versions are preserved side by side.";
 
 /**
- * Side-by-side conflict summary showing per-item classifications,
- * the selected policy, and cautious overwrite messaging.
- *
- * Only offers the three approved conflict actions:
- * - Replace all
- * - Keep both if possible
- * - Cancel
+ * Side-by-side conflict summary showing per-item classifications and
+ * cautious overwrite messaging. The import policy is always keep-both.
  */
 export function SaveConflictPreview({
   plan,
@@ -93,8 +78,7 @@ export function SaveConflictPreview({
       </div>
 
       <div className="save-wizard__info">
-        <strong>Selected policy:</strong>{" "}
-        {policyDescription(plan.policy)}
+        <strong>Selected policy:</strong> {POLICY_DESCRIPTION}
       </div>
 
       <div className="save-results__summary">
@@ -163,13 +147,9 @@ export function SaveConflictPreview({
       )}
 
       <div className="save-wizard__actions">
-        {plan.policy !== "cancel" && (
-          <button type="button" onClick={onAccept}>
-            {plan.policy === "replace_all"
-              ? "Replace all"
-              : "Keep both if possible"}
-          </button>
-        )}
+        <button type="button" onClick={onAccept}>
+          Keep both if possible
+        </button>
         <button type="button" onClick={onCancel}>
           Cancel
         </button>

@@ -70,7 +70,7 @@ export interface InstallState {
 // ---------------------------------------------------------------------------
 
 /** The primary action the dashboard should present based on lifecycle state. */
-export type PrimaryAction = "install" | "update" | "retry" | "check_update";
+export type PrimaryAction = "install" | "update" | "retry";
 
 /** Human-readable label for a lifecycle status. */
 export function lifecycleStatusLabel(status: LifecycleStatus): string {

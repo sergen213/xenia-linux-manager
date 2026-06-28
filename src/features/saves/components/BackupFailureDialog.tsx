@@ -1,6 +1,5 @@
 interface BackupFailureDialogProps {
   error: string;
-  accepted: boolean;
   onAcceptRisk: () => void;
   onCancel: () => void;
 }
@@ -11,7 +10,6 @@ interface BackupFailureDialogProps {
  */
 export function BackupFailureDialog({
   error,
-  accepted,
   onAcceptRisk,
   onCancel,
 }: BackupFailureDialogProps) {
@@ -28,24 +26,15 @@ export function BackupFailureDialog({
       <p>
         <strong>Error detail:</strong> {error}
       </p>
-      {!accepted && (
-        <p>
-          If you choose to continue without a backup, any existing save files
-          that are overwritten cannot be recovered automatically. You may want to
-          manually copy your save directory before proceeding.
-        </p>
-      )}
+      <p>
+        If you choose to continue without a backup, any existing save files
+        that are overwritten cannot be recovered automatically. You may want to
+        manually copy your save directory before proceeding.
+      </p>
       <div className="save-wizard__actions">
-        {!accepted && (
-          <button type="button" onClick={onAcceptRisk}>
-            I understand the risk -- proceed without backup
-          </button>
-        )}
-        {accepted && (
-          <p>
-            Risk acknowledged. The import will proceed without a backup.
-          </p>
-        )}
+        <button type="button" onClick={onAcceptRisk}>
+          I understand the risk -- proceed without backup
+        </button>
         <button type="button" onClick={onCancel}>
           Cancel import
         </button>

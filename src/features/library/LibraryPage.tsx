@@ -1,39 +1,45 @@
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useSettings } from "../settings/state/settingsStore";
 import { useSaves } from "../saves/state/savesStore";
 import { useSaveExportActions } from "../saves/state/useSaveExportActions";
 import { useNavigate } from "react-router-dom";
+import { importXeniaPatchFile } from "./api/libraryClient";
+import { AuroraDetails } from "./components/aurora/AuroraDetails";
 import {
-  importXeniaPatchFile,
-} from "./api/libraryClient";
-import { LibrarySourcesPanel } from "./components/LibrarySourcesPanel";
-import { LibraryFiltersBar } from "./components/LibraryFiltersBar";
-import { LibraryGrid } from "./components/LibraryGrid";
-import { ManualGameForm } from "./components/ManualGameForm";
-import { GameDetailsPanel } from "./components/GameDetailsPanel";
-import {
-  selectVisibleLibraryCards,
-  useLibrary,
-} from "./state/libraryStore";
+  LibraryCarousel,
+  LibraryGridWall,
+  LibraryInfoBar,
+  LibraryZoomControl,
+  GridTopBar,
+} from "./components/aurora/LibraryLayouts";
+import { DetailsModal } from "./components/aurora/DetailsModal";
+import { selectVisibleLibraryCards, useLibrary } from "./state/libraryStore";
 import { useLibraryBrowse } from "./state/useLibraryBrowse";
 import { useGameDetails } from "./state/useGameDetails";
 import { useLaunchActions } from "./state/useLaunchActions";
 import { useProfileActions } from "../profiles/state/useProfileActions";
 import { mergeProfileDraft, profileDraftIsDirty } from "./model/profileDraft";
+import { useAuroraPrefs, clampZoom, ZOOM_STEP } from "../../theme/auroraPrefs";
 import "./LibraryPage.css";
+import "./components/aurora/LibraryAurora.css";
 
 export function LibraryPage() {
   const { state, dispatch } = useLibrary();
   const { dispatch: savesDispatch } = useSaves();
   const { state: settingsState } = useSettings();
+  const { prefs, setPref } = useAuroraPrefs();
   const navigate = useNavigate();
+
+  const applyZoom = useCallback(
+    (delta: number) => setPref("zoom", clampZoom(prefs.zoom + delta * ZOOM_STEP)),
+    [setPref, prefs.zoom],
+  );
 
   const libPath = settingsState.settings?.library_metadata_path ?? "";
   const appDataPath = settingsState.settings?.app_data_path ?? "";
   const xeniaPath = settingsState.settings?.xenia_path ?? "";
 
-  // Hooks for encapsulated functionality
-  const { refreshLibrary, addManualGame } = useLibraryBrowse();
+  const { refreshLibrary } = useLibraryBrowse();
   const { saveIdentity } = useGameDetails();
   const launchActions = useLaunchActions();
   const profileActions = useProfileActions();
@@ -47,116 +53,120 @@ export function LibraryPage() {
   });
 
   const visibleCards = useMemo(() => selectVisibleLibraryCards(state), [state]);
+  const sel = Math.max(
+    0,
+    visibleCards.findIndex((c) => c.game_id === state.selectedGameId),
+  );
+  const focusTitle = visibleCards[sel]?.title ?? "";
 
-  const handleSelectGame = useCallback((gameId: string) => {
-    if (profileActions.profileDirty && gameId !== state.selectedGameId) {
-      profileActions.showUnsavedDialog(gameId);
-      return;
+  const handleSelectGame = useCallback(
+    (gameId: string) => {
+      if (profileActions.profileDirty && gameId !== state.selectedGameId) {
+        profileActions.showUnsavedDialog(gameId);
+        return;
+      }
+      dispatch({ type: "SELECT_GAME", gameId });
+    },
+    [profileActions, state.selectedGameId, dispatch],
+  );
+
+  const handleActivateGame = useCallback(
+    async (gameId: string) => {
+      if (profileActions.profileDirty && gameId !== state.selectedGameId) {
+        profileActions.showUnsavedDialog(gameId);
+        return;
+      }
+      dispatch({ type: "SELECT_GAME", gameId });
+      await launchActions.launchGameById(gameId, true);
+    },
+    [profileActions, state.selectedGameId, dispatch, launchActions],
+  );
+
+  // Click a card: center it; re-click the centered card opens Details.
+  const pick = useCallback(
+    (index: number) => {
+      const card = visibleCards[index];
+      if (!card) return;
+      if (card.game_id === state.selectedGameId) dispatch({ type: "OPEN_DETAILS" });
+      else handleSelectGame(card.game_id);
+    },
+    [visibleCards, state.selectedGameId, dispatch, handleSelectGame],
+  );
+
+  const activate = useCallback(
+    (index: number) => {
+      const card = visibleCards[index];
+      if (card) void handleActivateGame(card.game_id);
+    },
+    [visibleCards, handleActivateGame],
+  );
+
+  // Shell controls (A / Enter) request a launch by bumping launchRequestId.
+  const lastLaunchReq = useRef(0);
+  useEffect(() => {
+    if (state.launchRequestId > 0 && state.launchRequestId !== lastLaunchReq.current) {
+      lastLaunchReq.current = state.launchRequestId;
+      void launchActions.launch(true);
     }
-    dispatch({ type: "SELECT_GAME", gameId });
-  }, [profileActions, state.selectedGameId, dispatch]);
+  }, [state.launchRequestId, launchActions]);
 
-  const handleActivateGame = useCallback(async (gameId: string) => {
-    if (profileActions.profileDirty && gameId !== state.selectedGameId) {
-      profileActions.showUnsavedDialog(gameId);
-      return;
-    }
-    dispatch({ type: "SELECT_GAME", gameId });
-    await launchActions.launchGameById(gameId, true);
-  }, [profileActions, state.selectedGameId, dispatch, launchActions]);
-
-  // Sync selected game to saves store
+  // Sync selected game to saves + profiles stores.
   useEffect(() => {
     savesDispatch({ type: "SET_ACTIVE_GAME", gameId: state.selectedGameId });
   }, [state.selectedGameId, savesDispatch]);
 
-  // Sync selected game to profiles store and load profile inventory.
-  // Important: depend on stable callbacks, not the whole profileActions object,
-  // otherwise this effect reruns on every render and can thrash profile state.
   useEffect(() => {
     setActiveGame(state.selectedGameId);
-    if (state.selectedGameId) {
-      void loadProfiles(state.selectedGameId);
-    }
+    if (state.selectedGameId) void loadProfiles(state.selectedGameId);
   }, [state.selectedGameId, setActiveGame, loadProfiles]);
 
-  // Clear status message when game changes
   useEffect(() => {
     launchActions.clearStatusMessage();
   }, [state.selectedGameId, launchActions.clearStatusMessage]);
 
+  const mode = prefs.viewMode;
+  const loading = state.loading && !state.browse;
+  const empty = visibleCards.length === 0;
+
   return (
-    <div className="library-page">
-      <header className="library-page__header">
-        <div>
-          <h2 className="library-page__title">Library</h2>
-          <p className="library-page__subtitle">
-            Manage your Xbox 360 collection — organize games, configure
-            patches and profiles, and launch from here.
-          </p>
+    <div className="aurora-library">
+      {loading ? (
+        <div className="aurora-library__empty">
+          <h3>Loading library…</h3>
         </div>
-        <div className="library-page__tabs">
-          <button
-            type="button"
-            className={state.selectedView === "library" ? "is-active" : ""}
-            onClick={() => dispatch({ type: "SET_VIEW", view: "library" })}
-          >
-            Library
-          </button>
-          <button
-            type="button"
-            className={state.selectedView === "sources" ? "is-active" : ""}
-            onClick={() => dispatch({ type: "SET_VIEW", view: "sources" })}
-          >
-            Sources &amp; Scan
-          </button>
+      ) : empty ? (
+        <div className="aurora-library__empty">
+          <h3>No games yet</h3>
+          <p>Add a library source under Settings → Library to populate your collection.</p>
         </div>
-      </header>
-
-      {state.selectedView === "sources" && (
+      ) : mode === "grid" ? (
         <>
-          <div className="library-page__section">
-            <LibrarySourcesPanel onRefreshLibrary={() => refreshLibrary()} appDataPath={appDataPath} />
-          </div>
-
-          <div className="library-page__section">
-            <ManualGameForm
-              onSubmit={async (payload) => {
-                await addManualGame(payload);
-                dispatch({ type: "SET_VIEW", view: "library" });
-              }}
-            />
-          </div>
+          <GridTopBar
+            total={visibleCards.length}
+            search={state.search}
+            sortMode={state.sortMode}
+            zoom={prefs.zoom}
+            onSearch={(search) => dispatch({ type: "SET_SEARCH", search })}
+            onSort={(sortMode) => dispatch({ type: "SET_SORT", sortMode })}
+            onZoom={applyZoom}
+          />
+          <LibraryGridWall cards={visibleCards} sel={sel} zoom={prefs.zoom} onPick={pick} onActivate={activate} />
+        </>
+      ) : (
+        <>
+          <LibraryCarousel variant={mode === "rail" ? "rail" : "blade"} cards={visibleCards} sel={sel} cover3D={prefs.cover3D} reflections={prefs.reflections} zoom={prefs.zoom} onPick={pick} onActivate={activate} />
+          <LibraryInfoBar title={focusTitle} pos={sel + 1} total={visibleCards.length} />
         </>
       )}
 
-      {state.selectedView === "library" && (
-        <div className="library-page__section">
-          <LibraryFiltersBar
-            search={state.search}
-            sortMode={state.sortMode}
-            filterMode={state.filterMode}
-            onSearchChange={(search) => dispatch({ type: "SET_SEARCH", search })}
-            onSortChange={(sortMode) => dispatch({ type: "SET_SORT", sortMode })}
-            onFilterChange={(filterMode) => dispatch({ type: "SET_FILTER", filterMode })}
-          />
-        </div>
+      {/* Carousel views: float the control in the bottom-right info-bar strip
+          (clear of the reel). Grid hosts it in its top bar instead. */}
+      {!loading && !empty && (mode === "blade" || mode === "rail") && (
+        <LibraryZoomControl zoom={prefs.zoom} onZoom={applyZoom} />
       )}
 
-      {state.selectedView !== "sources" && <div className="library-page__workspace">
-        <div className="library-page__main">
-          {state.selectedView === "library" && (
-            <LibraryGrid
-              cards={visibleCards}
-              selectedGameId={state.selectedGameId}
-              clickBehavior={settingsState.settings?.click_behavior ?? "double"}
-              onSelectGame={handleSelectGame}
-              onActivateGame={handleActivateGame}
-            />
-          )}
-        </div>
-
-        <GameDetailsPanel
+      <DetailsModal open={state.detailsOpen} onClose={() => dispatch({ type: "CLOSE_DETAILS" })}>
+        <AuroraDetails
           details={state.selectedGame}
           shortcutExportPending={launchActions.shortcutExportPending}
           shortcutStatusMessage={launchActions.shortcutStatusMessage}
@@ -165,7 +175,6 @@ export function LibraryPage() {
           libraryMetadataPath={libPath}
           launchPending={launchActions.launchPending}
           onLaunch={() => launchActions.launch(true)}
-          managePatchesOpen={state.managePatchesOpen}
           patchImportPending={state.patchImportPending}
           onSaveIdentity={async (payload) => {
             await saveIdentity(payload);
@@ -186,14 +195,10 @@ export function LibraryPage() {
           onGameLaunchWrapperChange={async (launchWrapper) => {
             await launchActions.changeGameLaunchWrapper(launchWrapper);
           }}
-          onManagePatchesToggle={() =>
-            dispatch({ type: "SET_MANAGE_PATCHES_OPEN", open: !state.managePatchesOpen })
-          }
           onImportPatch={async (input) => {
             dispatch({ type: "SET_PATCH_IMPORT_PENDING", pending: true });
             try {
               await importXeniaPatchFile(appDataPath, input);
-              dispatch({ type: "SET_MANAGE_PATCHES_OPEN", open: true });
             } finally {
               dispatch({ type: "SET_PATCH_IMPORT_PENDING", pending: false });
             }
@@ -201,7 +206,6 @@ export function LibraryPage() {
           profileInventory={profileActions.profileInventory}
           profileEffectiveConfig={profileActions.profileEffectiveConfig}
           profileEffectiveLoading={profileActions.profileEffectiveLoading}
-          profileEditorOpen={profileActions.profileEditorOpen}
           profileDraft={profileActions.profileDraft}
           profileDirty={profileActions.profileDirty}
           profileSavePending={profileActions.profileSavePending}
@@ -212,15 +216,6 @@ export function LibraryPage() {
             if (state.selectedGameId) {
               await profileActions.applyRecommendation(state.selectedGameId);
             }
-          }}
-          onProfileEditorToggle={() => {
-            if (!state.selectedGameId) {
-              return;
-            }
-            if (!profileActions.profileEditorOpen) {
-              void loadProfiles(state.selectedGameId);
-            }
-            profileActions.setProfileEditorOpen(!profileActions.profileEditorOpen);
           }}
           onProfileDraftChange={(draft) => {
             profileActions.setProfileDraft(draft);
@@ -236,9 +231,7 @@ export function LibraryPage() {
               await profileActions.saveOverrides(state.selectedGameId, profileId, overrides);
             }
           }}
-          onProfileDiscard={() =>
-            profileActions.resetProfileDraft()
-          }
+          onProfileDiscard={() => profileActions.resetProfileDraft()}
           onProfileCreate={async (name) => {
             if (state.selectedGameId) {
               await profileActions.createProfile(state.selectedGameId, name);
@@ -281,11 +274,8 @@ export function LibraryPage() {
               ),
             );
             profileActions.hideUnsavedDialog();
-            // Complete the navigation that triggered the dialog.
             if (profileActions.unsavedDialogTarget !== null) {
               dispatch({ type: "SELECT_GAME", gameId: profileActions.unsavedDialogTarget });
-            } else {
-              profileActions.setProfileEditorOpen(false);
             }
           }}
           onUnsavedDialogDiscard={() => {
@@ -293,13 +283,9 @@ export function LibraryPage() {
             profileActions.hideUnsavedDialog();
             if (profileActions.unsavedDialogTarget !== null) {
               dispatch({ type: "SELECT_GAME", gameId: profileActions.unsavedDialogTarget });
-            } else {
-              profileActions.setProfileEditorOpen(false);
             }
           }}
-          onUnsavedDialogCancel={() =>
-            profileActions.hideUnsavedDialog()
-          }
+          onUnsavedDialogCancel={() => profileActions.hideUnsavedDialog()}
           saveQuickActionsOpen={saveExportActions.saveQuickActionsOpen}
           exportPreflight={saveExportActions.exportPreflight}
           exportPreflightLoading={saveExportActions.exportPreflightLoading}
@@ -311,7 +297,7 @@ export function LibraryPage() {
           onImportNavigate={() => navigate("/saves")}
           onClearSaveResults={saveExportActions.clearSaveResults}
         />
-      </div>}
+      </DetailsModal>
     </div>
   );
 }

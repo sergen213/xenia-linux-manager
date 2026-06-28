@@ -10,6 +10,7 @@
 //! trait that returns either a concrete recommended baseline or an explicit
 //! `Unsupported` result.
 
+use crate::util::now_millis;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -61,57 +62,17 @@ pub struct RecommendationLinkage {
     pub applied_at: u64,
 }
 
-/// A recommendation source adapter that can look up baselines for games.
-///
-/// Implementations are expected to be lightweight and non-blocking.
-/// The initial implementation always returns `Unsupported` since no real
-/// community source exists yet.
-pub trait RecommendationSource: Send + Sync {
-    /// Check whether a recommended baseline exists for the given game.
-    fn check_availability(&self, game_id: &str) -> RecommendationAvailability;
-
-    /// Human-readable identifier for this source.
-    fn source_id(&self) -> &str;
-    fn source_label(&self) -> &str;
-}
-
-// ---------------------------------------------------------------------------
-// Null source (default when no real source is configured)
-// ---------------------------------------------------------------------------
-
-/// A source that always reports no recommendation is available.
-///
-/// This is the production default until a real community source is identified.
-pub struct NullRecommendationSource;
-
-impl RecommendationSource for NullRecommendationSource {
-    fn check_availability(&self, _game_id: &str) -> RecommendationAvailability {
-        RecommendationAvailability::Unsupported {
-            reason: UnsupportedReason::NoSourceConfigured,
-        }
-    }
-
-    fn source_id(&self) -> &str {
-        "null"
-    }
-
-    fn source_label(&self) -> &str {
-        "None"
-    }
-}
-
 // ---------------------------------------------------------------------------
 // Public API: recommendation resolution
 // ---------------------------------------------------------------------------
 
-/// Resolve recommendation availability using the active source.
+/// Resolve recommendation availability for a game.
 ///
-/// Returns the availability status without side effects.
-pub fn check_recommendation(
-    source: &dyn RecommendationSource,
-    game_id: &str,
-) -> RecommendationAvailability {
-    source.check_availability(game_id)
+/// No real community source exists yet, so this always reports `Unsupported`.
+pub fn recommendation_availability(_game_id: &str) -> RecommendationAvailability {
+    RecommendationAvailability::Unsupported {
+        reason: UnsupportedReason::NoSourceConfigured,
+    }
 }
 
 /// Apply a recommended baseline as a new local profile.
@@ -162,26 +123,6 @@ pub fn apply_recommendation(
     Ok(inventory)
 }
 
-/// Returns the default recommendation source (null/unsupported).
-///
-/// In the future this will be replaced by actual source resolution
-/// based on app configuration.
-pub fn default_recommendation_source() -> NullRecommendationSource {
-    NullRecommendationSource
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-fn now_millis() -> u64 {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis() as u64
-}
-
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -202,10 +143,8 @@ mod tests {
     }
 
     #[test]
-    fn null_source_returns_unsupported() {
-        let source = NullRecommendationSource;
-        let result = check_recommendation(&source, "any-game");
-        match result {
+    fn recommendation_is_unsupported() {
+        match recommendation_availability("any-game") {
             RecommendationAvailability::Unsupported { reason } => {
                 assert_eq!(reason, UnsupportedReason::NoSourceConfigured);
             }
@@ -304,14 +243,6 @@ mod tests {
         let recommended = inventory.profiles.iter().find(|p| p.source == ProfileSource::Recommended).unwrap();
         assert_eq!(local.name, "My Settings");
         assert_eq!(recommended.name, "Recommended");
-    }
-
-    #[test]
-    fn default_source_is_null() {
-        let source = default_recommendation_source();
-        assert_eq!(source.source_id(), "null");
-        let result = source.check_availability("any-game");
-        matches!(result, RecommendationAvailability::Unsupported { .. });
     }
 
     #[test]

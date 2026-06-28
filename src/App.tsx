@@ -9,7 +9,7 @@ import { SavesProvider } from "./features/saves/state/SavesProvider";
 import { ProfilesProvider } from "./features/profiles/state/ProfilesProvider";
 import { FirstRunSetup } from "./features/settings/components/FirstRunSetup";
 import { useSettings } from "./features/settings/state/settingsStore";
-import { useRouteRestore } from "./features/settings/state/useRouteRestore";
+import { AuroraPrefsProvider } from "./theme/auroraPrefs";
 
 function AppContent() {
   const { state } = useSettings();
@@ -33,10 +33,7 @@ function AppContent() {
   return <MainShell />;
 }
 
-/** Separated so useRouteRestore only runs when setup is complete. */
 function MainShell() {
-  useRouteRestore();
-
   return (
     <AppShell>
       <Routes>
@@ -51,7 +48,8 @@ function MainShell() {
 
 function App() {
   return (
-    <SettingsProvider>
+    <AuroraPrefsProvider>
+      <SettingsProvider>
       <TasksProvider>
         <XeniaProvider>
           <LibraryProvider>
@@ -64,6 +62,7 @@ function App() {
         </XeniaProvider>
       </TasksProvider>
     </SettingsProvider>
+    </AuroraPrefsProvider>
   );
 }
 

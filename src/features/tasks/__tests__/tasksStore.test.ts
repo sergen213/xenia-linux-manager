@@ -5,7 +5,6 @@ import {
   selectAllJobs,
   selectRunningJobs,
   selectLatestTerminalJobByCategory,
-  selectTaskSummary,
   type TasksState,
 } from "../state/tasksStore";
 import type { Job } from "../model/taskTypes";
@@ -29,7 +28,6 @@ describe("tasksReducer", () => {
   it("starts with initial state", () => {
     expect(INITIAL_TASKS_STATE.jobs).toEqual({});
     expect(INITIAL_TASKS_STATE.initialized).toBe(false);
-    expect(INITIAL_TASKS_STATE.interruptedCount).toBe(0);
   });
 
   it("LOAD_HISTORY_START sets loading", () => {
@@ -38,7 +36,7 @@ describe("tasksReducer", () => {
     expect(next.error).toBeNull();
   });
 
-  it("LOAD_HISTORY_SUCCESS populates jobs and counts interrupted", () => {
+  it("LOAD_HISTORY_SUCCESS populates jobs", () => {
     const jobs = [
       makeJob({ id: "a", status: "completed", created_at: 100 }),
       makeJob({ id: "b", status: "interrupted", created_at: 200 }),
@@ -46,10 +44,8 @@ describe("tasksReducer", () => {
     const next = tasksReducer(INITIAL_TASKS_STATE, {
       type: "LOAD_HISTORY_SUCCESS",
       jobs,
-      interruptedCount: 1,
     });
     expect(Object.keys(next.jobs)).toHaveLength(2);
-    expect(next.interruptedCount).toBe(1);
     expect(next.initialized).toBe(true);
     expect(next.loading).toBe(false);
   });
@@ -123,17 +119,9 @@ describe("tasksReducer", () => {
         "err": makeJob({ id: "err", status: "failed" }),
         "int": makeJob({ id: "int", status: "interrupted" }),
       },
-      interruptedCount: 1,
     };
     const next = tasksReducer(state, { type: "CLEAR_HISTORY" });
     expect(Object.keys(next.jobs)).toEqual(["run"]);
-    expect(next.interruptedCount).toBe(0);
-  });
-
-  it("DISMISS_INTERRUPTED resets interrupted count", () => {
-    const state: TasksState = { ...INITIAL_TASKS_STATE, interruptedCount: 3 };
-    const next = tasksReducer(state, { type: "DISMISS_INTERRUPTED" });
-    expect(next.interruptedCount).toBe(0);
   });
 });
 
@@ -158,17 +146,6 @@ describe("selectors", () => {
     const running = selectRunningJobs(state);
     expect(running).toHaveLength(1);
     expect(running[0].id).toBe("a");
-  });
-
-  it("selectTaskSummary counts by status", () => {
-    const summary = selectTaskSummary(state);
-    expect(summary).toEqual({
-      running: 1,
-      completed: 1,
-      failed: 1,
-      interrupted: 1,
-      total: 4,
-    });
   });
 
   it("selectLatestTerminalJobByCategory returns newest terminal job in category", () => {

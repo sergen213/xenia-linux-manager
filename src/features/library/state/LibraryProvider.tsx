@@ -5,7 +5,8 @@ import {
   INITIAL_LIBRARY_STATE,
 } from "./libraryStore";
 import { useSettings } from "../../settings/state/settingsStore";
-import { getLibraryStatus } from "../api/libraryClient";
+import { browseLibrary, getLibraryStatus, onGameExited } from "../api/libraryClient";
+import type { UnlistenFn } from "../../../platform/bridge";
 
 interface LibraryProviderProps {
   children: ReactNode;
@@ -24,9 +25,15 @@ export function LibraryProvider({ children }: LibraryProviderProps) {
     let cancelled = false;
 
     async function init() {
+      const libPath = settingsState.settings!.library_metadata_path;
       dispatch({ type: "LOAD_START" });
+      // Prefetch the browse grid in the background so the first Library tab
+      // click renders from cache instead of blocking on browse_library (which
+      // loads catalogs, extracts title IDs from game files, and rewrites the
+      // identity store — slow on first run). Runs concurrently with status and
+      // never gates shell paint.
+      const browsePromise = browseLibrary(libPath).catch(() => null);
       try {
-        const libPath = settingsState.settings!.library_metadata_path;
         const status = await getLibraryStatus(libPath);
         if (cancelled) return;
         dispatch({
@@ -45,11 +52,35 @@ export function LibraryProvider({ children }: LibraryProviderProps) {
           queuedScans: 0,
         });
       }
+      const browse = await browsePromise;
+      if (!cancelled && browse) dispatch({ type: "BROWSE_LOADED", browse });
     }
 
     init();
     return () => {
       cancelled = true;
+    };
+  }, [settingsState.settings?.library_metadata_path]);
+
+  // When a launched game closes, clear "now playing" and refresh last-played.
+  useEffect(() => {
+    const libPath = settingsState.settings?.library_metadata_path;
+    if (!libPath) return;
+    let cancelled = false;
+    let unlisten: UnlistenFn | undefined;
+
+    onGameExited(async () => {
+      dispatch({ type: "SET_PLAYING", gameId: null });
+      const browse = await browseLibrary(libPath).catch(() => null);
+      if (!cancelled && browse) dispatch({ type: "BROWSE_LOADED", browse });
+    }).then((un) => {
+      if (cancelled) un();
+      else unlisten = un;
+    });
+
+    return () => {
+      cancelled = true;
+      unlisten?.();
     };
   }, [settingsState.settings?.library_metadata_path]);
 

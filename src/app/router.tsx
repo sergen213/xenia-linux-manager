@@ -11,16 +11,12 @@ const SettingsPage = lazy(() => import("../features/settings/SettingsPage").then
 const LibraryPage = lazy(() => import("../features/library/LibraryPage").then(m => ({ default: m.LibraryPage })));
 // eslint-disable-next-line react-refresh/only-export-components
 const SavesPage = lazy(() => import("../features/saves/SavesPage").then(m => ({ default: m.SavesPage })));
+// eslint-disable-next-line react-refresh/only-export-components
+const HomePage = lazy(() => import("../features/home/HomePage").then(m => ({ default: m.HomePage })));
 
 export interface AppRoute {
   path: string;
-  label: string;
-  icon: string;
   element: ReactNode;
-  /** Whether this route appears in the sidebar navigation */
-  showInSidebar: boolean;
-  /** Sidebar placement: content nav at the top, config pinned to the bottom */
-  placement: "top" | "bottom";
 }
 
 // Lazy loading wrapper with simple fallback
@@ -38,41 +34,9 @@ function RouteLoader({ children }: { children: ReactNode }) {
  * game. Xenia install/builds live under Settings (setup, not daily nav).
  */
 export const routes: AppRoute[] = [
-  {
-    path: "/",
-    label: "Library",
-    icon: "library",
-    element: <RouteLoader><LibraryPage /></RouteLoader>,
-    showInSidebar: true,
-    placement: "top",
-  },
-  {
-    path: "/saves",
-    label: "Saves",
-    icon: "save",
-    element: <RouteLoader><SavesPage /></RouteLoader>,
-    showInSidebar: true,
-    placement: "top",
-  },
-  {
-    path: "/tasks",
-    label: "Tasks",
-    icon: "tasks",
-    element: <RouteLoader><TasksPage /></RouteLoader>,
-    showInSidebar: true,
-    placement: "top",
-  },
-  {
-    path: "/settings",
-    label: "Settings",
-    icon: "settings",
-    element: <RouteLoader><SettingsPage /></RouteLoader>,
-    showInSidebar: true,
-    placement: "bottom",
-  },
+  { path: "/home", element: <RouteLoader><HomePage /></RouteLoader> },
+  { path: "/", element: <RouteLoader><LibraryPage /></RouteLoader> },
+  { path: "/saves", element: <RouteLoader><SavesPage /></RouteLoader> },
+  { path: "/tasks", element: <RouteLoader><TasksPage /></RouteLoader> },
+  { path: "/settings", element: <RouteLoader><SettingsPage /></RouteLoader> },
 ];
-
-/** Get routes that should appear in the sidebar navigation */
-export function getSidebarRoutes(): AppRoute[] {
-  return routes.filter((route) => route.showInSidebar);
-}

@@ -19,6 +19,7 @@ use std::path::{Path, PathBuf};
 
 use crate::library::launch;
 use crate::library::review;
+use crate::library::shell_escape;
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -392,11 +393,6 @@ fn find_existing_shortcut(entries: &[ShortcutEntry], app_name: &str) -> Option<u
 
 /// Copy the game's existing artwork into Steam's grid dir as the portrait cover.
 /// Returns the list of files written.
-fn shell_escape(value: &str) -> String {
-    let escaped = value.replace('"', "\\\"");
-    format!("\"{}\"", escaped)
-}
-
 fn steam_launch_components(plan: &launch::LaunchPlan) -> (String, String, String) {
     let start_dir = Path::new(&plan.xenia_executable_path)
         .parent()

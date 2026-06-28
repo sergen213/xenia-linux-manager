@@ -1,6 +1,5 @@
 import { createStoreContext, type StoreContextValue } from "../../shared/storeContext";
 import type {
-  BackupEntry,
   ConflictPlan,
   ExportPreflight,
   ExportResult,
@@ -20,11 +19,8 @@ export interface SavesState {
   importConflictPlan: ConflictPlan | null;
   importApplyPending: boolean;
   lastImportResult: ImportApplyResult | null;
-  saveBackups: BackupEntry[];
-  exportSelectedLabels: string[] | null;
   importArchivePath: string | null;
   importWizardStep: ImportWizardStep;
-  backupFailureAccepted: boolean;
   backupFailureError: string | null;
   saveQuickActionsOpen: boolean;
 }
@@ -40,11 +36,8 @@ export const INITIAL_SAVES_STATE: SavesState = {
   importConflictPlan: null,
   importApplyPending: false,
   lastImportResult: null,
-  saveBackups: [],
-  exportSelectedLabels: null,
   importArchivePath: null,
   importWizardStep: "idle",
-  backupFailureAccepted: false,
   backupFailureError: null,
   saveQuickActionsOpen: false,
 };
@@ -62,11 +55,9 @@ export type SavesAction =
   | { type: "SET_IMPORT_CONFLICT_PLAN"; plan: ConflictPlan | null }
   | { type: "IMPORT_APPLY_PENDING"; pending: boolean }
   | { type: "IMPORT_APPLY_COMPLETE"; result: ImportApplyResult }
-  | { type: "SAVE_BACKUPS_LOADED"; backups: BackupEntry[] }
-  | { type: "SET_EXPORT_SELECTED_LABELS"; labels: string[] | null }
   | { type: "SET_IMPORT_ARCHIVE_PATH"; path: string | null }
   | { type: "SET_IMPORT_WIZARD_STEP"; step: ImportWizardStep }
-  | { type: "SET_BACKUP_FAILURE"; error: string | null; accepted: boolean }
+  | { type: "SET_BACKUP_FAILURE"; error: string | null }
   | { type: "SET_SAVE_QUICK_ACTIONS_OPEN"; open: boolean }
   | { type: "CLEAR_SAVE_STATE" };
 
@@ -83,7 +74,6 @@ export function savesReducer(state: SavesState, action: SavesAction): SavesState
         exportPreflightLoading: false,
         exportPending: false,
         lastExportResult: null,
-        exportSelectedLabels: null,
         saveQuickActionsOpen: false,
       };
     case "EXPORT_PREFLIGHT_LOADING":
@@ -108,10 +98,6 @@ export function savesReducer(state: SavesState, action: SavesAction): SavesState
       return { ...state, importApplyPending: action.pending };
     case "IMPORT_APPLY_COMPLETE":
       return { ...state, importApplyPending: false, lastImportResult: action.result };
-    case "SAVE_BACKUPS_LOADED":
-      return { ...state, saveBackups: action.backups };
-    case "SET_EXPORT_SELECTED_LABELS":
-      return { ...state, exportSelectedLabels: action.labels };
     case "SET_IMPORT_ARCHIVE_PATH":
       return { ...state, importArchivePath: action.path };
     case "SET_IMPORT_WIZARD_STEP":
@@ -120,7 +106,6 @@ export function savesReducer(state: SavesState, action: SavesAction): SavesState
       return {
         ...state,
         backupFailureError: action.error,
-        backupFailureAccepted: action.accepted,
       };
     case "SET_SAVE_QUICK_ACTIONS_OPEN":
       return { ...state, saveQuickActionsOpen: action.open };
@@ -136,10 +121,8 @@ export function savesReducer(state: SavesState, action: SavesAction): SavesState
         importConflictPlan: null,
         importApplyPending: false,
         lastImportResult: null,
-        exportSelectedLabels: null,
         importArchivePath: null,
         importWizardStep: "idle",
-        backupFailureAccepted: false,
         backupFailureError: null,
         saveQuickActionsOpen: false,
       };

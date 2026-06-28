@@ -1,15 +1,14 @@
 //! Persistent task history storage.
 //!
-//! Saves completed, failed, and interrupted job records to disk so they
-//! survive application restarts. On startup, loads the history and marks
-//! any "running" records (from an unclean shutdown) as interrupted.
+//! Saves completed and failed job records to disk so they survive application
+//! restarts.
 
 use std::fs;
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-use super::{Job, JobStatus};
+use super::Job;
 
 // ---------------------------------------------------------------------------
 // Stored history document
@@ -72,27 +71,6 @@ pub fn clear_history(app_data_path: &str) -> Result<(), String> {
     save_history(app_data_path, &TaskHistory::default())
 }
 
-/// Called on startup: loads history and marks any "running" jobs as
-/// interrupted (they were in-flight during an unclean shutdown).
-/// Returns the number of jobs that were marked interrupted.
-pub fn recover_interrupted_jobs(app_data_path: &str) -> Result<(TaskHistory, usize), String> {
-    let mut history = load_history(app_data_path);
-    let mut count = 0;
-
-    for job in &mut history.jobs {
-        if job.status == JobStatus::Running {
-            job.interrupt();
-            count += 1;
-        }
-    }
-
-    if count > 0 {
-        save_history(app_data_path, &history)?;
-    }
-
-    Ok((history, count))
-}
-
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -140,27 +118,6 @@ mod tests {
         clear_history(&dir).unwrap();
         let history = load_history(&dir);
         assert!(history.jobs.is_empty());
-    }
-
-    #[test]
-    fn recover_marks_running_as_interrupted() {
-        let dir = temp_data_dir("recover");
-
-        // Simulate an unclean shutdown: save a job that is still "running"
-        let running_job = Job::new("j3".into(), "Interrupted".into(), "install".into());
-        let mut done_job = Job::new("j4".into(), "Finished".into(), "scan".into());
-        done_job.complete();
-
-        let history = TaskHistory {
-            jobs: vec![running_job, done_job],
-        };
-        save_history(&dir, &history).unwrap();
-
-        // Now recover
-        let (recovered, count) = recover_interrupted_jobs(&dir).unwrap();
-        assert_eq!(count, 1);
-        assert_eq!(recovered.jobs[0].status, JobStatus::Interrupted);
-        assert_eq!(recovered.jobs[1].status, JobStatus::Completed);
     }
 
     #[test]

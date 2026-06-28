@@ -22,28 +22,16 @@ export function useProfileActions() {
     if (!libPath || !gameId) return;
 
     profilesDispatch({ type: "PROFILES_LOADING" });
-    try {
-      const profiles = await listGameProfiles(libPath, gameId);
-      profilesDispatch({ type: "PROFILES_LOADED", inventory: profiles });
-    } catch (error) {
-      profilesDispatch({
-        type: "PROFILES_ERROR",
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
+    const profiles = await listGameProfiles(libPath, gameId);
+    profilesDispatch({ type: "PROFILES_LOADED", inventory: profiles });
   }, [libPath, profilesDispatch]);
 
   const createProfile = useCallback(
     async (gameId: string, name: string) => {
       if (!libPath || !gameId) return;
 
-      try {
-        const profiles = await createGameProfile(libPath, gameId, name);
-        profilesDispatch({ type: "PROFILES_LOADED", inventory: profiles });
-      } catch (error) {
-        // Error handling via library store for now
-        throw error;
-      }
+      const profiles = await createGameProfile(libPath, gameId, name);
+      profilesDispatch({ type: "PROFILES_LOADED", inventory: profiles });
     },
     [libPath, profilesDispatch]
   );
@@ -52,12 +40,8 @@ export function useProfileActions() {
     async (gameId: string, profileId: string) => {
       if (!libPath || !gameId) return;
 
-      try {
-        const profiles = await deleteGameProfile(libPath, gameId, profileId);
-        profilesDispatch({ type: "PROFILES_LOADED", inventory: profiles });
-      } catch (error) {
-        throw error;
-      }
+      const profiles = await deleteGameProfile(libPath, gameId, profileId);
+      profilesDispatch({ type: "PROFILES_LOADED", inventory: profiles });
     },
     [libPath, profilesDispatch]
   );
@@ -66,12 +50,8 @@ export function useProfileActions() {
     async (gameId: string, profileId: string, newName: string) => {
       if (!libPath || !gameId) return;
 
-      try {
-        const profiles = await renameGameProfile(libPath, gameId, profileId, newName);
-        profilesDispatch({ type: "PROFILES_LOADED", inventory: profiles });
-      } catch (error) {
-        throw error;
-      }
+      const profiles = await renameGameProfile(libPath, gameId, profileId, newName);
+      profilesDispatch({ type: "PROFILES_LOADED", inventory: profiles });
     },
     [libPath, profilesDispatch]
   );
@@ -80,12 +60,8 @@ export function useProfileActions() {
     async (gameId: string, profileId: string): Promise<void> => {
       if (!libPath || !gameId) return;
 
-      try {
-        const profiles = await selectActiveGameProfile(libPath, gameId, profileId);
-        profilesDispatch({ type: "PROFILES_LOADED", inventory: profiles });
-      } catch (error) {
-        throw error;
-      }
+      const profiles = await selectActiveGameProfile(libPath, gameId, profileId);
+      profilesDispatch({ type: "PROFILES_LOADED", inventory: profiles });
     },
     [libPath, profilesDispatch]
   );
@@ -101,8 +77,6 @@ export function useProfileActions() {
         profilesDispatch({ type: "SET_PROFILE_DRAFT", draft: {} });
         profilesDispatch({ type: "SET_PROFILE_DIRTY", dirty: false });
         profilesDispatch({ type: "PROFILE_EFFECTIVE_LOADED", config });
-      } catch (error) {
-        throw error;
       } finally {
         profilesDispatch({ type: "SET_PROFILE_SAVE_PENDING", pending: false });
       }
@@ -115,35 +89,20 @@ export function useProfileActions() {
       if (!libPath || !gameId) return;
 
       profilesDispatch({ type: "PROFILE_EFFECTIVE_LOADING" });
-      try {
-        const config = await getProfileEffectiveConfig(libPath, gameId, profileId);
-        profilesDispatch({ type: "PROFILE_EFFECTIVE_LOADED", config });
-      } catch (error) {
-        profilesDispatch({
-          type: "PROFILE_EFFECTIVE_ERROR",
-          error: error instanceof Error ? error.message : String(error),
-        });
-      }
+      const config = await getProfileEffectiveConfig(libPath, gameId, profileId);
+      profilesDispatch({ type: "PROFILE_EFFECTIVE_LOADED", config });
     },
     [libPath, profilesDispatch]
   );
-
-  // Note: loadRecommendation is a placeholder - recommendations are managed via
-  // the applyRecommendation action which loads and applies baseline profiles.
 
   const applyRecommendation = useCallback(
     async (gameId: string) => {
       if (!libPath || !gameId) return;
 
       profilesDispatch({ type: "APPLY_RECOMMENDATION_PENDING", pending: true });
-      try {
-        const inventory = await applyRecommendedProfile(libPath, gameId);
-        profilesDispatch({ type: "PROFILES_LOADED", inventory });
-      } catch (error) {
-        throw error;
-      } finally {
-        profilesDispatch({ type: "APPLY_RECOMMENDATION_PENDING", pending: false });
-      }
+      const inventory = await applyRecommendedProfile(libPath, gameId);
+      profilesDispatch({ type: "PROFILES_LOADED", inventory });
+      profilesDispatch({ type: "APPLY_RECOMMENDATION_PENDING", pending: false });
     },
     [libPath, profilesDispatch]
   );
@@ -165,13 +124,6 @@ export function useProfileActions() {
   const resetProfileDraft = useCallback(() => {
     profilesDispatch({ type: "RESET_PROFILE_DRAFT" });
   }, [profilesDispatch]);
-
-  const setProfileEditorOpen = useCallback(
-    (open: boolean) => {
-      profilesDispatch({ type: "SET_PROFILE_EDITOR_OPEN", open });
-    },
-    [profilesDispatch]
-  );
 
   const showUnsavedDialog = useCallback(
     (target: string | null) => {
@@ -197,7 +149,6 @@ export function useProfileActions() {
     profileEffectiveConfig: profilesState.profileEffectiveConfig,
     profileEffectiveLoading: profilesState.profileEffectiveLoading,
     recommendationAvailability: profilesState.recommendationAvailability,
-    profileEditorOpen: profilesState.profileEditorOpen,
     profileDraft: profilesState.profileDraft,
     profileDirty: profilesState.profileDirty,
     profileSavePending: profilesState.profileSavePending,
@@ -216,7 +167,6 @@ export function useProfileActions() {
     setProfileDraft,
     setProfileDirty,
     resetProfileDraft,
-    setProfileEditorOpen,
     showUnsavedDialog,
     hideUnsavedDialog,
     setActiveGame,

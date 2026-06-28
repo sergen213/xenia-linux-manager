@@ -159,7 +159,6 @@ describe("TasksPage", () => {
       jobs: {
         "int-1": makeJob({ id: "int-1", status: "interrupted" }),
       },
-      interruptedCount: 1,
     };
     renderTasksPage(state);
     expect(screen.getByTestId("interrupted-banner")).toBeInTheDocument();

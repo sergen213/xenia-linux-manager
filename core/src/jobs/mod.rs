@@ -11,7 +11,8 @@ pub mod store;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Mutex;
-use std::time::SystemTime;
+
+use crate::util::now_millis;
 
 // ---------------------------------------------------------------------------
 // Job lifecycle types
@@ -170,20 +171,6 @@ impl JobRegistry {
             None
         }
     }
-
-    /// Mark all currently-running jobs as interrupted.
-    /// Called during graceful shutdown to persist interrupted state.
-    pub fn interrupt_all_running(&self) -> Vec<Job> {
-        let mut jobs = self.jobs.lock().unwrap();
-        let mut interrupted = Vec::new();
-        for job in jobs.values_mut() {
-            if job.status == JobStatus::Running {
-                job.interrupt();
-                interrupted.push(job.clone());
-            }
-        }
-        interrupted
-    }
 }
 
 impl Default for JobRegistry {
@@ -195,13 +182,6 @@ impl Default for JobRegistry {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-fn now_millis() -> u64 {
-    SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis() as u64
-}
 
 fn generate_job_id() -> String {
     use std::sync::atomic::{AtomicU64, Ordering};
@@ -286,21 +266,6 @@ mod tests {
         reg.update(&id, |j| j.set_progress(50));
         let job = reg.get(&id).unwrap();
         assert_eq!(job.progress, Some(50));
-    }
-
-    #[test]
-    fn registry_interrupt_all_running() {
-        let reg = JobRegistry::new();
-        let id1 = reg.register("A".into(), "test".into());
-        let id2 = reg.register("B".into(), "test".into());
-        // Complete one job first
-        reg.update(&id1, |j| j.complete());
-        let interrupted = reg.interrupt_all_running();
-        assert_eq!(interrupted.len(), 1);
-        assert_eq!(interrupted[0].id, id2);
-        // Verify the completed job was not changed
-        let job1 = reg.get(&id1).unwrap();
-        assert_eq!(job1.status, JobStatus::Completed);
     }
 
     #[test]

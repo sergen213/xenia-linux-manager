@@ -95,11 +95,6 @@ export async function open(
   return opts.multiple ? result.filePaths : result.filePaths[0];
 }
 
-/** True when the Electron host exposes window controls (frameless title bar). */
-export function hasWindowControls(): boolean {
-  return typeof window.xlm?.win !== "undefined";
-}
-
 /** Minimize the host window. No-op when window controls are unavailable. */
 export function windowMinimize(): Promise<void> {
   return window.xlm?.win?.minimize() ?? Promise.resolve();
@@ -113,19 +108,4 @@ export function windowToggleMaximize(): Promise<void> {
 /** Close the host window. No-op when unavailable. */
 export function windowClose(): Promise<void> {
   return window.xlm?.win?.close() ?? Promise.resolve();
-}
-
-/** Current maximized state; false when controls are unavailable. */
-export function windowIsMaximized(): Promise<boolean> {
-  return window.xlm?.win?.isMaximized() ?? Promise.resolve(false);
-}
-
-/**
- * Subscribe to maximize-state changes; returns a synchronous unsubscribe.
- * Returns a no-op unsubscribe when controls are unavailable.
- */
-export function onWindowMaximizeChange(
-  cb: (maximized: boolean) => void,
-): () => void {
-  return window.xlm?.win?.onMaximizeChange(cb) ?? (() => {});
 }

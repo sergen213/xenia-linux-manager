@@ -6,6 +6,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+use crate::library::artwork;
 use crate::library::catalog::{self, CatalogScanSummary, SourceCatalog};
 use crate::library::discovery::{CandidateStatus, Confidence, DiscoveredCandidate};
 use crate::library::identity::{
@@ -113,6 +114,7 @@ struct ReviewContext {
     source_map: HashMap<String, LibrarySource>,
     catalogs: Vec<SourceCatalog>,
     identity_store: IdentityStore,
+    library_metadata_path: String,
 }
 
 pub fn browse_library(library_metadata_path: &str) -> BrowseLibraryPayload {
@@ -152,38 +154,48 @@ fn load_context(library_metadata_path: &str) -> ReviewContext {
         .map(|source| source.id.clone())
         .collect::<Vec<_>>();
     let catalogs = catalog::load_all_catalogs(library_metadata_path, &source_ids);
-    let mut identity_store = identity::load_identity_store(library_metadata_path);
 
-    for catalog in &catalogs {
-        for candidate in &catalog.candidates {
-            if is_primary_browse_candidate(candidate) {
-                let _ = identity::ensure_scan_game_record(
-                    &mut identity_store,
-                    &candidate.source_id,
-                    &candidate.label,
-                    &candidate.path.to_string_lossy(),
-                );
+    // Browse rewrites the whole identity store (scan records + title-id
+    // backfill). Hold the write lock across load+save so a parallel artwork
+    // persist on another sidecar task can't have its `artwork_path` reverted by
+    // this snapshot — the bug that blanked covers until a restart.
+    let identity_store = {
+        let _guard = identity::lock_identity_store();
+        let mut store = identity::load_identity_store(library_metadata_path);
+
+        for catalog in &catalogs {
+            for candidate in &catalog.candidates {
+                if is_primary_browse_candidate(candidate) {
+                    let _ = identity::ensure_scan_game_record(
+                        &mut store,
+                        &candidate.source_id,
+                        &candidate.label,
+                        &candidate.path.to_string_lossy(),
+                    );
+                }
             }
         }
-    }
 
-    // Backfill title IDs for any games that don't have one yet.
-    for game in &mut identity_store.games {
-        if game.title_id.is_some() {
-            continue;
+        // Backfill title IDs for any games that don't have one yet.
+        for game in &mut store.games {
+            if game.title_id.is_some() {
+                continue;
+            }
+            let path = std::path::Path::new(&game.executable_path);
+            if let Some(tid) = titleid::extract_title_id(path) {
+                game.title_id = Some(tid);
+            }
         }
-        let path = std::path::Path::new(&game.executable_path);
-        if let Some(tid) = titleid::extract_title_id(path) {
-            game.title_id = Some(tid);
-        }
-    }
 
-    let _ = identity::save_identity_store(library_metadata_path, &identity_store);
+        let _ = identity::save_identity_store(library_metadata_path, &store);
+        store
+    };
 
     ReviewContext {
         source_map,
         catalogs,
         identity_store,
+        library_metadata_path: library_metadata_path.to_string(),
     }
 }
 
@@ -243,7 +255,10 @@ fn build_browse_cards(
             confidence: first_evidence
                 .map(|item| item.confidence.clone())
                 .unwrap_or_else(|| "manual".to_string()),
-            artwork_path: game.artwork_path.clone(),
+            artwork_path: game
+            .artwork_path
+            .clone()
+            .or_else(|| artwork::cached_artwork_path(&context.library_metadata_path, &game.game_id)),
             manual: game.manual,
             review_flag: review_counts
                 .get(&game.game_id)
@@ -383,7 +398,10 @@ fn build_game_details(context: &ReviewContext, game_id: &str) -> Option<LibraryG
         confidence: first_evidence
             .map(|item| item.confidence.clone())
             .unwrap_or_else(|| "manual".to_string()),
-        artwork_path: game.artwork_path.clone(),
+        artwork_path: game
+            .artwork_path
+            .clone()
+            .or_else(|| artwork::cached_artwork_path(&context.library_metadata_path, &game.game_id)),
         title_id: game.title_id.clone(),
         preferred_xenia_tag: game.preferred_xenia_tag.clone(),
         launch_environment: game.launch_environment.clone(),

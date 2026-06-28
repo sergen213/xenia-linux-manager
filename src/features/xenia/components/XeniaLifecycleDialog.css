@@ -21,7 +21,7 @@
 
 .xenia-dialog__title {
   font-size: var(--font-size-lg);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
   margin-bottom: 16px;
 }
@@ -61,7 +61,7 @@
 
 .xenia-dialog__failure-label {
   font-size: var(--font-size-xs);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   color: var(--color-danger);
   margin-bottom: 4px;
 }
@@ -82,7 +82,7 @@
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
   margin-bottom: 20px;
-  line-height: 1.5;
+  line-height: var(--line-height-normal);
 }
 
 .xenia-dialog__actions {
@@ -121,7 +121,7 @@
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
   margin-bottom: 16px;
-  line-height: 1.5;
+  line-height: var(--line-height-normal);
 }
 
 .xenia-dialog__next-steps {
@@ -133,7 +133,7 @@
 
 .xenia-dialog__next-title {
   font-size: var(--font-size-sm);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
   margin-bottom: 8px;
 }
@@ -182,7 +182,7 @@
 
 .xenia-dialog__update-heading {
   font-size: var(--font-size-sm);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   color: var(--color-accent);
   margin-bottom: 8px;
 }
@@ -190,7 +190,7 @@
 .xenia-dialog__update-detail {
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
-  line-height: 1.5;
+  line-height: var(--line-height-normal);
   margin-bottom: 8px;
 }
 
@@ -219,5 +219,5 @@
   color: var(--color-danger);
   margin-bottom: 16px;
   word-break: break-word;
-  line-height: 1.5;
+  line-height: var(--line-height-normal);
 }

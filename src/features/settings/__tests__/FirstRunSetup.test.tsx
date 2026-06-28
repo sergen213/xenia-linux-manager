@@ -92,16 +92,16 @@ describe("FirstRunSetup", () => {
     expect(xeniaInput.value).toBe(mockSettings.xenia_path);
   });
 
-  it("enables confirm button when all paths valid", () => {
+  it("enables next button when all paths valid", () => {
     renderWithContext({
       settings: mockSettings,
       validation: mockValidation,
     });
-    const btn = screen.getByText("Confirm and Continue");
+    const btn = screen.getByText("Next");
     expect(btn).not.toBeDisabled();
   });
 
-  it("disables confirm button when paths invalid", () => {
+  it("disables next button when paths invalid", () => {
     const invalidValidation: SettingsValidation = {
       ...mockValidation,
       all_valid: false,
@@ -115,7 +115,7 @@ describe("FirstRunSetup", () => {
       settings: mockSettings,
       validation: invalidValidation,
     });
-    const btn = screen.getByText("Confirm and Continue");
+    const btn = screen.getByText("Next");
     expect(btn).toBeDisabled();
   });
 

@@ -8,7 +8,7 @@ use crate::settings::{self, AppSettings, SettingsValidation};
 
 /// Return the recommended default settings for first-launch display.
 pub fn get_default_settings() -> AppSettings {
-    settings::get_defaults()
+    AppSettings::default()
 }
 
 /// Load persisted settings (or defaults if none saved yet).

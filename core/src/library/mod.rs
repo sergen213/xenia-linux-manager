@@ -15,3 +15,10 @@ pub mod shortcuts;
 pub mod sources;
 pub mod steam;
 pub mod titleid;
+
+/// Quote a value for a shell command line, shared by desktop and Steam shortcut
+/// generation.
+pub(crate) fn shell_escape(value: &str) -> String {
+    let escaped = value.replace('"', "\\\"");
+    format!("\"{}\"", escaped)
+}

@@ -9,9 +9,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fs;
 use std::path::PathBuf;
-use std::time::SystemTime;
 
 use crate::library::discovery::{DiscoveredCandidate, DiscoveryResults};
+use crate::util::now_millis;
 use crate::library::sources::ScanSummarySnapshot;
 
 // ---------------------------------------------------------------------------
@@ -175,13 +175,6 @@ pub fn load_all_catalogs(library_metadata_path: &str, source_ids: &[String]) -> 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-fn now_millis() -> u64 {
-    SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis() as u64
-}
 
 // ---------------------------------------------------------------------------
 // Tests

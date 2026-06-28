@@ -9,4 +9,5 @@ pub mod release;
 pub mod rpc;
 pub mod saves;
 pub mod settings;
+pub(crate) mod util;
 pub mod xenia;

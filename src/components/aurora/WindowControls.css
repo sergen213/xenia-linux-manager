@@ -1,0 +1,44 @@
+.window-controls {
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 6px;
+  z-index: var(--z-tooltip);
+  -webkit-app-region: no-drag;
+}
+
+.window-controls__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 26px;
+  border: none;
+  border-radius: 6px;
+  padding: 0;
+  cursor: pointer;
+  background: transparent;
+  color: var(--au-sub);
+  transition:
+    background var(--transition-fast) var(--ease-out),
+    color var(--transition-fast) var(--ease-out);
+}
+
+.window-controls__btn:hover {
+  background: var(--au-bar-bg);
+  color: var(--au-heading);
+}
+
+.window-controls__btn--close:hover {
+  background: rgba(229, 103, 95, 0.9);
+  color: #fff;
+}
+
+.window-controls__btn:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}

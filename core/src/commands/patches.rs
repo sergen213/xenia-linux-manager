@@ -46,20 +46,6 @@ pub fn get_game_xenia_patches(
     patches::xenia_patches::find_patches_for_game(&app_data_path, &title_id)
 }
 
-pub async fn list_xenia_community_patch_candidates(
-    app_data_path: String,
-    title_id: String,
-) -> Result<Vec<patches::xenia_patches::CommunityXeniaPatchCandidate>, String> {
-    patches::xenia_patches::find_community_patch_candidates(&app_data_path, &title_id).await
-}
-
-pub async fn fetch_xenia_community_patch(
-    app_data_path: String,
-    remote_key: String,
-) -> Result<patches::xenia_patches::FetchCommunityXeniaPatchResult, String> {
-    patches::xenia_patches::fetch_community_patch(&app_data_path, &remote_key).await
-}
-
 pub fn import_xenia_patch_file(
     app_data_path: String,
     input: ImportPatchInput,
@@ -68,11 +54,9 @@ pub fn import_xenia_patch_file(
 }
 
 pub fn toggle_xenia_patch_entry(
-    app_data_path: String,
     file_path: String,
     entry_name: String,
     enabled: bool,
 ) -> Result<(), String> {
-    let _ = app_data_path;
     patches::xenia_patches::toggle_patch_entry(&file_path, &entry_name, enabled)
 }

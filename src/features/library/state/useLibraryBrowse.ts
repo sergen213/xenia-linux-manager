@@ -3,7 +3,6 @@ import {
   browseLibrary,
   fetchAllArtwork,
   fetchGameArtwork,
-  createManualGame,
 } from "../api/libraryClient";
 import { useLibrary } from "./libraryStore";
 import { useSettings } from "../../settings/state/settingsStore";
@@ -34,15 +33,6 @@ export function useLibraryBrowse() {
       }
     },
     [libPath, dispatch],
-  );
-
-  const addManualGame = useCallback(
-    async (payload: { title: string; executable_path: string; source_label?: string }) => {
-      const created = await createManualGame(libPath, payload);
-      await refreshLibrary(created.game_id);
-      return created;
-    },
-    [libPath, refreshLibrary],
   );
 
   // Track artwork fetch attempts to avoid re-fetching in a loop.
@@ -130,6 +120,5 @@ export function useLibraryBrowse() {
     browse: state.browse,
     initialized: state.initialized,
     refreshLibrary,
-    addManualGame,
   };
 }

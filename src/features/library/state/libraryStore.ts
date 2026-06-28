@@ -1,16 +1,13 @@
 import { createStoreContext, type StoreContextValue } from "../../shared/storeContext";
 import type {
   BrowseLibraryPayload,
-  LaunchPreflight,
   LibraryBrowseCard,
   LibraryGameDetails,
   LibrarySource,
   NestedSourceWarning,
 } from "../model/libraryTypes";
 
-export type LibraryViewMode = "library" | "sources";
 export type LibrarySortMode = "recent" | "title" | "source";
-export type LibraryFilterMode = "all" | "manual";
 
 export interface LibraryState {
   sources: LibrarySource[];
@@ -23,14 +20,16 @@ export interface LibraryState {
   browse: BrowseLibraryPayload | null;
   selectedGameId: string | null;
   selectedGame: LibraryGameDetails | null;
-  selectedView: LibraryViewMode;
   search: string;
   sortMode: LibrarySortMode;
-  filterMode: LibraryFilterMode;
-  launchPreflight: LaunchPreflight | null;
   launchPending: boolean;
-  managePatchesOpen: boolean;
+  /** Game currently running in Xenia, cleared on the `game:exited` event. */
+  playingGameId: string | null;
   patchImportPending: boolean;
+  /** Aurora: whether the Details modal is open for the selected game. */
+  detailsOpen: boolean;
+  /** Aurora: bumped by shell controls (A/Enter) to request a launch. */
+  launchRequestId: number;
 }
 
 export const INITIAL_LIBRARY_STATE: LibraryState = {
@@ -44,14 +43,13 @@ export const INITIAL_LIBRARY_STATE: LibraryState = {
   browse: null,
   selectedGameId: null,
   selectedGame: null,
-  selectedView: "library",
   search: "",
   sortMode: "recent",
-  filterMode: "all",
-  launchPreflight: null,
   launchPending: false,
-  managePatchesOpen: false,
+  playingGameId: null,
   patchImportPending: false,
+  detailsOpen: false,
+  launchRequestId: 0,
 };
 
 export type LibraryAction =
@@ -72,14 +70,14 @@ export type LibraryAction =
   | { type: "BROWSE_LOADED"; browse: BrowseLibraryPayload }
   | { type: "SELECT_GAME"; gameId: string | null }
   | { type: "GAME_DETAILS_LOADED"; details: LibraryGameDetails | null }
-  | { type: "SET_VIEW"; view: LibraryViewMode }
   | { type: "SET_SEARCH"; search: string }
   | { type: "SET_SORT"; sortMode: LibrarySortMode }
-  | { type: "SET_FILTER"; filterMode: LibraryFilterMode }
-  | { type: "SET_LAUNCH_PREFLIGHT"; preflight: LaunchPreflight | null }
   | { type: "SET_LAUNCH_PENDING"; pending: boolean }
-  | { type: "SET_MANAGE_PATCHES_OPEN"; open: boolean }
-  | { type: "SET_PATCH_IMPORT_PENDING"; pending: boolean };
+  | { type: "SET_PLAYING"; gameId: string | null }
+  | { type: "SET_PATCH_IMPORT_PENDING"; pending: boolean }
+  | { type: "OPEN_DETAILS" }
+  | { type: "CLOSE_DETAILS" }
+  | { type: "REQUEST_LAUNCH" };
 
 export function libraryReducer(
   state: LibraryState,
@@ -139,29 +137,27 @@ export function libraryReducer(
         ...state,
         selectedGameId: action.gameId,
         selectedGame: action.gameId === state.selectedGameId ? state.selectedGame : null,
-        launchPreflight: action.gameId === state.selectedGameId ? state.launchPreflight : null,
-        managePatchesOpen: action.gameId === state.selectedGameId ? state.managePatchesOpen : false,
         patchImportPending:
           action.gameId === state.selectedGameId ? state.patchImportPending : false,
       };
     case "GAME_DETAILS_LOADED":
       return { ...state, selectedGame: action.details };
-    case "SET_VIEW":
-      return { ...state, selectedView: action.view };
     case "SET_SEARCH":
       return { ...state, search: action.search };
     case "SET_SORT":
       return { ...state, sortMode: action.sortMode };
-    case "SET_FILTER":
-      return { ...state, filterMode: action.filterMode };
-    case "SET_LAUNCH_PREFLIGHT":
-      return { ...state, launchPreflight: action.preflight };
     case "SET_LAUNCH_PENDING":
       return { ...state, launchPending: action.pending };
-    case "SET_MANAGE_PATCHES_OPEN":
-      return { ...state, managePatchesOpen: action.open };
+    case "SET_PLAYING":
+      return { ...state, playingGameId: action.gameId };
     case "SET_PATCH_IMPORT_PENDING":
       return { ...state, patchImportPending: action.pending };
+    case "OPEN_DETAILS":
+      return { ...state, detailsOpen: state.selectedGameId != null };
+    case "CLOSE_DETAILS":
+      return { ...state, detailsOpen: false };
+    case "REQUEST_LAUNCH":
+      return { ...state, launchRequestId: state.launchRequestId + 1 };
     default:
       return state;
   }
@@ -172,9 +168,6 @@ export function selectVisibleLibraryCards(state: LibraryState): LibraryBrowseCar
   const search = state.search.trim().toLowerCase();
 
   const filtered = cards.filter((card) => {
-    if (state.filterMode === "manual" && !card.manual) {
-      return false;
-    }
     if (!search) {
       return true;
     }

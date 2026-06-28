@@ -24,8 +24,6 @@ pub enum DownloadError {
     Io(#[from] std::io::Error),
     #[error("Server returned {status} for {url}")]
     BadStatus { status: u16, url: String },
-    #[error("Download cancelled")]
-    Cancelled,
 }
 
 impl From<DownloadError> for String {

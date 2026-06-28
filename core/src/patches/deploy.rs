@@ -17,8 +17,11 @@ use crate::patches::parser::parse_patch_document;
 // install_state is no longer used directly; patches dir resolution
 // is delegated to xenia_patches::get_xenia_patches_dir.
 
+// The `latest` release asset switched from .zip to .7z, which the `zip` crate
+// can't read. Instead we pull GitHub's source zipball for the same `latest`
+// tag — plain .zip, no git-LFS, and its commit matches version.txt below.
 const PATCHES_ZIP_URL: &str =
-    "https://github.com/xenia-canary/game-patches/releases/download/latest/game-patches.zip";
+    "https://github.com/xenia-canary/game-patches/archive/refs/tags/latest.zip";
 const PATCHES_VERSION_URL: &str =
     "https://github.com/xenia-canary/game-patches/releases/download/latest/version.txt";
 
@@ -249,9 +252,13 @@ pub async fn deploy_patches(app_data_path: &str) -> Result<DeployPatchesResult, 
 
         let raw_name = file.name().to_string();
 
-        // We want entries whose path starts with "patches/" – strip that prefix
-        // and write the remainder into the deploy dir.
-        let relative = if let Some(rest) = raw_name.strip_prefix("patches/") {
+        // Source zipballs wrap everything in a top-level `<repo>-<ref>/` dir.
+        // Strip that first component, then keep only `patches/` entries and
+        // write the remainder into the deploy dir.
+        let Some((_root, after_root)) = raw_name.split_once('/') else {
+            continue;
+        };
+        let relative = if let Some(rest) = after_root.strip_prefix("patches/") {
             rest
         } else {
             continue;

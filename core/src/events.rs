@@ -18,7 +18,6 @@ pub struct EventSink {
 enum Inner {
     Channel(Sender<String>),
     Capture(Mutex<Vec<String>>),
-    Null,
 }
 
 impl EventSink {
@@ -32,11 +31,6 @@ impl EventSink {
         Self { inner: Arc::new(Inner::Capture(Mutex::new(Vec::new()))) }
     }
 
-    /// No-op sink (used when an AppCtx is constructed without wiring output).
-    pub fn null() -> Self {
-        Self { inner: Arc::new(Inner::Null) }
-    }
-
     /// Emit a pre-formatted line (no trailing newline; the writer adds it).
     pub fn emit_raw(&self, line: String) {
         match &*self.inner {
@@ -44,7 +38,6 @@ impl EventSink {
                 let _ = tx.send(line);
             }
             Inner::Capture(buf) => buf.lock().unwrap().push(line),
-            Inner::Null => {}
         }
     }
 
@@ -77,11 +70,5 @@ mod tests {
         assert_eq!(v["kind"], "event");
         assert_eq!(v["event"], "ready");
         assert_eq!(v["payload"]["version"], "0.1.0");
-    }
-
-    #[test]
-    fn null_sink_discards() {
-        let sink = EventSink::null();
-        sink.emit_event("x", &1); // must not panic
     }
 }

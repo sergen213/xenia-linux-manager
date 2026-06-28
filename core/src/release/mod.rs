@@ -19,11 +19,6 @@ use serde::Serialize;
 /// Compile-time version from Cargo.toml.
 const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-/// Release notes URL template. The `{version}` placeholder is replaced at
-/// runtime with the current version string.
-const RELEASE_NOTES_URL_TEMPLATE: &str =
-    "https://github.com/xenialinuxmanager/releases/tag/v{version}";
-
 // ---------------------------------------------------------------------------
 // Build kind detection
 // ---------------------------------------------------------------------------
@@ -108,8 +103,6 @@ pub fn check_updater_readiness() -> UpdaterReadiness {
         "Updater is only available in packaged AppImage builds".to_string()
     } else if !has_pubkey {
         "Updater signing key has not been configured yet".to_string()
-    } else if !has_endpoints {
-        "No updater endpoints are configured".to_string()
     } else {
         "Updater is available and ready for update checks".to_string()
     };
@@ -148,7 +141,8 @@ pub struct ReleaseMetadata {
 pub fn get_release_metadata() -> ReleaseMetadata {
     let build_kind = detect_build_kind();
     let updater = check_updater_readiness();
-    let release_notes_url = RELEASE_NOTES_URL_TEMPLATE.replace("{version}", APP_VERSION);
+    let release_notes_url =
+        format!("https://github.com/xenialinuxmanager/releases/tag/v{APP_VERSION}");
 
     ReleaseMetadata {
         version: APP_VERSION.to_string(),

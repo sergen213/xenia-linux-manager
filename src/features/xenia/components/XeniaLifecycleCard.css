@@ -13,16 +13,19 @@
 
 .xenia-card__title {
   font-size: var(--font-size-xs);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   color: var(--color-text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: var(--tracking-caps);
   margin-bottom: 8px;
 }
 
 .xenia-card__value {
   font-size: var(--font-size-2xl);
-  font-weight: 700;
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
+  letter-spacing: var(--tracking-tight);
+  font-variant-numeric: tabular-nums;
   color: var(--color-text-primary);
   margin-bottom: 4px;
 }
@@ -50,9 +53,9 @@
 .xenia-card__label {
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--tracking-caps);
 }
 
 .xenia-card__select {
@@ -105,7 +108,7 @@
 
 .xenia-card .custom-select--xenia .custom-select__arrow {
   flex-shrink: 0;
-  font-size: 0.65rem;
+  font-size: var(--font-size-2xs);
   opacity: 0.5;
   margin-left: 8px;
 }
@@ -166,7 +169,7 @@
 .xenia-card__update-notice {
   font-size: var(--font-size-sm);
   color: var(--color-accent);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   margin-bottom: 8px;
 }
 

@@ -39,6 +39,19 @@ fn artwork_file_path(library_metadata_path: &str, game_id: &str) -> PathBuf {
     artwork_dir(library_metadata_path).join(format!("{game_id}.jpg"))
 }
 
+/// On-disk cached artwork path for a game, if a non-empty file exists. Lets
+/// `browse` show the cover even when the store's `artwork_path` column is empty
+/// (e.g. a dropped write or a hand-deleted identity file) — the image is the
+/// source of truth on disk.
+pub fn cached_artwork_path(library_metadata_path: &str, game_id: &str) -> Option<String> {
+    let p = artwork_file_path(library_metadata_path, game_id);
+    if p.exists() && fs::metadata(&p).map(|m| m.len() > 0).unwrap_or(false) {
+        Some(p.to_string_lossy().into_owned())
+    } else {
+        None
+    }
+}
+
 /// Try to extract a title_id from the game's executable filename.
 ///
 /// Some game folders contain the title ID in the path (e.g., 4D5307E6).
@@ -164,29 +177,8 @@ pub async fn fetch_artwork(library_metadata_path: &str, game_id: &str) -> Artwor
         };
     }
 
-    // Resolve title_id.
-    let store = identity::load_identity_store(library_metadata_path);
-    let game = identity::find_game_by_id(&store, game_id);
-    // Prefer the stored title_id on the identity record (populated during browse).
-    let mut title_id = game
-        .and_then(|g| g.title_id.clone())
-        .or_else(|| {
-            // Try extracting title ID directly from the game file header.
-            game.and_then(|g| titleid::extract_title_id(std::path::Path::new(&g.executable_path)))
-        })
-        .or_else(|| {
-            game.map(|g| g.executable_path.as_str())
-                .and_then(resolve_title_id_from_path)
-        });
-
-    // Name-based fallback: search the Xbox Marketplace database by game title.
-    if title_id.is_none() {
-        if let Some(game_title) = game.map(|g| g.title.as_str()) {
-            title_id = resolve_title_id_by_name(library_metadata_path, game_title).await;
-        }
-    }
-
-    let title_id = match title_id {
+    // Resolve title_id (shared with synopsis fetch).
+    let title_id = match resolve_title_id(library_metadata_path, game_id).await {
         Some(id) => id,
         None => {
             return ArtworkResult {
@@ -197,15 +189,6 @@ pub async fn fetch_artwork(library_metadata_path: &str, game_id: &str) -> Artwor
             };
         }
     };
-
-    // Persist the resolved title_id so future calls skip extraction.
-    if game.map(|g| g.title_id.is_none()).unwrap_or(false) {
-        let mut store = identity::load_identity_store(library_metadata_path);
-        if let Some(record) = store.games.iter_mut().find(|g| g.game_id == game_id) {
-            record.title_id = Some(title_id.clone());
-            let _ = identity::save_identity_store(library_metadata_path, &store);
-        }
-    }
 
     // Download using fallbacks.
     match download_artwork_with_fallbacks(&title_id, &cached_path).await {
@@ -232,6 +215,131 @@ pub async fn fetch_artwork(library_metadata_path: &str, game_id: &str) -> Artwor
     }
 }
 
+/// Resolve a game's Xbox title_id from the identity store, file header, path,
+/// or marketplace name search. A freshly-resolved id is persisted back to the
+/// identity store so later calls (artwork, synopsis) skip the lookup.
+async fn resolve_title_id(library_metadata_path: &str, game_id: &str) -> Option<String> {
+    let store = identity::load_identity_store(library_metadata_path);
+    let game = identity::find_game_by_id(&store, game_id);
+    // Prefer the stored title_id on the identity record (populated during browse).
+    let mut title_id = game
+        .and_then(|g| g.title_id.clone())
+        .or_else(|| {
+            // Try extracting title ID directly from the game file header.
+            game.and_then(|g| titleid::extract_title_id(std::path::Path::new(&g.executable_path)))
+        })
+        .or_else(|| {
+            game.map(|g| g.executable_path.as_str())
+                .and_then(resolve_title_id_from_path)
+        });
+
+    // Name-based fallback: search the Xbox Marketplace database by game title.
+    if title_id.is_none() {
+        if let Some(game_title) = game.map(|g| g.title.as_str()) {
+            title_id = resolve_title_id_by_name(library_metadata_path, game_title).await;
+        }
+    }
+
+    // Persist a freshly-resolved id so future calls skip extraction. Under the
+    // store write lock so a concurrent browse/artwork save can't clobber it.
+    if let Some(ref id) = title_id {
+        if game.map(|g| g.title_id.is_none()).unwrap_or(false) {
+            let _guard = identity::lock_identity_store();
+            let mut store = identity::load_identity_store(library_metadata_path);
+            if let Some(record) = store.games.iter_mut().find(|g| g.game_id == game_id) {
+                record.title_id = Some(id.clone());
+                let _ = identity::save_identity_store(library_metadata_path, &store);
+            }
+        }
+    }
+
+    title_id
+}
+
+/// Result of a synopsis fetch attempt.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct SynopsisResult {
+    pub game_id: String,
+    pub synopsis: Option<String>,
+    pub error: Option<String>,
+}
+
+const SYNOPSIS_DIRNAME: &str = "synopsis";
+
+fn synopsis_file_path(library_metadata_path: &str, game_id: &str) -> PathBuf {
+    PathBuf::from(library_metadata_path)
+        .join(SYNOPSIS_DIRNAME)
+        .join(format!("{game_id}.txt"))
+}
+
+/// Fetch a game's synopsis (description) from the x360db title database, the
+/// same source used for box art. Cached locally so each title is fetched once.
+pub async fn fetch_synopsis(library_metadata_path: &str, game_id: &str) -> SynopsisResult {
+    let cached = synopsis_file_path(library_metadata_path, game_id);
+    if let Ok(text) = fs::read_to_string(&cached) {
+        if !text.trim().is_empty() {
+            return SynopsisResult {
+                game_id: game_id.to_string(),
+                synopsis: Some(text),
+                error: None,
+            };
+        }
+    }
+
+    let title_id = match resolve_title_id(library_metadata_path, game_id).await {
+        Some(id) => id,
+        None => {
+            return SynopsisResult {
+                game_id: game_id.to_string(),
+                synopsis: None,
+                error: Some("No title_id available for this game".to_string()),
+            };
+        }
+    };
+
+    match fetch_description(&title_id).await {
+        Some(desc) => {
+            if let Some(parent) = cached.parent() {
+                let _ = fs::create_dir_all(parent);
+            }
+            let _ = fs::write(&cached, &desc);
+            SynopsisResult {
+                game_id: game_id.to_string(),
+                synopsis: Some(desc),
+                error: None,
+            }
+        }
+        None => SynopsisResult {
+            game_id: game_id.to_string(),
+            synopsis: None,
+            error: Some("No synopsis found for this title".to_string()),
+        },
+    }
+}
+
+/// Fetch and clean the description from a title's x360db info.json.
+async fn fetch_description(title_id: &str) -> Option<String> {
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .unwrap_or_default();
+    let info_url = format!("https://xenia-manager.github.io/x360db/titles/{title_id}/info.json");
+    let resp = client.get(&info_url).send().await.ok()?;
+    if !resp.status().is_success() {
+        return None;
+    }
+    let info = resp.json::<X360DbInfo>().await.ok()?;
+    let full = info.description?.full?;
+    // Collapse the source's runs of whitespace/newlines into single spaces.
+    // ponytail: leaves leading marketplace boilerplate; strip a known prefix if it bothers anyone.
+    let cleaned = full.split_whitespace().collect::<Vec<_>>().join(" ");
+    if cleaned.is_empty() {
+        None
+    } else {
+        Some(cleaned)
+    }
+}
+
 /// Download an image from a URL to a local path.
 
 #[derive(Debug, serde::Deserialize)]
@@ -242,6 +350,12 @@ struct X360DbArtwork {
 #[derive(Debug, serde::Deserialize)]
 struct X360DbInfo {
     artwork: Option<X360DbArtwork>,
+    description: Option<X360DbDescription>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct X360DbDescription {
+    full: Option<String>,
 }
 
 async fn fetch_boxart_urls(title_id: &str) -> Vec<String> {
@@ -343,6 +457,9 @@ fn persist_artwork_path(
     game_id: &str,
     artwork_path: &str,
 ) -> Result<(), String> {
+    // Hold the store write lock across load+save: parallel artwork fetches and
+    // the browse-time store rewrite would otherwise lose each other's updates.
+    let _guard = identity::lock_identity_store();
     let mut store = identity::load_identity_store(library_metadata_path);
     if let Some(record) = store.games.iter_mut().find(|g| g.game_id == game_id) {
         if record.artwork_path.as_deref() != Some(artwork_path) {
@@ -408,6 +525,109 @@ mod tests {
     fn artwork_file_path_uses_game_id() {
         let path = artwork_file_path("/data/library", "game-abc123");
         assert_eq!(path, PathBuf::from("/data/library/artwork/game-abc123.jpg"));
+    }
+
+    /// Regression: parallel artwork persists racing the browse-time whole-store
+    /// rewrite must not lose `artwork_path` updates. Without the identity-store
+    /// write lock a browse loads a stale snapshot and reverts a freshly-persisted
+    /// path, blanking covers until a restart. This fails (intermittently) on the
+    /// pre-fix code and passes deterministically with the lock.
+    #[test]
+    fn concurrent_persist_and_browse_keeps_artwork_paths() {
+        use std::thread;
+
+        let dir = std::env::temp_dir().join(format!("xlm-art-race-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let lib = dir.to_string_lossy().to_string();
+
+        let n = 8usize;
+        let mut store = identity::load_identity_store(&lib);
+        for i in 0..n {
+            store.games.push(identity::GameIdentityRecord {
+                game_id: format!("g{i}"),
+                title: format!("Game {i}"),
+                executable_path: format!("/games/g{i}/default.xex"),
+                source_id: None,
+                linked_candidate_paths: vec![],
+                manual: true,
+                issue_notes: vec![],
+                review_state: identity::ReviewState::Clean,
+                artwork_path: None,
+                title_id: Some("4D5307E6".into()),
+                last_played_at: None,
+                running_session: None,
+                created_at: 0,
+                updated_at: 0,
+                preferred_xenia_tag: None,
+                launch_environment: None,
+                launch_wrapper: None,
+            });
+        }
+        identity::save_identity_store(&lib, &store).unwrap();
+
+        use std::sync::atomic::{AtomicBool, Ordering};
+        let lib = std::sync::Arc::new(lib);
+        let iters = 80;
+        let stop = std::sync::Arc::new(AtomicBool::new(false));
+        // Set true if any game's artwork_path is ever observed reverting Some->None
+        // — exactly the transient that blanks a cover mid-session.
+        let reverted = std::sync::Arc::new(AtomicBool::new(false));
+        let mut handles = Vec::new();
+
+        // Checker: a path that was set must never go back to null.
+        {
+            let lib = lib.clone();
+            let stop = stop.clone();
+            let reverted = reverted.clone();
+            handles.push(thread::spawn(move || {
+                let mut seen_set = vec![false; n];
+                while !stop.load(Ordering::Relaxed) {
+                    let s = identity::load_identity_store(&lib);
+                    for i in 0..n {
+                        if let Some(g) = s.games.iter().find(|g| g.game_id == format!("g{i}")) {
+                            if g.artwork_path.is_some() {
+                                seen_set[i] = true;
+                            } else if seen_set[i] {
+                                reverted.store(true, Ordering::Relaxed);
+                            }
+                        }
+                    }
+                }
+            }));
+        }
+        // Persisters: stamp each game's artwork_path.
+        for _ in 0..3 {
+            let lib = lib.clone();
+            handles.push(thread::spawn(move || {
+                for _ in 0..iters {
+                    for i in 0..n {
+                        let _ = persist_artwork_path(&lib, &format!("g{i}"), &format!("/art/g{i}.jpg"));
+                    }
+                }
+            }));
+        }
+        // Browsers: rewrite the whole identity store concurrently.
+        for _ in 0..3 {
+            let lib = lib.clone();
+            handles.push(thread::spawn(move || {
+                for _ in 0..iters {
+                    let _ = crate::library::review::browse_library(&lib);
+                }
+            }));
+        }
+        // Persisters/browsers are handles[1..]; join them, then stop the checker.
+        for h in handles.drain(1..) {
+            h.join().unwrap();
+        }
+        stop.store(true, Ordering::Relaxed);
+        handles.pop().unwrap().join().unwrap();
+
+        assert!(
+            !reverted.load(Ordering::Relaxed),
+            "artwork_path reverted Some->None under a concurrent browse — store write race regressed"
+        );
+        let _ = fs::remove_dir_all(&dir);
     }
 
     #[tokio::test]

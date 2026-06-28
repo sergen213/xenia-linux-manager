@@ -38,20 +38,6 @@ export async function switchActiveXeniaBuild(
   return invoke<InstallState>("switch_active_xenia_build", { appDataPath, buildId });
 }
 
-/** Check for updates by comparing the installed tag against latest release. */
-export async function checkForUpdate(
-  installedTag: string,
-): Promise<LinuxRelease | null> {
-  return invoke<LinuxRelease | null>("check_for_update", { installedTag });
-}
-
-/** Check for updates using persisted state (auto-detects installed tag). */
-export async function checkForUpdateAuto(
-  appDataPath: string,
-): Promise<LinuxRelease | null> {
-  return invoke<LinuxRelease | null>("check_for_update_auto", { appDataPath });
-}
-
 // ---------------------------------------------------------------------------
 // Install and update commands
 // ---------------------------------------------------------------------------
@@ -93,14 +79,6 @@ export async function clearInstallFailure(
   return invoke<void>("clear_install_failure", { appDataPath });
 }
 
-/** Clean up staging and download artifacts for a specific release. */
-export async function cleanupInstallArtifacts(
-  appDataPath: string,
-  release: LinuxRelease,
-): Promise<void> {
-  return invoke<void>("cleanup_install_artifacts", { appDataPath, release });
-}
-
 /** Remove the active Xenia installation entirely. */
 export async function removeXeniaInstall(
   appDataPath: string,
@@ -112,4 +90,32 @@ export async function removeXeniaInstall(
     xeniaPath,
     buildId: buildId ?? null,
   });
+}
+
+// ---------------------------------------------------------------------------
+// Maintenance commands
+// ---------------------------------------------------------------------------
+
+export interface ClearCacheResult {
+  cleared_paths: string[];
+  freed_bytes: number;
+}
+
+/** Delete Xenia's regenerable GPU shader/pipeline cache. */
+export async function clearShaderCache(
+  appDataPath: string,
+): Promise<ClearCacheResult> {
+  return invoke<ClearCacheResult>("clear_shader_cache", { appDataPath });
+}
+
+export interface LogBundleResult {
+  archive_path: string;
+  log_count: number;
+}
+
+/** Bundle Xenia logs from all installed builds into a zip for bug reports. */
+export async function exportLogBundle(
+  appDataPath: string,
+): Promise<LogBundleResult> {
+  return invoke<LogBundleResult>("export_log_bundle", { appDataPath });
 }

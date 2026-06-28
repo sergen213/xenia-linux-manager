@@ -16,28 +16,14 @@ fn base_data_dir() -> PathBuf {
         .join("xenia-linux-manager")
 }
 
-/// Default location for the Xenia emulator binaries and runtime files.
-pub fn default_xenia_path() -> PathBuf {
-    base_data_dir().join("xenia")
-}
-
-/// Default location for application-level data (task history, caches, etc.).
-pub fn default_app_data_path() -> PathBuf {
-    base_data_dir().join("data")
-}
-
-/// Default location for the game library metadata database.
-pub fn default_library_metadata_path() -> PathBuf {
-    base_data_dir().join("library")
-}
-
 /// Return all three recommended defaults as a tuple
 /// `(xenia_path, app_data_path, library_metadata_path)`.
 pub fn all_defaults() -> (PathBuf, PathBuf, PathBuf) {
+    let base = base_data_dir();
     (
-        default_xenia_path(),
-        default_app_data_path(),
-        default_library_metadata_path(),
+        base.join("xenia"),
+        base.join("data"),
+        base.join("library"),
     )
 }
 

@@ -40,13 +40,9 @@ export function TasksProvider({ children }: TasksProviderProps) {
           settingsState.settings!.app_data_path,
         );
         if (cancelled) return;
-        const interruptedCount = history.jobs.filter(
-          (j) => j.status === "interrupted",
-        ).length;
         dispatch({
           type: "LOAD_HISTORY_SUCCESS",
           jobs: history.jobs,
-          interruptedCount,
         });
       } catch {
         if (cancelled) return;
@@ -55,7 +51,6 @@ export function TasksProvider({ children }: TasksProviderProps) {
         dispatch({
           type: "LOAD_HISTORY_SUCCESS",
           jobs: [],
-          interruptedCount: 0,
         });
       }
     }

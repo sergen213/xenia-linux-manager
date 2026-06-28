@@ -15,7 +15,7 @@
 
 .xenia-recovery__title {
   font-size: var(--font-size-sm);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   color: var(--color-danger);
 }
 
@@ -60,7 +60,7 @@
 
 .xenia-recovery__detail-list dt {
   color: var(--color-text-muted);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 
 .xenia-recovery__detail-list dd {

@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 
 use crate::library::launch;
 use crate::library::review;
+use crate::library::shell_escape;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct DesktopShortcutExportResult {
@@ -179,11 +180,6 @@ fn slugify(value: &str) -> String {
 
 fn escape_desktop_value(value: &str) -> String {
     value.replace('\n', " ")
-}
-
-fn shell_escape(value: &str) -> String {
-    let escaped = value.replace('"', "\\\"");
-    format!("\"{}\"", escaped)
 }
 
 fn desktop_exec_command(plan: &launch::LaunchPlan) -> String {

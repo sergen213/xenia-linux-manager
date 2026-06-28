@@ -16,7 +16,9 @@ interface CustomSelectProps {
 
 export function CustomSelect({ id, className, value, options, onChange, disabled = false }: CustomSelectProps) {
   const [open, setOpen] = useState(false);
-  const [activeIndex, setActiveIndex] = useState(-1);
+  // Keyboard roving position (gamepad uses the app's spatial nav instead). A ref,
+  // not state — nothing renders from it.
+  const activeIndexRef = useRef(-1);
   const containerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
@@ -40,7 +42,8 @@ export function CustomSelect({ id, className, value, options, onChange, disabled
   useEffect(() => {
     if (!open) return;
     const start = selectedIndex >= 0 ? selectedIndex : 0;
-    setActiveIndex(start);
+    // Note: we don't call setActiveIndex here to avoid cascading renders.
+    // Focus is sufficient for accessibility without triggering a re-render.
     optionRefs.current[start]?.focus();
   }, [open, selectedIndex]);
 
@@ -51,12 +54,11 @@ export function CustomSelect({ id, className, value, options, onChange, disabled
 
   const moveActive = (delta: number) => {
     if (options.length === 0) return;
-    setActiveIndex((current) => {
-      const base = current < 0 ? (selectedIndex >= 0 ? selectedIndex : 0) : current;
-      const next = (base + delta + options.length) % options.length;
-      optionRefs.current[next]?.focus();
-      return next;
-    });
+    const current = activeIndexRef.current;
+    const base = current < 0 ? (selectedIndex >= 0 ? selectedIndex : 0) : current;
+    const next = (base + delta + options.length) % options.length;
+    activeIndexRef.current = next;
+    optionRefs.current[next]?.focus();
   };
 
   const handleTriggerKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
@@ -83,12 +85,12 @@ export function CustomSelect({ id, className, value, options, onChange, disabled
         break;
       case "Home":
         e.preventDefault();
-        setActiveIndex(0);
+        activeIndexRef.current = 0;
         optionRefs.current[0]?.focus();
         break;
       case "End":
         e.preventDefault();
-        setActiveIndex(options.length - 1);
+        activeIndexRef.current = options.length - 1;
         optionRefs.current[options.length - 1]?.focus();
         break;
       case "Tab":
@@ -135,7 +137,10 @@ export function CustomSelect({ id, className, value, options, onChange, disabled
                 role="option"
                 aria-selected={opt.value === value}
                 ref={(el) => { optionRefs.current[index] = el; }}
-                tabIndex={index === activeIndex ? 0 : -1}
+                // All options are focusable so the controller's spatial nav can
+                // walk them (it ignores tabindex=-1). Keyboard roving still works
+                // via the menu's own arrow handler.
+                tabIndex={0}
                 className={`custom-select__option${opt.value === value ? " is-active" : ""}`}
                 onClick={() => {
                   onChange(opt.value);

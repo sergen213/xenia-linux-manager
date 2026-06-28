@@ -35,7 +35,6 @@ describe("savesReducer", () => {
       exportPending: true,
       importWizardStep: "result",
       importArchivePath: "/tmp/archive.zip",
-      backupFailureAccepted: true,
       backupFailureError: "backup failed",
     };
 
@@ -43,7 +42,6 @@ describe("savesReducer", () => {
     expect(next.exportPending).toBe(false);
     expect(next.importWizardStep).toBe("idle");
     expect(next.importArchivePath).toBeNull();
-    expect(next.backupFailureAccepted).toBe(false);
     expect(next.backupFailureError).toBeNull();
   });
 });

@@ -3,13 +3,21 @@ import { createInterface, Interface } from 'readline'
 import { randomUUID } from 'crypto'
 import { EventEmitter } from 'events'
 
+export interface SidecarMessage {
+  kind: 'response' | 'event'
+  id?: string
+  result?: unknown
+  error?: string
+  event?: string
+  payload?: unknown
+}
+
 export type SidecarEvent = { event: string; payload: unknown }
 type Pending = { resolve: (v: unknown) => void; reject: (e: Error) => void }
 
 export interface SidecarOptions {
   binaryPath: string
   autoRestart?: boolean
-  maxRestarts?: number
 }
 
 export class SidecarClient {
@@ -22,8 +30,11 @@ export class SidecarClient {
   private version = ''
   private restarts = 0
   private stopping = false
+  private opts: SidecarOptions
 
-  constructor(private opts: SidecarOptions) {}
+  constructor(opts: SidecarOptions) {
+    this.opts = opts
+  }
 
   start(): void {
     this.stopping = false
@@ -41,13 +52,13 @@ export class SidecarClient {
   private onLine(line: string): void {
     const trimmed = line.trim()
     if (!trimmed) return
-    let msg: any
+    let msg: SidecarMessage
     try { msg = JSON.parse(trimmed) } catch { process.stderr.write(`[xlm-core] bad line: ${trimmed}\n`); return }
     if (msg.kind === 'response') {
-      const p = this.pending.get(msg.id)
+      const p = this.pending.get(msg.id!)
       if (!p) return
-      this.pending.delete(msg.id)
-      if (msg.ok) p.resolve(msg.result)
+      this.pending.delete(msg.id!)
+      if (msg.ok) p.resolve(msg.result!)
       else p.reject(new Error(typeof msg.error === 'string' ? msg.error : 'sidecar error'))
       return
     }
@@ -57,8 +68,8 @@ export class SidecarClient {
         this.version = msg.payload?.version ?? ''
         this.readyResolvers.splice(0).forEach((r) => r({ version: this.version }))
       }
-      this.emitter.emit('any', { event: msg.event, payload: msg.payload })
-      this.emitter.emit(msg.event, msg.payload)
+      this.emitter.emit('any', { event: msg.event!, payload: msg.payload })
+      this.emitter.emit(msg.event!, msg.payload)
     }
   }
 
@@ -72,7 +83,7 @@ export class SidecarClient {
     this.ready = false
     if (this.stopping) return
     this.emitter.emit('crash')
-    const max = this.opts.maxRestarts ?? 5
+    const max = 5
     if (this.opts.autoRestart && this.restarts < max) {
       const delay = Math.min(250 * 2 ** this.restarts, 5000)
       this.restarts += 1

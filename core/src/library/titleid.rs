@@ -189,13 +189,6 @@ fn find_xex_in_directory(
             dir_data[entry_offset + 6],
             dir_data[entry_offset + 7],
         ]);
-        let _entry_file_size = u32::from_le_bytes([
-            dir_data[entry_offset + 8],
-            dir_data[entry_offset + 9],
-            dir_data[entry_offset + 10],
-            dir_data[entry_offset + 11],
-        ]);
-        let _attributes = dir_data[entry_offset + 12];
         let name_len = dir_data[entry_offset + 13] as usize;
 
         if entry_offset + 14 + name_len > dir_data.len() {

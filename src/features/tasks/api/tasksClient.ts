@@ -27,24 +27,6 @@ export async function loadTaskHistory(
   });
 }
 
-/** Get task history without recovery (for refreshes after init). */
-export async function getTaskHistory(
-  appDataPath: string,
-): Promise<TaskHistory> {
-  return invoke<TaskHistory>("get_task_history", {
-    appDataPath,
-  });
-}
-
-/** Clear all persisted task history. */
-export async function clearTaskHistory(
-  appDataPath: string,
-): Promise<void> {
-  return invoke<void>("clear_task_history", {
-    appDataPath,
-  });
-}
-
 // ---------------------------------------------------------------------------
 // Event subscriptions
 // ---------------------------------------------------------------------------

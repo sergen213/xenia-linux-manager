@@ -13,6 +13,8 @@ export interface ControllableWindow {
   unmaximize(): void
   close(): void
   isMaximized(): boolean
+  isFullScreen(): boolean
+  setFullScreen(flag: boolean): void
   isDestroyed(): boolean
 }
 
@@ -32,7 +34,12 @@ export function registerWindowControls(deps: WindowControlDeps): void {
   deps.handle('xlm:win:toggleMaximize', () => {
     const win = target()
     if (!win) return
-    if (win.isMaximized()) win.unmaximize()
+    // The window launches in true fullscreen (not maximized), where
+    // isMaximized() is false. Without this branch the first click would call
+    // maximize() (a no-op from fullscreen) and the user had to click twice to
+    // shrink. Exiting fullscreen restores the window's pre-fullscreen bounds.
+    if (win.isFullScreen()) win.setFullScreen(false)
+    else if (win.isMaximized()) win.unmaximize()
     else win.maximize()
   })
   deps.handle('xlm:win:close', () => { target()?.close() })

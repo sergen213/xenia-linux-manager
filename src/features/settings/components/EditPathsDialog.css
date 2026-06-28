@@ -68,7 +68,7 @@
 .edit-paths__label {
   display: block;
   font-size: var(--font-size-sm);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
   margin-bottom: 0.375rem;
 }
@@ -105,7 +105,7 @@
 
 .edit-paths__impact-title {
   font-size: var(--font-size-sm);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
   margin-bottom: 0.5rem;
 }
@@ -115,7 +115,7 @@
   padding: 0;
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
-  line-height: 1.6;
+  line-height: var(--line-height-relaxed);
   font-family: var(--font-mono);
 }
 
@@ -132,7 +132,7 @@
   border: none;
   border-radius: var(--radius-sm);
   font-size: var(--font-size-sm);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   cursor: pointer;
 }
 
@@ -191,7 +191,7 @@
   border: none;
   border-radius: var(--radius-md);
   font-size: var(--font-size-sm);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   cursor: pointer;
 }
 

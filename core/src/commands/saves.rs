@@ -16,7 +16,7 @@ pub fn get_export_preflight(
 
 /// Execute an export, producing a portable zip archive.
 pub async fn export_save_archive(
-    app_data_path: String,
+    _app_data_path: String,
     library_metadata_path: String,
     xenia_path: String,
     game_id: String,
@@ -46,7 +46,7 @@ pub async fn export_save_archive(
 
     let filename = paths::generate_archive_filename(&preflight.game_title);
 
-    archive::create_export_archive(&app_data_path, &output_dir, &filename, &preflight, &items)
+    archive::create_export_archive(&output_dir, &filename, &preflight, &items)
         .await
         .map_err(|e| e.to_string())
 }
@@ -66,25 +66,14 @@ pub fn get_import_conflict_plan(
     xenia_path: String,
     staging_path: String,
     target_game_id: String,
-    _source_game_id: String,
-    _source_game_title: String,
     policy: ConflictPolicy,
 ) -> Result<ConflictPlan, String> {
-    // Build a minimal inspection for the conflict planner.
     let manifest = archive::read_staging_manifest(std::path::Path::new(&staging_path))
         .map_err(|e| e.to_string())?;
 
-    let inspection = ImportInspection {
-        manifest,
-        staging_path,
-        game_found: true,
-        target_game_id: Some(target_game_id.clone()),
-        target_game_title: None,
-        verification_warnings: vec![],
-    };
-
     import::generate_conflict_plan(
-        &inspection,
+        &staging_path,
+        &manifest,
         &library_metadata_path,
         &xenia_path,
         &target_game_id,

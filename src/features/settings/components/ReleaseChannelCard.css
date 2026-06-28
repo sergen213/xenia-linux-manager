@@ -8,7 +8,7 @@
 
 .release-card__title {
   font-size: var(--font-size-base);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
   margin-bottom: 1rem;
 }
@@ -34,17 +34,17 @@
 
 .release-card__app-name {
   font-size: var(--font-size-lg);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
 }
 
 .release-card__build-badge {
   font-size: var(--font-size-xs);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   padding: 0.125rem 0.5rem;
   border-radius: var(--radius-sm);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--tracking-caps);
 }
 
 .release-card__build-badge--packaged_appimage {
@@ -105,7 +105,7 @@
 .release-card__updater-title,
 .release-card__desktop-title {
   font-size: var(--font-size-sm);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
   margin-bottom: 0.75rem;
 }
@@ -141,7 +141,7 @@
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
   margin-bottom: 0.75rem;
-  line-height: 1.4;
+  line-height: var(--line-height-snug);
 }
 
 .release-card__updater-checks {
@@ -158,7 +158,7 @@
 }
 
 .release-card__check-icon {
-  font-weight: 700;
+  font-weight: var(--font-weight-bold);
   width: 1rem;
   text-align: center;
   flex-shrink: 0;
@@ -185,7 +185,7 @@
 .release-card__desktop-text {
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
-  line-height: 1.5;
+  line-height: var(--line-height-normal);
 }
 
 .release-card__desktop-text code {

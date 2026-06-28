@@ -27,7 +27,6 @@ impl From<LifecycleError> for String {
 /// Promote a staged candidate build into its channel/tag-specific install directory.
 pub async fn promote_staged_build(
     xenia_path: &str,
-    _app_data_path: &str,
     release: &LinuxRelease,
     staged_exec_path: &Path,
 ) -> Result<(PathBuf, PathBuf), LifecycleError> {
@@ -140,7 +139,6 @@ mod tests {
         let release = sample_release(ReleaseChannel::Edge, "559007a");
         let (final_exec, install_dir) = promote_staged_build(
             &xenia.to_string_lossy(),
-            &app_data.to_string_lossy(),
             &release,
             &staged_exec,
         )

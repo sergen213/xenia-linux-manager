@@ -146,11 +146,6 @@ pub fn save_settings(settings: &AppSettings) -> Result<(), SettingsError> {
     Ok(())
 }
 
-/// Return the recommended default settings (unsaved).
-pub fn get_defaults() -> AppSettings {
-    AppSettings::default()
-}
-
 /// Validate proposed path values, applying fallback where necessary.
 /// Returns a validation bundle with per-path results and any warnings.
 pub fn validate_settings_paths(settings: &AppSettings) -> SettingsValidation {

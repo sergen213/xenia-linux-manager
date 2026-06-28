@@ -8,7 +8,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::time::{SystemTime, UNIX_EPOCH};
+
+use crate::util::now_millis;
 
 const PROFILES_DIRNAME: &str = "profiles";
 const SHARED_DIRNAME: &str = "_shared_";
@@ -528,13 +529,6 @@ fn generate_profile_id(name: &str, timestamp: u64) -> String {
     name.hash(&mut hasher);
     timestamp.hash(&mut hasher);
     format!("prof-{:x}", hasher.finish())
-}
-
-fn now_millis() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis() as u64
 }
 
 // ---------------------------------------------------------------------------

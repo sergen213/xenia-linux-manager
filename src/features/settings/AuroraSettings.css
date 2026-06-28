@@ -1,0 +1,162 @@
+.aurora-settings {
+  display: flex;
+  gap: 20px;
+  height: 100%;
+}
+
+.aurora-settings__rail {
+  width: 230px;
+  flex: 0 0 auto;
+  background: var(--au-glass-bg);
+  border: 1px solid var(--au-glass-border);
+  border-radius: 14px;
+  backdrop-filter: blur(8px);
+  box-shadow: var(--au-glass-shadow);
+  padding: 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.aurora-settings__rail-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: var(--au-group-title);
+  padding: 4px 12px 8px;
+}
+
+.aurora-settings__rail-row {
+  padding: 12px 16px;
+  font-size: 17px;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--au-rail-text);
+  border: none;
+  text-align: left;
+  white-space: nowrap;
+  font-family: inherit;
+}
+.aurora-settings__rail-row.is-active {
+  background: var(--au-accent);
+  color: var(--au-accent-ink);
+}
+
+.aurora-settings__panel {
+  flex: 1;
+  min-width: 0;
+  background: var(--au-glass-bg);
+  border: 1px solid var(--au-glass-border);
+  border-radius: 14px;
+  backdrop-filter: blur(8px);
+  box-shadow: var(--au-glass-shadow);
+  padding: 30px 34px;
+  overflow-y: auto;
+}
+
+.aurora-settings__cols {
+  display: flex;
+  gap: 44px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+.aurora-settings__col {
+  flex: 1;
+  min-width: 260px;
+}
+
+.aurora-grouptitle {
+  color: var(--au-group-title);
+  font-size: 24px;
+  font-weight: 300;
+  margin: 0 0 14px;
+}
+
+/* .aurora-radio* rules live in components/aurora/AuroraRadio.css (co-located
+   with the component so first-run setup, which never loads this chunk, still
+   gets them). */
+
+.aurora-check {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 9px 0;
+  cursor: pointer;
+  font-size: 18px;
+  color: var(--au-text);
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+}
+.aurora-check__box {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  border: 2px solid var(--au-sub);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+.aurora-check__fill {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--au-accent);
+}
+
+.aurora-help {
+  font-size: 13px;
+  color: var(--au-sub);
+  margin-top: 8px;
+  line-height: 1.45;
+  max-width: 420px;
+}
+
+.aurora-profile__avatar-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+.aurora-profile__avatar {
+  width: 58px;
+  height: 58px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #3fc488, #1f7a8c);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 24px;
+  color: #06241a;
+}
+.aurora-profile__avatar-name {
+  font-size: 17px;
+  color: var(--au-text);
+  font-weight: 600;
+}
+.aurora-profile__avatar-sub {
+  font-size: 13px;
+  color: var(--au-sub);
+  margin-top: 3px;
+}
+
+.aurora-settings__about h3 {
+  font-size: 23px;
+  font-weight: 600;
+  color: var(--au-heading);
+}
+.aurora-settings__about p {
+  font-size: 15px;
+  color: var(--au-text);
+  line-height: 1.6;
+  max-width: 540px;
+  margin-top: 14px;
+}

@@ -7,7 +7,8 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::time::SystemTime;
+
+use crate::util::now_millis;
 
 // ---------------------------------------------------------------------------
 // Source model
@@ -239,13 +240,6 @@ fn normalize_path(raw: &str) -> Result<PathBuf, String> {
         return Err(format!("Path must be absolute: {}", raw));
     }
     Ok(normalized)
-}
-
-fn now_millis() -> u64 {
-    SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis() as u64
 }
 
 fn generate_source_id() -> String {

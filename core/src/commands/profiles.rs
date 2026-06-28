@@ -59,37 +59,15 @@ pub fn save_profile_overrides(
 }
 
 // ---------------------------------------------------------------------------
-// Materialization commands
-// ---------------------------------------------------------------------------
-
-pub fn get_materialized_launch_config(
-    app_data_path: String,
-    library_metadata_path: String,
-    game_id: String,
-) -> Result<crate::profiles::materialize::MaterializedLaunchConfig, String> {
-    crate::profiles::materialize::materialize_launch_config(
-        &app_data_path,
-        &library_metadata_path,
-        &game_id,
-    )
-}
-
-// ---------------------------------------------------------------------------
 // Recommendation commands
 // ---------------------------------------------------------------------------
-
-pub fn check_recommendation_availability(game_id: String) -> sources::RecommendationAvailability {
-    let source = sources::default_recommendation_source();
-    sources::check_recommendation(&source, &game_id)
-}
 
 pub fn apply_recommended_profile(
     library_metadata_path: String,
     game_id: String,
     profile_name: Option<String>,
 ) -> Result<storage::ProfileInventory, String> {
-    let source = sources::default_recommendation_source();
-    let availability = sources::check_recommendation(&source, &game_id);
+    let availability = sources::recommendation_availability(&game_id);
     sources::apply_recommendation(
         &library_metadata_path,
         &game_id,

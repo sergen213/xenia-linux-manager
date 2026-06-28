@@ -1,5 +1,7 @@
+pub mod fs_browse;
 pub mod jobs;
 pub mod library;
+pub mod maintenance;
 pub mod patches;
 pub mod profiles;
 pub mod release;

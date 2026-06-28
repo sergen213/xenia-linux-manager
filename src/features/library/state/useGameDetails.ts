@@ -6,48 +6,34 @@ import {
 import { useLibrary } from "./libraryStore";
 import { useSettings } from "../../settings/state/settingsStore";
 
-interface UseGameDetailsOptions {
-  onError?: (error: string) => void;
-}
-
-export function useGameDetails({ onError }: UseGameDetailsOptions = {}) {
+export function useGameDetails() {
   const { state, dispatch } = useLibrary();
   const { state: settingsState } = useSettings();
 
   const libPath = settingsState.settings?.library_metadata_path ?? "";
+  const selectedGameId = state.selectedGameId;
 
-  const loadGameDetails = useCallback(async () => {
-    if (!libPath || !state.selectedGameId) {
-      return;
-    }
-
+  // Load details when the selected game changes.
+  useEffect(() => {
+    if (!libPath || !selectedGameId) return;
     let cancelled = false;
 
-    async function load() {
+    void (async () => {
       try {
-        const details = await getLibraryGameDetails(libPath, state.selectedGameId!);
-
+        const details = await getLibraryGameDetails(libPath, selectedGameId);
         if (cancelled) return;
-
         dispatch({ type: "GAME_DETAILS_LOADED", details });
       } catch (error) {
         if (cancelled) return;
         const message = error instanceof Error ? error.message : "Failed to load game details";
         dispatch({ type: "SET_ERROR", error: message });
-        onError?.(message);
       }
-    }
+    })();
 
-    void load();
     return () => {
       cancelled = true;
     };
-  }, [libPath, state.selectedGameId, dispatch, onError]);
-
-  // Load details when selected game changes
-  useEffect(() => {
-    loadGameDetails();
-  }, [loadGameDetails]);
+  }, [libPath, selectedGameId, dispatch]);
 
   const saveIdentity = useCallback(
     async (payload: { game_id: string; title?: string; executable_path?: string; source_label?: string }) => {
@@ -63,9 +49,5 @@ export function useGameDetails({ onError }: UseGameDetailsOptions = {}) {
     [libPath, dispatch],
   );
 
-  return {
-    selectedGame: state.selectedGame,
-    loadGameDetails,
-    saveIdentity,
-  };
+  return { saveIdentity };
 }

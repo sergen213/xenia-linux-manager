@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 
 use super::releases::{LinuxRelease, ReleaseChannel};
+use crate::util::now_millis;
 
 // ---------------------------------------------------------------------------
 // Install manifest
@@ -42,7 +43,7 @@ pub struct InstallManifest {
 impl InstallManifest {
     pub fn ensure_normalized(mut self) -> Self {
         if self.build_id.trim().is_empty() {
-            self.build_id = build_id(self.channel, &self.tag);
+            self.build_id = LinuxRelease::build_id_for(self.channel, &self.tag);
         }
         if self.release_name.trim().is_empty() {
             self.release_name = self.tag.clone();
@@ -141,22 +142,14 @@ pub fn save_state(app_data_path: &str, state: &InstallState) -> std::io::Result<
 // State transitions
 // ---------------------------------------------------------------------------
 
-pub fn install_dir(xenia_path: &str) -> PathBuf {
-    PathBuf::from(xenia_path)
-}
-
 pub fn builds_root_dir(xenia_path: &str) -> PathBuf {
-    install_dir(xenia_path).join("builds")
+    PathBuf::from(xenia_path).join("builds")
 }
 
 pub fn install_dir_for_release(release: &LinuxRelease, xenia_path: &str) -> PathBuf {
     builds_root_dir(xenia_path)
         .join(release.channel.as_str())
         .join(super::archive::sanitize_tag(&release.tag))
-}
-
-pub fn build_id(channel: ReleaseChannel, tag: &str) -> String {
-    LinuxRelease::build_id_for(channel, tag)
 }
 
 pub fn record_success(
@@ -220,6 +213,12 @@ pub fn record_update_failure(
 }
 
 pub fn clear_failure(state: &mut InstallState) {
+    settle_status(state);
+}
+
+/// Clear failure and recompute the lifecycle status from whether a build is
+/// still installed. Shared tail of `clear_failure` and `record_removal`.
+fn settle_status(state: &mut InstallState) {
     state.failure = None;
     state.status = if state.manifest.is_some() {
         LifecycleStatus::Installed
@@ -246,12 +245,7 @@ pub fn record_removal(state: &mut InstallState, build_id_to_remove: Option<&str>
         }
     }
 
-    state.failure = None;
-    state.status = if state.manifest.is_some() {
-        LifecycleStatus::Installed
-    } else {
-        LifecycleStatus::NotInstalled
-    };
+    settle_status(state);
 }
 
 pub fn switch_active_build(state: &mut InstallState, target_build_id: &str) -> Result<(), String> {
@@ -292,7 +286,7 @@ fn normalize_state(state: &mut InstallState) {
     }
     if let Some(failure) = &mut state.failure {
         if failure.target_build_id.trim().is_empty() {
-            failure.target_build_id = build_id(failure.channel, &failure.target_tag);
+            failure.target_build_id = LinuxRelease::build_id_for(failure.channel, &failure.target_tag);
         }
     }
 }
@@ -313,13 +307,6 @@ fn upsert_installed_build(state: &mut InstallState, manifest: InstallManifest) {
         .sort_by(|left, right| right.installed_at.cmp(&left.installed_at));
 }
 
-fn now_millis() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::SystemTime::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis() as u64
-}
-
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -333,7 +320,7 @@ mod tests {
             channel,
             tag: tag.into(),
             release_name: tag.into(),
-            build_id: build_id(channel, tag),
+            build_id: LinuxRelease::build_id_for(channel, tag),
             published_at: "2026-03-10T12:00:00Z".into(),
             html_url: format!("https://example.com/{tag}"),
             asset_name: "xenia_linux.tar.gz".into(),

@@ -36,4 +36,9 @@ export const dialog = {
 
 export const ipcMain = { handle: noop }
 
-export default { protocol, net, app, BrowserWindow, dialog, ipcMain }
+export const screen = {
+  getPrimaryDisplay: () => ({ workAreaSize: { width: 1920, height: 1080 } }),
+  getDisplayMatching: () => ({ workAreaSize: { width: 1920, height: 1080 } }),
+}
+
+export default { protocol, net, app, BrowserWindow, dialog, ipcMain, screen }

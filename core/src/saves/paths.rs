@@ -21,7 +21,7 @@ pub struct GameSaveRoots {
     pub game_id: String,
     pub game_title: String,
     /// The Xenia content directory for this game's save data.
-    /// Typically `<xenia_path>/content/<title_id>/...`
+    /// Typically `{xenia_path}/content/{title_id}/...`
     pub save_root: Option<PathBuf>,
     /// The profile/settings root managed by our app.
     pub profile_root: Option<PathBuf>,
@@ -103,45 +103,29 @@ fn build_save_roots(
     }
 }
 
-/// Resolve the Xenia content directory for a game's save data.
+/// Resolve the Xenia content directory holding this game's saved games.
 ///
-/// Xenia stores save data under `<xenia_path>/content/<title_hex>/`.
-/// We scan the content directory for folders that look like title IDs.
-/// If the game has patches with a known title_id, we use that.
-/// Otherwise we look for any content subfolder.
-fn resolve_xenia_save_root(xenia_path: &str, _game: &GameIdentityRecord) -> Option<PathBuf> {
-    let content_dir = PathBuf::from(xenia_path).join("content");
-    if !content_dir.is_dir() {
-        return None;
-    }
-
-    // Try to find a content folder for this game.
-    // Look for any subdirectory in the content folder.
-    // Xenia uses uppercase hex title IDs as folder names.
-    let entries = fs::read_dir(&content_dir).ok()?;
-    let mut candidates: Vec<PathBuf> = Vec::new();
-
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if path.is_dir() {
-            candidates.push(path);
-        }
-    }
-
-    // If there's exactly one content folder, use it.
-    // For multiple, we cannot reliably pick one without title_id info.
-    if candidates.len() == 1 {
-        return Some(candidates.into_iter().next().unwrap());
-    }
-
-    // If the game has a known executable path, try to match by game identity
-    // heuristics. For now, return the content dir itself if it exists and has
-    // subdirectories, so the export preflight can list individual folders.
-    if !candidates.is_empty() {
-        return Some(content_dir);
-    }
-
-    None
+/// Xenia stores saves under `{xenia_path}/content/{title_id}/00000001/`
+/// (`00000001` is the "Saved Games" content type). The `title_id` is extracted
+/// at scan time, so this resolves deterministically — and correctly across a
+/// multi-game library — even for a game that has never been played. The
+/// directory is created on import when absent.
+///
+/// Returns `None` only when the game has no known `title_id`; without it the
+/// per-game save folder is unknowable.
+///
+/// ponytail: assumes `xenia_path` is the Xenia storage root, matching the rest
+/// of the saves module. The config-aware canonical resolver is
+/// `library::content::resolve_content_root` (app_data + portable override) —
+/// switch to it if a `storage_root` override ever diverges from `xenia_path`.
+fn resolve_xenia_save_root(xenia_path: &str, game: &GameIdentityRecord) -> Option<PathBuf> {
+    let title_id = game.title_id.as_deref()?;
+    Some(
+        PathBuf::from(xenia_path)
+            .join("content")
+            .join(title_id)
+            .join("00000001"),
+    )
 }
 
 /// Resolve the app-managed profile/settings root for a game.
@@ -478,6 +462,41 @@ mod tests {
         let xenia_dir = temp_dir("profile-xenia");
         let roots = resolve_game_save_roots(&lib_dir, &xenia_dir, "game-prof").unwrap();
         assert!(roots.profile_root.is_some());
+    }
+
+    #[test]
+    fn resolve_save_root_uses_title_id_even_when_absent() {
+        let lib_dir = temp_dir("save-root-titleid");
+        let store = identity::IdentityStore {
+            version: 1,
+            games: vec![identity::GameIdentityRecord {
+                game_id: "game-tid".to_string(),
+                title: "Title ID Game".to_string(),
+                executable_path: "/games/tid/default.xex".to_string(),
+                source_id: None,
+                linked_candidate_paths: vec![],
+                manual: true,
+                issue_notes: vec![],
+                review_state: identity::ReviewState::Clean,
+                artwork_path: None,
+                title_id: Some("4D5307E6".to_string()),
+                last_played_at: None,
+                running_session: None,
+                created_at: 0,
+                updated_at: 0,
+                preferred_xenia_tag: None,
+                launch_environment: None,
+                launch_wrapper: None,
+            }],
+            duplicate_resolutions: vec![],
+        };
+        identity::save_identity_store(&lib_dir, &store).unwrap();
+
+        // No content dir on disk: resolution is driven by title_id, not by a scan.
+        let xenia_dir = temp_dir("save-root-titleid-xenia");
+        let roots = resolve_game_save_roots(&lib_dir, &xenia_dir, "game-tid").unwrap();
+        let save_root = roots.save_root.expect("save root resolved from title_id");
+        assert!(save_root.ends_with("content/4D5307E6/00000001"));
     }
 
     #[test]

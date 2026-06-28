@@ -64,9 +64,6 @@ async fn main() {
             handle_line(&ctx, &out_tx, line).await;
         });
     }
-
-    // stdin closed: mark any in-flight jobs interrupted before exit.
-    ctx.jobs.interrupt_all_running();
 }
 
 async fn handle_line(ctx: &AppCtx, out_tx: &Sender<String>, line: String) {

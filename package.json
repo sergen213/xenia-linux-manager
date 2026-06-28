@@ -20,7 +20,8 @@
   },
   "dependencies": {
     "@fontsource/ibm-plex-mono": "^5.2.7",
-    "@fontsource/ibm-plex-sans": "^5.2.8",
+    "@fontsource/oswald": "^5.2.8",
+    "@fontsource/titillium-web": "^5.2.8",
     "electron-log": "^5.4.4",
     "electron-updater": "^6.8.9",
     "lucide-react": "^1.20.0",

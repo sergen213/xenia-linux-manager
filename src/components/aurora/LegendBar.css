@@ -1,0 +1,58 @@
+.legend-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  height: 58px;
+  flex-shrink: 0;
+  z-index: 8;
+  background: var(--au-legend-bg);
+}
+
+.legend-bar__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 5px 8px;
+  border-radius: 8px;
+  font-family: var(--font-family);
+  transition: background-color var(--transition-fast) var(--ease-out);
+}
+
+.legend-bar__item:hover {
+  background: var(--au-accent-soft);
+}
+
+.legend-bar__glyph {
+  min-width: 25px;
+  height: 25px;
+  padding: 0 5px;
+  border-radius: 13px;
+  border: 2px solid currentColor;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.legend-bar__label {
+  color: var(--au-legend-label);
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.legend-bar__kbd {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--au-legend-kbd);
+  background: var(--au-legend-kbd-bg);
+  border: 1px solid var(--au-legend-kbd-border);
+  border-radius: 4px;
+  padding: 1px 6px;
+}

@@ -7,7 +7,6 @@ use std::sync::Arc;
 
 use crate::app_ctx::AppCtx;
 use crate::jobs::events;
-use crate::jobs::store;
 use crate::library::artwork;
 use crate::library::catalog;
 use crate::library::content;
@@ -40,11 +39,6 @@ pub fn add_library_source(
     path: String,
 ) -> Result<sources::AddSourceResult, String> {
     sources::add_source(&library_metadata_path, &path)
-}
-
-/// List all registered library sources.
-pub fn list_library_sources(library_metadata_path: String) -> Vec<sources::LibrarySource> {
-    sources::list_sources(&library_metadata_path)
 }
 
 /// Remove a library source by ID.
@@ -140,25 +134,6 @@ pub async fn scan_all_sources(
     Ok(job_ids)
 }
 
-/// Cancel an active or queued scan job.
-pub fn cancel_scan(
-    ctx: &AppCtx,
-    app_data_path: String,
-    job_id: String,
-) -> Result<(), String> {
-    ctx.scans.cancel_scan(&job_id);
-
-    // Mark the job as failed with cancellation reason.
-    if let Some(job) = ctx.jobs.update(&job_id, |j| {
-        j.fail("Cancelled by user");
-    }) {
-        events::emit_job_failed(&ctx.events, &job);
-        let _ = store::append_job(&app_data_path, job);
-    }
-
-    Ok(())
-}
-
 /// Get the current scan status for all sources.
 ///
 /// Returns source list with scan state for the UI to render.
@@ -189,16 +164,6 @@ pub struct LibraryStatus {
 // Catalog commands
 // ---------------------------------------------------------------------------
 
-/// Get scan results catalog for a single source.
-///
-/// Returns persisted candidates and scan summary for the specified source.
-pub fn get_source_catalog(
-    library_metadata_path: String,
-    source_id: String,
-) -> catalog::SourceCatalog {
-    catalog::load_catalog(&library_metadata_path, &source_id)
-}
-
 /// Get scan results catalogs for all registered sources.
 ///
 /// Returns a list of catalogs, one per source, for the Library UI to render.
@@ -214,10 +179,6 @@ pub fn get_all_catalogs(library_metadata_path: String) -> Vec<catalog::SourceCat
 
 pub fn browse_library(library_metadata_path: String) -> review::BrowseLibraryPayload {
     review::browse_library(&library_metadata_path)
-}
-
-pub fn get_review_inbox(library_metadata_path: String) -> review::ReviewInboxPayload {
-    review::load_review_inbox(&library_metadata_path)
 }
 
 pub fn get_library_game_details(
@@ -262,13 +223,6 @@ pub fn update_game_launch_wrapper(
     identity::update_game_launch_wrapper(&library_metadata_path, input)
 }
 
-pub fn resolve_duplicate_review(
-    library_metadata_path: String,
-    input: identity::DuplicateResolutionInput,
-) -> Result<identity::DuplicateResolutionRecord, String> {
-    identity::apply_duplicate_resolution(&library_metadata_path, input)
-}
-
 pub fn get_launch_preflight(
     app_data_path: String,
     library_metadata_path: String,
@@ -277,15 +231,8 @@ pub fn get_launch_preflight(
     launch::get_launch_preflight(&app_data_path, &library_metadata_path, &game_id)
 }
 
-pub fn get_launch_preflight_with_profile(
-    app_data_path: String,
-    library_metadata_path: String,
-    game_id: String,
-) -> Result<launch::LaunchPreflightWithProfile, String> {
-    launch::get_launch_preflight_with_profile(&app_data_path, &library_metadata_path, &game_id)
-}
-
 pub fn launch_library_game(
+    events: crate::events::EventSink,
     app_data_path: String,
     library_metadata_path: String,
     game_id: String,
@@ -296,6 +243,7 @@ pub fn launch_library_game(
         &library_metadata_path,
         &game_id,
         allow_warnings,
+        &events,
     )
 }
 
@@ -380,6 +328,17 @@ pub async fn fetch_all_artwork(library_metadata_path: String) -> Vec<artwork::Ar
     artwork::fetch_all_missing_artwork(&library_metadata_path).await
 }
 
+/// Fetch a game's synopsis (description) from the x360db title database.
+///
+/// Uses the same title-ID resolution and provider as artwork; the text is
+/// cached locally so subsequent calls return immediately.
+pub async fn fetch_game_synopsis(
+    library_metadata_path: String,
+    game_id: String,
+) -> artwork::SynopsisResult {
+    artwork::fetch_synopsis(&library_metadata_path, &game_id).await
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -429,7 +388,7 @@ mod tests {
         let result = add_library_source(dir.clone(), game_dir.to_str().unwrap().into()).unwrap();
         assert!(!result.source.id.is_empty());
 
-        let sources = list_library_sources(dir);
+        let sources = sources::list_sources(&dir);
         assert_eq!(sources.len(), 1);
     }
 
@@ -445,7 +404,7 @@ mod tests {
         let removed = remove_library_source(dir.clone(), result.source.id.clone()).unwrap();
         assert_eq!(removed.id, result.source.id);
 
-        let sources = list_library_sources(dir);
+        let sources = sources::list_sources(&dir);
         assert!(sources.is_empty());
     }
 
@@ -465,7 +424,7 @@ mod tests {
     #[test]
     fn list_empty_returns_empty() {
         let dir = temp_dir("empty");
-        let sources = list_library_sources(dir);
+        let sources = sources::list_sources(&dir);
         assert!(sources.is_empty());
     }
 }

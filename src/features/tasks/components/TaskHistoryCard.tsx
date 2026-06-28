@@ -1,5 +1,5 @@
 import type { Job } from "../model/taskTypes";
-import { statusLabel, statusModifier } from "../model/taskTypes";
+import { statusLabel } from "../model/taskTypes";
 import "./TaskHistoryCard.css";
 
 interface TaskHistoryCardProps {
@@ -17,11 +17,11 @@ export function TaskHistoryCard({ job, onRetry }: TaskHistoryCardProps) {
 
   return (
     <div
-      className={`task-card task-card--${statusModifier(job.status)}`}
+      className={`task-card task-card--${job.status}`}
       data-testid={`task-card-${job.id}`}
     >
       <div className="task-card__header">
-        <span className={`task-card__status task-card__status--${statusModifier(job.status)}`}>
+        <span className={`task-card__status task-card__status--${job.status}`}>
           {statusLabel(job.status)}
         </span>
         <span className="task-card__label">{job.label}</span>

@@ -3,15 +3,17 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
-use std::process::Command;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::process::{Child, Command};
 
+use crate::events::EventSink;
+use crate::util::now_millis;
 use crate::library::identity;
 use crate::library::review;
 use crate::patches::xenia_patches;
 use crate::profiles::materialize::{self, MaterializedLaunchConfig};
 use crate::settings;
 use crate::xenia::install_state::{self, LifecycleStatus};
+use crate::xenia::releases::ReleaseChannel;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct LaunchPreflight {
@@ -25,18 +27,20 @@ pub struct LaunchPreflight {
     pub requires_confirmation: bool,
 }
 
-/// Extended preflight payload that includes materialized profile and patch state.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct LaunchPreflightWithProfile {
-    pub preflight: LaunchPreflight,
-    pub materialized_config: Option<MaterializedLaunchConfig>,
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct LaunchResult {
     pub game_id: String,
     pub started_at: u64,
     pub pid: u32,
+}
+
+/// Emitted (as the `game:exited` sidecar event) once the Xenia child process
+/// closes, so the UI can clear "now playing" state and refresh last-played.
+#[derive(Debug, Clone, Serialize)]
+struct GameExitedPayload {
+    game_id: String,
+    pid: u32,
+    exit_code: Option<i32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -127,7 +131,17 @@ pub fn build_launch_plan(
     } else {
         write_external_launch_config(app_data_path, game_id, &materialized)?
     };
-    let launch_env = load_launch_environment(library_metadata_path, game_id)?;
+    let mut launch_env = load_launch_environment(library_metadata_path, game_id)?;
+    // Xenia Canary's bundled SDL auto-selects the Wayland video driver whenever
+    // WAYLAND_DISPLAY is set, which renders a blank gray window. Pin it to X11
+    // (XWayland) so Canary actually draws. Edge is unaffected. A user-set
+    // SDL_VIDEODRIVER always wins.
+    let install = install_state::load_state(app_data_path);
+    let channel = resolve_xenia_build(&install, details.preferred_xenia_tag.as_deref())
+        .map(|build| build.channel);
+    if should_force_x11(channel, &launch_env) {
+        launch_env.push(("SDL_VIDEODRIVER".to_string(), "x11".to_string()));
+    }
     let launch_wrapper = load_launch_wrapper(library_metadata_path, game_id)?;
 
     let mut launch_arguments = Vec::new();
@@ -151,6 +165,7 @@ pub fn launch_game(
     library_metadata_path: &str,
     game_id: &str,
     allow_warnings: bool,
+    events: &EventSink,
 ) -> Result<LaunchResult, String> {
     let preflight = get_launch_preflight(app_data_path, library_metadata_path, game_id)?;
     if !preflight.can_launch {
@@ -177,6 +192,14 @@ pub fn launch_game(
         .arg(&plan.game_executable_path)
         .spawn()
         .map_err(|e| format!("Failed to launch Xenia: {e}"))?;
+    let pid = child.id();
+
+    // Watch the child on a detached thread so the UI learns when the game
+    // closes (return focus to the app, refresh last-played) instead of
+    // treating launch as fire-and-forget.
+    let sink = events.clone();
+    let exited_game_id = game_id.to_string();
+    std::thread::spawn(move || watch_child_exit(&sink, exited_game_id, pid, child));
 
     let started_at = now_millis();
     let _ = identity::record_launch_started(
@@ -187,32 +210,22 @@ pub fn launch_game(
     Ok(LaunchResult {
         game_id: game_id.to_string(),
         started_at,
-        pid: child.id(),
+        pid,
     })
 }
 
-/// Get launch preflight with materialized profile and patch config.
-///
-/// Produces the same preflight as `get_launch_preflight` plus a deterministic
-/// snapshot of exactly what profile settings and patch entries will apply.
-pub fn get_launch_preflight_with_profile(
-    app_data_path: &str,
-    library_metadata_path: &str,
-    game_id: &str,
-) -> Result<LaunchPreflightWithProfile, String> {
-    let preflight = get_launch_preflight(app_data_path, library_metadata_path, game_id)?;
-
-    // Only materialize if launch is possible.
-    let materialized_config = if preflight.can_launch {
-        materialize::materialize_launch_config(app_data_path, library_metadata_path, game_id).ok()
-    } else {
-        None
-    };
-
-    Ok(LaunchPreflightWithProfile {
-        preflight,
-        materialized_config,
-    })
+/// Block on the Xenia child until it exits, then emit `game:exited`.
+/// Reaps the child (avoids a zombie) and reports the exit code when available.
+fn watch_child_exit(sink: &EventSink, game_id: String, pid: u32, mut child: Child) {
+    let exit_code = child.wait().ok().and_then(|status| status.code());
+    sink.emit_event(
+        "game:exited",
+        &GameExitedPayload {
+            game_id,
+            pid,
+            exit_code,
+        },
+    );
 }
 
 fn load_launch_environment(
@@ -318,24 +331,35 @@ fn parse_launch_wrapper(raw: &str) -> Result<Vec<String>, String> {
     Ok(tokens)
 }
 
-fn resolve_xenia_executable(
-    install: &install_state::InstallState,
+/// Resolve which installed build a launch will use: the preferred tag if it
+/// matches one, otherwise the active manifest. Returns the manifest so callers
+/// can read both the executable path and the channel.
+fn resolve_xenia_build<'a>(
+    install: &'a install_state::InstallState,
     preferred_tag: Option<&str>,
-) -> Option<String> {
+) -> Option<&'a install_state::InstallManifest> {
     preferred_tag
         .and_then(|preferred| {
             install
                 .installed_builds
                 .iter()
                 .find(|build| build.build_id == preferred || build.tag == preferred)
-                .map(|build| build.executable_path.clone())
         })
-        .or_else(|| {
-            install
-                .manifest
-                .as_ref()
-                .map(|manifest| manifest.executable_path.clone())
-        })
+        .or(install.manifest.as_ref())
+}
+
+fn resolve_xenia_executable(
+    install: &install_state::InstallState,
+    preferred_tag: Option<&str>,
+) -> Option<String> {
+    resolve_xenia_build(install, preferred_tag).map(|build| build.executable_path.clone())
+}
+
+/// Whether to pin SDL to the X11 driver for this launch. Only Xenia Canary
+/// needs it (its bundled SDL renders a blank window under Wayland); a
+/// user-provided SDL_VIDEODRIVER always takes precedence.
+fn should_force_x11(channel: Option<ReleaseChannel>, env: &[(String, String)]) -> bool {
+    channel == Some(ReleaseChannel::Canary) && !env.iter().any(|(k, _)| k == "SDL_VIDEODRIVER")
 }
 
 fn write_external_launch_config(
@@ -389,14 +413,19 @@ fn materialized_config_to_toml(materialized: &MaterializedLaunchConfig) -> Resul
         root.insert("apply_patches".to_string(), toml::Value::Boolean(true));
     }
 
+    // Launch fullscreen by default for a console-like experience. A profile can
+    // opt back into windowed mode by explicitly setting display.fullscreen=false.
+    let has_fullscreen = root
+        .get("Display")
+        .and_then(|display| display.as_table())
+        .map(|display| display.contains_key("fullscreen"))
+        .unwrap_or(false);
+    if !has_fullscreen {
+        insert_dotted_toml_value(&mut root, "Display.fullscreen", toml::Value::Boolean(true));
+    }
+
     let toml_str = toml::to_string_pretty(&toml::Value::Table(root))
         .map_err(|e| format!("Failed to serialize launch config TOML: {e}"))?;
-    eprintln!(
-        "[launch/config] Generated TOML for game={}: {} bytes, keys={:?}",
-        materialized.game_id,
-        toml_str.len(),
-        materialized.explicit_overrides.keys().collect::<Vec<_>>()
-    );
     Ok(toml_str)
 }
 
@@ -502,13 +531,6 @@ fn json_to_toml_value(value: &serde_json::Value) -> Result<toml::Value, String> 
     }
 }
 
-fn now_millis() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis() as u64
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -528,6 +550,20 @@ mod tests {
         let _ = fs::remove_dir_all(&path);
         fs::create_dir_all(&path).unwrap();
         path.to_string_lossy().to_string()
+    }
+
+    #[test]
+    fn force_x11_only_for_canary_without_user_override() {
+        let empty: Vec<(String, String)> = vec![];
+        // Canary with no user driver → pin X11.
+        assert!(should_force_x11(Some(ReleaseChannel::Canary), &empty));
+        // Edge never needs it.
+        assert!(!should_force_x11(Some(ReleaseChannel::Edge), &empty));
+        // Unknown/uninstalled build → leave env alone.
+        assert!(!should_force_x11(None, &empty));
+        // User already chose a driver → respect it, even on Canary.
+        let user = vec![("SDL_VIDEODRIVER".to_string(), "wayland".to_string())];
+        assert!(!should_force_x11(Some(ReleaseChannel::Canary), &user));
     }
 
     fn seed_game(app_dir: &str, lib_dir: &str, executable_path: &str) -> String {
@@ -569,7 +605,10 @@ mod tests {
             status: LifecycleStatus::Installed,
             manifest: Some(InstallManifest {
                 channel: ReleaseChannel::Canary,
-                build_id: install_state::build_id(ReleaseChannel::Canary, "canary"),
+                build_id: crate::xenia::releases::LinuxRelease::build_id_for(
+                    ReleaseChannel::Canary,
+                    "canary",
+                ),
                 tag: "canary".into(),
                 release_name: "canary".into(),
                 published_at: "2026-01-01T00:00:00Z".into(),
@@ -613,20 +652,52 @@ mod tests {
         overrides.insert("gpu.framerate_limit".to_string(), serde_json::json!(60));
         let materialized = MaterializedLaunchConfig {
             game_id: "game-1".into(),
-            profile_id: Some("profile-1".into()),
-            profile_name: Some("Test".into()),
-            effective_fields: vec![],
             explicit_overrides: overrides,
-            changed_setting_count: 2,
-            key_changes: vec![],
-            patch_summary: None,
-            materialized_at: 1,
         };
 
         let toml = materialized_config_to_toml(&materialized).unwrap();
         assert!(toml.contains("[GPU]"));
         assert!(toml.contains("vsync = false"));
         assert!(toml.contains("framerate_limit = 60"));
+    }
+
+    fn materialized_with(overrides: HashMap<String, serde_json::Value>) -> MaterializedLaunchConfig {
+        MaterializedLaunchConfig {
+            game_id: "game-1".into(),
+            explicit_overrides: overrides,
+        }
+    }
+
+    #[test]
+    fn launch_config_defaults_to_fullscreen() {
+        let toml = materialized_config_to_toml(&materialized_with(HashMap::new())).unwrap();
+        assert!(toml.contains("[Display]"));
+        assert!(toml.contains("fullscreen = true"));
+    }
+
+    #[test]
+    fn explicit_windowed_override_is_preserved() {
+        let mut overrides = HashMap::new();
+        overrides.insert("display.fullscreen".to_string(), serde_json::json!(false));
+        let toml = materialized_config_to_toml(&materialized_with(overrides)).unwrap();
+        assert!(toml.contains("fullscreen = false"));
+        assert!(!toml.contains("fullscreen = true"));
+    }
+
+    #[test]
+    fn game_exit_emits_event() {
+        // `true` exits 0 immediately; watch it synchronously and assert the event.
+        let child = Command::new("true").spawn().unwrap();
+        let pid = child.id();
+        let sink = EventSink::capture();
+        watch_child_exit(&sink, "game-1".into(), pid, child);
+
+        let lines = sink.captured();
+        assert_eq!(lines.len(), 1);
+        let v: serde_json::Value = serde_json::from_str(&lines[0]).unwrap();
+        assert_eq!(v["event"], "game:exited");
+        assert_eq!(v["payload"]["game_id"], "game-1");
+        assert_eq!(v["payload"]["exit_code"], 0);
     }
 
     #[test]

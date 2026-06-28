@@ -1,0 +1,336 @@
+.aurora-details {
+  display: flex;
+  align-items: stretch;
+}
+
+/* Xbox-360-Aurora blade rail down the left edge. */
+.aurora-details__rail {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  width: 78px;
+  background: var(--au-bar-bg);
+  border-right: 1px solid var(--au-sep);
+}
+.aurora-details__blade {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 16px 4px;
+  border: none;
+  border-left: 3px solid transparent;
+  background: transparent;
+  color: var(--au-rail-text);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color var(--transition-fast) var(--ease-out),
+    background var(--transition-fast) var(--ease-out);
+}
+.aurora-details__blade:hover {
+  color: var(--au-text);
+  background: var(--au-accent-soft);
+}
+.aurora-details__blade.is-active {
+  color: var(--au-accent);
+  background: var(--au-accent-soft);
+  border-left-color: var(--au-accent);
+}
+.aurora-details__blade-label {
+  letter-spacing: 0.02em;
+}
+
+.aurora-details__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.aurora-details__section {
+  padding: 24px 28px;
+}
+
+.aurora-details__hero {
+  display: flex;
+  align-items: center;
+  gap: 26px;
+  padding: 22px 28px;
+  border-bottom: 1px solid var(--au-sep);
+}
+.aurora-details__case {
+  flex: 0 0 auto;
+}
+.aurora-details__identity {
+  flex: 1;
+  min-width: 0;
+}
+.aurora-details__title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 38px;
+  color: var(--au-heading);
+  line-height: 1.04;
+}
+.aurora-details__meta {
+  font-size: 15px;
+  color: var(--au-sub);
+  margin-top: 4px;
+}
+.aurora-details__actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.aurora-details__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 8px;
+  padding: 12px 24px;
+  font: inherit;
+  font-size: 17px;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+.aurora-details__btn--jade {
+  background: var(--au-accent);
+  color: var(--au-accent-ink);
+}
+.aurora-details__btn--jade:hover {
+  background: var(--au-accent-hover);
+}
+.aurora-details__btn--ghost {
+  background: transparent;
+  color: var(--au-text);
+  border-color: var(--au-ghost-border);
+  font-weight: 600;
+}
+.aurora-details__btn--ghost:hover {
+  background: var(--au-accent-soft);
+}
+.aurora-details__btn--sm {
+  padding: 8px 16px;
+  font-size: 15px;
+  margin-top: 12px;
+}
+.aurora-details__btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.aurora-details__col-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.aurora-details__col-title {
+  color: var(--au-group-title);
+  font-size: 22px;
+  font-weight: 300;
+  margin-bottom: 10px;
+}
+.aurora-details__col-title--spaced {
+  margin-top: 26px;
+}
+.aurora-details__mono {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--au-sub);
+}
+
+.aurora-details__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--au-sep);
+}
+.aurora-details__row-main {
+  flex: 1;
+  min-width: 0;
+}
+.aurora-details__row-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--au-text);
+}
+.aurora-details__row-sub {
+  margin-top: 2px;
+}
+.aurora-details__installed {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--au-accent);
+}
+.aurora-details__remove {
+  background: none;
+  border: none;
+  color: var(--au-error);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.aurora-details__muted {
+  color: var(--au-sub);
+  font-size: 14px;
+  padding: 6px 0;
+}
+
+.aurora-details__recommend {
+  width: 100%;
+  text-align: left;
+  background: var(--au-accent-soft);
+  border: 1px solid var(--au-accent-soft-border);
+  color: var(--au-accent);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  margin-bottom: 14px;
+}
+
+.aurora-details__section .game-details__field {
+  padding-bottom: 14px;
+}
+.aurora-details__section .game-details__label {
+  font-size: 13px;
+  color: var(--au-sub);
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.aurora-details__section .game-details__helper,
+.aurora-details__section .game-details__muted {
+  font-size: 12px;
+  color: var(--au-sub);
+  margin-top: 6px;
+}
+.aurora-details__section textarea,
+.aurora-details__section input {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--au-input-bg);
+  border: 1px solid var(--au-input-border);
+  border-radius: 6px;
+  color: var(--au-text);
+  font: inherit;
+  padding: 8px 12px;
+  margin-top: 6px;
+}
+.aurora-details__section textarea {
+  font-family: var(--font-mono);
+  resize: vertical;
+}
+.aurora-details__section .game-details__actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+.aurora-details__section .game-details__actions button {
+  background: transparent;
+  border: 1px solid var(--au-ghost-border);
+  color: var(--au-text);
+  border-radius: 8px;
+  padding: 7px 14px;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+.aurora-details__section .game-details__actions button:hover {
+  background: var(--au-accent-soft);
+}
+.aurora-details__section .game-details__actions .game-details__primary {
+  background: var(--au-accent);
+  border-color: var(--au-accent);
+  color: var(--au-accent-ink);
+  font-weight: 700;
+}
+.aurora-details__section .game-details__actions button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Reuse the real ManagePatchesPanel but present it Aurora-style: drop its
+   internal header (the column already says "Patches") and render the patch
+   entry checkboxes as jade toggle switches like the handoff. */
+.aurora-details .manage-patches__header {
+  display: none;
+}
+.aurora-details .manage-patches {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.aurora-details .patch-checklist__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.aurora-details .patch-checklist__toggle {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--au-sep);
+  cursor: pointer;
+}
+.aurora-details .patch-checklist__toggle > span {
+  order: 1;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.aurora-details .patch-checklist__toggle strong {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--au-text);
+}
+.aurora-details .patch-checklist__toggle small {
+  font-size: 13px;
+  color: var(--au-sub);
+}
+.aurora-details .patch-checklist__toggle input[type="checkbox"] {
+  order: 2;
+  margin-left: auto;
+  flex: 0 0 auto;
+  appearance: none;
+  -webkit-appearance: none;
+  width: 44px;
+  height: 25px;
+  border-radius: 13px;
+  background: var(--au-switch-off);
+  position: relative;
+  cursor: pointer;
+  transition: background var(--transition-fast) var(--ease-out);
+}
+.aurora-details .patch-checklist__toggle input[type="checkbox"]::before {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  transition: left var(--transition-fast) var(--ease-out);
+}
+.aurora-details .patch-checklist__toggle input[type="checkbox"]:checked {
+  background: var(--au-accent);
+}
+.aurora-details .patch-checklist__toggle input[type="checkbox"]:checked::before {
+  left: 22px;
+}
+.aurora-details .patch-checklist__toggle input[type="checkbox"]:disabled {
+  opacity: 0.6;
+  cursor: default;
+}

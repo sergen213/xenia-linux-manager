@@ -58,7 +58,6 @@ export type SettingsAction =
   | { type: "UPDATE_FIELD"; field: string; value: string }
   | { type: "SET_VALIDATION"; validation: SettingsValidation }
   | { type: "SET_SETTINGS"; settings: AppSettings }
-  | { type: "SET_LAST_ROUTE"; route: string }
   | { type: "SET_RELEASE_METADATA"; metadata: ReleaseMetadata };
 
 // ---------------------------------------------------------------------------
@@ -115,13 +114,6 @@ export function settingsReducer(
 
     case "SET_SETTINGS":
       return { ...state, settings: action.settings };
-
-    case "SET_LAST_ROUTE":
-      if (!state.settings) return state;
-      return {
-        ...state,
-        settings: { ...state.settings, last_active_route: action.route },
-      };
 
     case "SET_RELEASE_METADATA":
       return { ...state, releaseMetadata: action.metadata };

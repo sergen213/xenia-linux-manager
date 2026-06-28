@@ -39,42 +39,6 @@ export interface LibraryStatus {
   queued_scans: number;
 }
 
-export type Confidence = "high" | "medium" | "low";
-export type CandidateKind = "xex" | "iso";
-export type CandidateStatus = "found" | "duplicate" | "warning" | "skipped";
-
-/** A single discovered game candidate. */
-export interface DiscoveredCandidate {
-  path: string;
-  label: string;
-  source_id: string;
-  kind: CandidateKind;
-  confidence: Confidence;
-  status: CandidateStatus;
-  size_bytes: number;
-  warning: string | null;
-  discovered_at: number;
-}
-
-/** Detailed scan summary stored in the catalog. */
-export interface CatalogScanSummary {
-  found: number;
-  duplicates: number;
-  warnings: number;
-  skipped: number;
-  errors: number;
-  status: string;
-  completed_at: number;
-  was_cancelled: boolean;
-}
-
-/** On-disk catalog for a single source. */
-export interface SourceCatalog {
-  source_id: string;
-  candidates: DiscoveredCandidate[];
-  last_scan_summary: CatalogScanSummary | null;
-}
-
 export interface RunningSession {
   started_at: number;
   xenia_executable: string;
@@ -243,17 +207,6 @@ export interface BrowseLibraryPayload {
   review_inbox_count: number;
   review_duplicate_count: number;
   review_low_confidence_count: number;
-}
-
-export interface LaunchPreflight {
-  game_id: string;
-  game_title: string;
-  game_executable_path: string;
-  xenia_executable_path: string | null;
-  blockers: string[];
-  warnings: string[];
-  can_launch: boolean;
-  requires_confirmation: boolean;
 }
 
 export interface LaunchResult {

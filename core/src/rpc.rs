@@ -19,7 +19,7 @@ pub async fn dispatch(ctx: &AppCtx, method: &str, params: Value) -> Result<Value
         // --- settings ---
         "get_default_settings" => Ok(serde_json::to_value(crate::commands::settings::get_default_settings()).map_err(|e| e.to_string())?),
         "load_settings" => {
-            let v = crate::commands::settings::load_settings().map_err(|e| e)?;
+            let v = crate::commands::settings::load_settings()?;
             Ok(serde_json::to_value(v).map_err(|e| e.to_string())?)
         }
         "save_settings" => {
@@ -76,16 +76,6 @@ pub async fn dispatch(ctx: &AppCtx, method: &str, params: Value) -> Result<Value
             let overrides = arg(&params, "overrides")?;
             Ok(serde_json::to_value(crate::commands::profiles::save_profile_overrides(library_metadata_path, game_id, profile_id, overrides)?).map_err(|e| e.to_string())?)
         }
-        "get_materialized_launch_config" => {
-            let app_data_path: String = arg(&params, "appDataPath")?;
-            let library_metadata_path: String = arg(&params, "libraryMetadataPath")?;
-            let game_id: String = arg(&params, "gameId")?;
-            Ok(serde_json::to_value(crate::commands::profiles::get_materialized_launch_config(app_data_path, library_metadata_path, game_id)?).map_err(|e| e.to_string())?)
-        }
-        "check_recommendation_availability" => {
-            let game_id: String = arg(&params, "gameId")?;
-            Ok(serde_json::to_value(crate::commands::profiles::check_recommendation_availability(game_id)).map_err(|e| e.to_string())?)
-        }
         "apply_recommended_profile" => {
             let library_metadata_path: String = arg(&params, "libraryMetadataPath")?;
             let game_id: String = arg(&params, "gameId")?;
@@ -97,10 +87,6 @@ pub async fn dispatch(ctx: &AppCtx, method: &str, params: Value) -> Result<Value
         "load_task_history" => {
             let app_data_path: String = arg(&params, "appDataPath")?;
             Ok(serde_json::to_value(crate::commands::jobs::load_task_history(app_data_path)?).map_err(|e| e.to_string())?)
-        }
-        "get_task_history" => {
-            let app_data_path: String = arg(&params, "appDataPath")?;
-            Ok(serde_json::to_value(crate::commands::jobs::get_task_history(app_data_path)).map_err(|e| e.to_string())?)
         }
         "clear_task_history" => {
             let app_data_path: String = arg(&params, "appDataPath")?;
@@ -128,22 +114,11 @@ pub async fn dispatch(ctx: &AppCtx, method: &str, params: Value) -> Result<Value
             Ok(serde_json::to_value(crate::commands::patches::get_game_xenia_patches(app_data_path, title_id)?).map_err(|e| e.to_string())?)
         }
         "toggle_xenia_patch_entry" => {
-            let app_data_path: String = arg(&params, "appDataPath")?;
             let file_path: String = arg(&params, "filePath")?;
             let entry_name: String = arg(&params, "entryName")?;
             let enabled: bool = arg(&params, "enabled")?;
-            crate::commands::patches::toggle_xenia_patch_entry(app_data_path, file_path, entry_name, enabled)?;
+            crate::commands::patches::toggle_xenia_patch_entry(file_path, entry_name, enabled)?;
             Ok(serde_json::Value::Null)
-        }
-        "list_xenia_community_patch_candidates" => {
-            let app_data_path: String = arg(&params, "appDataPath")?;
-            let title_id: String = arg(&params, "titleId")?;
-            Ok(serde_json::to_value(crate::commands::patches::list_xenia_community_patch_candidates(app_data_path, title_id).await?).map_err(|e| e.to_string())?)
-        }
-        "fetch_xenia_community_patch" => {
-            let app_data_path: String = arg(&params, "appDataPath")?;
-            let remote_key: String = arg(&params, "remoteKey")?;
-            Ok(serde_json::to_value(crate::commands::patches::fetch_xenia_community_patch(app_data_path, remote_key).await?).map_err(|e| e.to_string())?)
         }
         "import_xenia_patch_file" => {
             let app_data_path: String = arg(&params, "appDataPath")?;
@@ -179,10 +154,8 @@ pub async fn dispatch(ctx: &AppCtx, method: &str, params: Value) -> Result<Value
             let xenia_path: String = arg(&params, "xeniaPath")?;
             let staging_path: String = arg(&params, "stagingPath")?;
             let target_game_id: String = arg(&params, "targetGameId")?;
-            let source_game_id: String = arg(&params, "sourceGameId")?;
-            let source_game_title: String = arg(&params, "sourceGameTitle")?;
             let policy = arg(&params, "policy")?;
-            Ok(serde_json::to_value(crate::commands::saves::get_import_conflict_plan(library_metadata_path, xenia_path, staging_path, target_game_id, source_game_id, source_game_title, policy)?).map_err(|e| e.to_string())?)
+            Ok(serde_json::to_value(crate::commands::saves::get_import_conflict_plan(library_metadata_path, xenia_path, staging_path, target_game_id, policy)?).map_err(|e| e.to_string())?)
         }
         "apply_save_import" => {
             let app_data_path: String = arg(&params, "appDataPath")?;
@@ -215,10 +188,6 @@ pub async fn dispatch(ctx: &AppCtx, method: &str, params: Value) -> Result<Value
         "get_install_status" => {
             let app_data_path: String = arg(&params, "appDataPath")?;
             Ok(serde_json::to_value(crate::commands::xenia::get_install_status(app_data_path)).map_err(|e| e.to_string())?)
-        }
-        "check_for_update" => {
-            let installed_tag: String = arg(&params, "installedTag")?;
-            Ok(serde_json::to_value(crate::commands::xenia::check_for_update(installed_tag).await?).map_err(|e| e.to_string())?)
         }
         "check_for_update_auto" => {
             let app_data_path: String = arg(&params, "appDataPath")?;
@@ -253,19 +222,10 @@ pub async fn dispatch(ctx: &AppCtx, method: &str, params: Value) -> Result<Value
             let path: String = arg(&params, "path")?;
             Ok(serde_json::to_value(crate::commands::library::add_library_source(library_metadata_path, path)?).map_err(|e| e.to_string())?)
         }
-        "list_library_sources" => {
-            let library_metadata_path: String = arg(&params, "libraryMetadataPath")?;
-            Ok(serde_json::to_value(crate::commands::library::list_library_sources(library_metadata_path)).map_err(|e| e.to_string())?)
-        }
         "remove_library_source" => {
             let library_metadata_path: String = arg(&params, "libraryMetadataPath")?;
             let source_id: String = arg(&params, "sourceId")?;
             Ok(serde_json::to_value(crate::commands::library::remove_library_source(library_metadata_path, source_id)?).map_err(|e| e.to_string())?)
-        }
-        "get_source_catalog" => {
-            let library_metadata_path: String = arg(&params, "libraryMetadataPath")?;
-            let source_id: String = arg(&params, "sourceId")?;
-            Ok(serde_json::to_value(crate::commands::library::get_source_catalog(library_metadata_path, source_id)).map_err(|e| e.to_string())?)
         }
         "get_all_catalogs" => {
             let library_metadata_path: String = arg(&params, "libraryMetadataPath")?;
@@ -274,10 +234,6 @@ pub async fn dispatch(ctx: &AppCtx, method: &str, params: Value) -> Result<Value
         "browse_library" => {
             let library_metadata_path: String = arg(&params, "libraryMetadataPath")?;
             Ok(serde_json::to_value(crate::commands::library::browse_library(library_metadata_path)).map_err(|e| e.to_string())?)
-        }
-        "get_review_inbox" => {
-            let library_metadata_path: String = arg(&params, "libraryMetadataPath")?;
-            Ok(serde_json::to_value(crate::commands::library::get_review_inbox(library_metadata_path)).map_err(|e| e.to_string())?)
         }
         "get_library_game_details" => {
             let library_metadata_path: String = arg(&params, "libraryMetadataPath")?;
@@ -309,29 +265,18 @@ pub async fn dispatch(ctx: &AppCtx, method: &str, params: Value) -> Result<Value
             let input = arg(&params, "input")?;
             Ok(serde_json::to_value(crate::commands::library::update_game_launch_wrapper(library_metadata_path, input)?).map_err(|e| e.to_string())?)
         }
-        "resolve_duplicate_review" => {
-            let library_metadata_path: String = arg(&params, "libraryMetadataPath")?;
-            let input = arg(&params, "input")?;
-            Ok(serde_json::to_value(crate::commands::library::resolve_duplicate_review(library_metadata_path, input)?).map_err(|e| e.to_string())?)
-        }
         "get_launch_preflight" => {
             let app_data_path: String = arg(&params, "appDataPath")?;
             let library_metadata_path: String = arg(&params, "libraryMetadataPath")?;
             let game_id: String = arg(&params, "gameId")?;
             Ok(serde_json::to_value(crate::commands::library::get_launch_preflight(app_data_path, library_metadata_path, game_id)?).map_err(|e| e.to_string())?)
         }
-        "get_launch_preflight_with_profile" => {
-            let app_data_path: String = arg(&params, "appDataPath")?;
-            let library_metadata_path: String = arg(&params, "libraryMetadataPath")?;
-            let game_id: String = arg(&params, "gameId")?;
-            Ok(serde_json::to_value(crate::commands::library::get_launch_preflight_with_profile(app_data_path, library_metadata_path, game_id)?).map_err(|e| e.to_string())?)
-        }
         "launch_library_game" => {
             let app_data_path: String = arg(&params, "appDataPath")?;
             let library_metadata_path: String = arg(&params, "libraryMetadataPath")?;
             let game_id: String = arg(&params, "gameId")?;
             let allow_warnings: bool = arg(&params, "allowWarnings")?;
-            Ok(serde_json::to_value(crate::commands::library::launch_library_game(app_data_path, library_metadata_path, game_id, allow_warnings)?).map_err(|e| e.to_string())?)
+            Ok(serde_json::to_value(crate::commands::library::launch_library_game(ctx.events.clone(), app_data_path, library_metadata_path, game_id, allow_warnings)?).map_err(|e| e.to_string())?)
         }
         "export_game_desktop_shortcut" => {
             let app_data_path: String = arg(&params, "appDataPath")?;
@@ -373,6 +318,11 @@ pub async fn dispatch(ctx: &AppCtx, method: &str, params: Value) -> Result<Value
             let library_metadata_path: String = arg(&params, "libraryMetadataPath")?;
             Ok(serde_json::to_value(crate::commands::library::fetch_all_artwork(library_metadata_path).await).map_err(|e| e.to_string())?)
         }
+        "fetch_game_synopsis" => {
+            let library_metadata_path: String = arg(&params, "libraryMetadataPath")?;
+            let game_id: String = arg(&params, "gameId")?;
+            Ok(serde_json::to_value(crate::commands::library::fetch_game_synopsis(library_metadata_path, game_id).await).map_err(|e| e.to_string())?)
+        }
         "detect_steam_install" => {
             Ok(serde_json::to_value(crate::commands::library::detect_steam_install()?).map_err(|e| e.to_string())?)
         }
@@ -382,6 +332,22 @@ pub async fn dispatch(ctx: &AppCtx, method: &str, params: Value) -> Result<Value
             let game_id: String = arg(&params, "gameId")?;
             let steam_user_id: String = arg(&params, "steamUserId")?;
             Ok(serde_json::to_value(crate::commands::library::export_game_to_steam(library_metadata_path, app_data_path, game_id, steam_user_id)?).map_err(|e| e.to_string())?)
+        }
+
+        // --- maintenance ---
+        "clear_shader_cache" => {
+            let app_data_path: String = arg(&params, "appDataPath")?;
+            Ok(serde_json::to_value(crate::commands::maintenance::clear_shader_cache(app_data_path)?).map_err(|e| e.to_string())?)
+        }
+        "export_log_bundle" => {
+            let app_data_path: String = arg(&params, "appDataPath")?;
+            Ok(serde_json::to_value(crate::commands::maintenance::export_log_bundle(app_data_path)?).map_err(|e| e.to_string())?)
+        }
+
+        // --- fs browse (gamepad folder picker) ---
+        "list_directory" => {
+            let path: String = arg(&params, "path")?;
+            Ok(serde_json::to_value(crate::commands::fs_browse::list_directory(path)?).map_err(|e| e.to_string())?)
         }
 
         // --- shell ---
@@ -420,12 +386,6 @@ pub async fn dispatch(ctx: &AppCtx, method: &str, params: Value) -> Result<Value
         "scan_all_sources" => {
             let library_metadata_path: String = arg(&params, "libraryMetadataPath")?;
             Ok(serde_json::to_value(crate::commands::library::scan_all_sources(ctx, library_metadata_path).await?).map_err(|e| e.to_string())?)
-        }
-        "cancel_scan" => {
-            let app_data_path: String = arg(&params, "appDataPath")?;
-            let job_id: String = arg(&params, "jobId")?;
-            crate::commands::library::cancel_scan(ctx, app_data_path, job_id)?;
-            Ok(serde_json::Value::Null)
         }
         "get_library_status" => {
             let library_metadata_path: String = arg(&params, "libraryMetadataPath")?;

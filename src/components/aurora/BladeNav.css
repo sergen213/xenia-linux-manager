@@ -1,0 +1,72 @@
+.blade-nav {
+  display: flex;
+  align-items: center;
+  gap: 26px;
+  height: 68px;
+  flex-shrink: 0;
+  /* Reserve the top-right corner for the floating window controls. */
+  padding: 0 84px 0 34px;
+  z-index: 6;
+  background: var(--au-nav-bg);
+  /* Seamless window: the nav bar is the drag handle. */
+  -webkit-app-region: drag;
+}
+
+.blade-nav__tab,
+.blade-nav__tasks {
+  -webkit-app-region: no-drag;
+}
+
+.blade-nav__tab {
+  border: none;
+  background: transparent;
+  font-family: var(--font-family);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--au-faint);
+  padding-bottom: 3px;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--transition-fast) var(--ease-out);
+}
+
+.blade-nav__tab:hover {
+  color: var(--au-text);
+}
+
+.blade-nav__tab.is-active {
+  color: var(--au-heading);
+  font-weight: 700;
+  border-bottom-color: var(--au-accent);
+}
+
+.blade-nav__spacer {
+  flex: 1;
+}
+
+.blade-nav__tasks {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--au-bar-border);
+  background: var(--au-bar-bg);
+  border-radius: 20px;
+  font-family: var(--font-family);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--au-sub);
+  padding: 6px 14px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.blade-nav__tasks:hover {
+  color: var(--au-text);
+}
+.blade-nav__tasks-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--au-accent);
+  box-shadow: 0 0 8px var(--au-accent);
+}
