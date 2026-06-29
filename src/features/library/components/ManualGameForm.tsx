@@ -24,6 +24,7 @@ export function ManualGameForm({ onSubmit }: ManualGameFormProps) {
         value={title}
         onChange={(event) => setTitle(event.target.value)}
         placeholder="Game title"
+        aria-label="Game title"
         required
       />
       <input
@@ -31,6 +32,7 @@ export function ManualGameForm({ onSubmit }: ManualGameFormProps) {
         value={executablePath}
         onChange={(event) => setExecutablePath(event.target.value)}
         placeholder="/path/to/default.xex"
+        aria-label="Game executable path"
         required
       />
       <button className="manual-game-form__submit" type="submit">

@@ -261,6 +261,7 @@ export function XeniaLifecycleCard({ channel }: XeniaLifecycleCardProps) {
           <CustomSelect
             id={`xenia-release-select-${channel}`}
             className="xenia-card__select custom-select--xenia"
+            menuClassName="custom-select__menu--xenia"
             value={selectedReleaseId}
             options={releaseOptions}
             onChange={setSelectedReleaseId}
@@ -296,6 +297,7 @@ export function XeniaLifecycleCard({ channel }: XeniaLifecycleCardProps) {
           <CustomSelect
             id={`xenia-installed-select-${channel}`}
             className="xenia-card__select custom-select--xenia"
+            menuClassName="custom-select__menu--xenia"
             value={selectedInstalledId}
             options={installedBuildOptions}
             onChange={setSelectedInstalledId}

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { memo, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { ZoomIn, ZoomOut } from "lucide-react";
 import {
   CoverArt,
@@ -8,6 +8,7 @@ import {
 import type { LibraryBrowseCard } from "../../model/libraryTypes";
 import type { LibrarySortMode } from "../../state/libraryStore";
 import { ZOOM_MAX, ZOOM_MIN } from "../../../../theme/auroraPrefs";
+import { displayTitle } from "../../../shared/format";
 
 // Only render cases within this many slots of the selection — keeps the
 // coverflow cheap on large libraries (a 200-game shelf would otherwise mount
@@ -44,7 +45,7 @@ function RailCover({ card, selected, w }: { card: LibraryBrowseCard; selected: b
         position: "relative",
         borderRadius: 6,
         boxShadow: selected
-          ? "0 0 0 2px rgba(255,255,255,0.95), 0 18px 44px rgba(95,185,255,0.55)"
+          ? "0 0 0 2px rgba(255,255,255,0.95), 0 18px 44px color-mix(in srgb, var(--au-accent) 55%, transparent)"
           : "0 8px 20px rgba(0,0,0,0.4)",
         filter: selected ? "none" : "brightness(0.6) saturate(0.9)",
       }}
@@ -71,7 +72,7 @@ function FlatCover({ card, selected, w }: { card: LibraryBrowseCard; selected: b
         position: "relative",
         borderRadius: 5,
         boxShadow: selected
-          ? "0 0 0 2px rgba(255,255,255,0.95), 0 8px 34px rgba(95,185,255,0.65)"
+          ? "0 0 0 2px rgba(255,255,255,0.95), 0 8px 34px color-mix(in srgb, var(--au-accent) 65%, transparent)"
           : "none",
         filter: selected ? "none" : "brightness(0.86) saturate(0.92)",
       }}
@@ -232,16 +233,19 @@ export function LibraryCarousel({
             );
           }
           return (
-            <div
+            <button
               key={card.game_id}
+              type="button"
               className="aurora-carousel__slot"
               style={{ left: i * slot, width: slot, zIndex: isSel ? 6 : 1 }}
+              aria-label={displayTitle(card.title)}
+              aria-current={isSel ? "true" : undefined}
               onClick={() => onPick(i)}
               onDoubleClick={() => onActivate(i)}
             >
               {visual}
               {reflections && <Reflection>{refl}</Reflection>}
-            </div>
+            </button>
           );
         })}
       </div>
@@ -256,11 +260,57 @@ const GRID_GAP_X = 22;
 const GRID_PAD_R = 6;
 const GRID_TARGET_W = 165;
 
+/** One grid cell. Memoized so moving the selection only re-renders the two
+ *  cells whose `selected` flips — not every CoverArt in the wall (a 200-game
+ *  grid would otherwise re-decode 200 covers per arrow press). Relies on the
+ *  parent passing stable onPick/onActivate refs; without that, memo is a no-op. */
+const GridCell = memo(function GridCell({
+  card,
+  index,
+  selected,
+  width,
+  onPick,
+  onActivate,
+}: {
+  card: LibraryBrowseCard;
+  index: number;
+  selected: boolean;
+  width: number;
+  onPick: (index: number) => void;
+  onActivate: (index: number) => void;
+}) {
+  return (
+    <button
+      type="button"
+      className={`aurora-grid__cell ${selected ? "is-active" : ""}`}
+      onClick={() => onPick(index)}
+      onDoubleClick={() => onActivate(index)}
+    >
+      <div className="aurora-grid__cover">
+        <CoverArt card={card} w={width} />
+      </div>
+      <span className="aurora-grid__label" style={{ maxWidth: width }}>
+        {displayTitle(card.title)}
+      </span>
+    </button>
+  );
+});
+
 /** Grid wall of flat covers — covers resize to fill the cell on window resize.
  *  `zoom` scales the target cover width, so zooming in yields fewer, bigger cells. */
 export function LibraryGridWall({ cards, sel, zoom, onPick, onActivate }: LayoutProps & { zoom: number }) {
   const ref = useRef<HTMLDivElement>(null);
   const [grid, setGrid] = useState({ cols: 6, w: 122 });
+
+  // onPick/onActivate change identity on every selection move (see
+  // LibraryCarousel); wrap them in refs so the cell's callback props stay stable
+  // and GridCell's memo can actually skip the unaffected cells.
+  const onPickRef = useRef(onPick);
+  onPickRef.current = onPick;
+  const onActivateRef = useRef(onActivate);
+  onActivateRef.current = onActivate;
+  const pick = useCallback((i: number) => onPickRef.current(i), []);
+  const activate = useCallback((i: number) => onActivateRef.current(i), []);
 
   useEffect(() => {
     const el = ref.current;
@@ -285,20 +335,15 @@ export function LibraryGridWall({ cards, sel, zoom, onPick, onActivate }: Layout
       style={{ gridTemplateColumns: `repeat(${grid.cols}, 1fr)` }}
     >
       {cards.map((card, i) => (
-        <button
+        <GridCell
           key={card.game_id}
-          type="button"
-          className={`aurora-grid__cell ${i === sel ? "is-active" : ""}`}
-          onClick={() => onPick(i)}
-          onDoubleClick={() => onActivate(i)}
-        >
-          <div className="aurora-grid__cover">
-            <CoverArt card={card} w={grid.w} />
-          </div>
-          <span className="aurora-grid__label" style={{ maxWidth: grid.w }}>
-            {card.title}
-          </span>
-        </button>
+          card={card}
+          index={i}
+          selected={i === sel}
+          width={grid.w}
+          onPick={pick}
+          onActivate={activate}
+        />
       ))}
     </div>
   );
@@ -341,6 +386,8 @@ export function GridTopBar({
       <LibraryZoomControl zoom={zoom} onZoom={onZoom} inline />
       <input
         className="aurora-gridtop__search"
+        type="search"
+        aria-label="Search library"
         placeholder="Search"
         value={search}
         onChange={(e) => onSearch(e.target.value)}

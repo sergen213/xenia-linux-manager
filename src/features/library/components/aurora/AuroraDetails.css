@@ -72,6 +72,9 @@
   font-size: 38px;
   color: var(--au-heading);
   line-height: 1.04;
+  /* Long game names wrap in the modal header instead of overflowing. */
+  overflow-wrap: break-word;
+  text-wrap: balance;
 }
 .aurora-details__meta {
   font-size: 15px;
@@ -181,6 +184,131 @@
   font-size: 14px;
   padding: 6px 0;
 }
+.aurora-details__synopsis {
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--au-sub);
+  max-width: 620px;
+}
+.aurora-details__gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+}
+.aurora-details__shot {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid var(--au-sep);
+  background: var(--au-accent-soft);
+}
+.aurora-details__shot--loading {
+  background: linear-gradient(
+    100deg,
+    var(--au-accent-soft) 30%,
+    var(--au-sep) 50%,
+    var(--au-accent-soft) 70%
+  );
+  background-size: 200% 100%;
+  animation: aurora-shot-shimmer 1.2s ease-in-out infinite;
+}
+@keyframes aurora-shot-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+.aurora-details__shot-btn {
+  display: block;
+  padding: 0;
+  border: none;
+  background: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.aurora-details__shot-btn:hover .aurora-details__shot,
+.aurora-details__shot-btn:focus-visible .aurora-details__shot {
+  border-color: var(--au-accent);
+}
+.aurora-details__shot-btn:hover {
+  transform: translateY(-2px);
+}
+
+/* Fullscreen screenshot viewer, layered above the details modal. */
+.aurora-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-tooltip);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 72px;
+  background: rgba(0, 0, 0, 0.86);
+  backdrop-filter: blur(6px);
+}
+.aurora-lightbox__img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+}
+.aurora-lightbox__close {
+  position: absolute;
+  top: 20px;
+  right: 24px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  border: 1px solid var(--au-ghost-border);
+  background: rgba(0, 0, 0, 0.4);
+  color: #fff;
+  cursor: pointer;
+}
+.aurora-lightbox__nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid var(--au-ghost-border);
+  background: rgba(0, 0, 0, 0.4);
+  color: #fff;
+  cursor: pointer;
+}
+.aurora-lightbox__nav:hover,
+.aurora-lightbox__close:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+.aurora-lightbox__nav--prev {
+  left: 16px;
+}
+.aurora-lightbox__nav--next {
+  right: 16px;
+}
+.aurora-lightbox__counter {
+  position: absolute;
+  bottom: 22px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 5px 14px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
 
 .aurora-details__recommend {
   width: 100%;
@@ -245,6 +373,11 @@
 }
 .aurora-details__section .game-details__actions button:hover {
   background: var(--au-accent-soft);
+}
+.aurora-details__section .game-details__actions button[aria-pressed="true"] {
+  background: var(--au-accent-soft);
+  border-color: var(--au-accent);
+  color: var(--au-accent);
 }
 .aurora-details__section .game-details__actions .game-details__primary {
   background: var(--au-accent);

@@ -40,13 +40,13 @@
 .osk__key:focus-visible,
 body.using-controller .osk__key:focus {
   outline: none;
-  border-color: #5fb9ff;
-  background: rgba(95, 185, 255, 0.28);
+  border-color: var(--au-accent);
+  background: color-mix(in srgb, var(--au-accent) 28%, transparent);
 }
 
 .osk__key.is-active {
-  border-color: #5fb9ff;
-  background: rgba(95, 185, 255, 0.18);
+  border-color: var(--au-accent);
+  background: var(--au-accent-soft);
 }
 
 .osk__key--wide {
@@ -59,6 +59,6 @@ body.using-controller .osk__key:focus {
 
 .osk__key--done {
   background: var(--au-accent, #3ddc84);
-  color: #07210f;
+  color: var(--au-accent-ink, #07210f);
   font-weight: 600;
 }

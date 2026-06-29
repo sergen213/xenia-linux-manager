@@ -107,6 +107,12 @@
   flex-direction: column;
   align-items: center;
   cursor: pointer;
+  /* It's a <button> for keyboard access — strip the native chrome. */
+  background: none;
+  border: none;
+  padding: 0;
+  color: inherit;
+  font: inherit;
 }
 
 /* ── Bottom info bar ──────────────────────────────────────────────────── */
@@ -132,6 +138,11 @@
   letter-spacing: 0.02em;
   text-align: center;
   padding: 0 24px;
+  /* Single-line glance readout — truncate long game names, don't overflow. */
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .aurora-infobar__count {
   font-size: 13px;
@@ -188,6 +199,10 @@
 .aurora-gridtop__search {
   outline: none;
   width: 160px;
+}
+.aurora-gridtop__search:focus-visible {
+  border-color: var(--au-accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--au-accent) 35%, transparent);
 }
 .aurora-gridtop__search::placeholder {
   color: var(--au-sub);
@@ -250,7 +265,7 @@ body.using-controller .aurora-grid__cell.is-active .aurora-grid__cover {
   transform: translateY(-6px) scale(1.08);
   box-shadow:
     0 0 0 2px #fff,
-    0 18px 38px rgba(95, 185, 255, 0.5),
+    0 18px 38px color-mix(in srgb, var(--au-accent) 50%, transparent),
     0 12px 26px rgba(0, 0, 0, 0.5);
 }
 .aurora-grid__label {

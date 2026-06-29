@@ -218,6 +218,7 @@ export function LibrarySourcesPanel({ onRefreshLibrary, appDataPath }: LibrarySo
           type="text"
           className="edit-paths__input sources-panel__input"
           placeholder="Enter folder path (e.g. /media/games/xbox360)"
+          aria-label="Library folder path"
           value={newPath}
           onChange={(e) => setNewPath(e.target.value)}
           onKeyDown={(e) => {

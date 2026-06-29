@@ -10,25 +10,25 @@
 
 :root {
   /* ── Aurora surfaces + text ─────────────────────────────────────────── */
-  --au-glass-bg: rgba(8, 20, 40, 0.5);
+  --au-glass-bg: rgba(8, 20, 40, 0.62);
   --au-glass-border: rgba(255, 255, 255, 0.1);
   --au-glass-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
   --au-heading: #ffffff;
   --au-text: #eaf2fb;
   --au-sub: #9fb0c2;
-  --au-faint: rgba(214, 228, 244, 0.5);
+  --au-faint: rgba(214, 228, 244, 0.72);
   --au-group-title: #8aa0b6;
-  --au-accent: #3fc488;
-  --au-accent-hover: #66d3a2;
-  --au-accent-ink: #06241a;
-  --au-accent-soft: rgba(63, 196, 136, 0.16);
-  --au-accent-soft-border: rgba(63, 196, 136, 0.32);
+  --au-accent: #3fa6e8;
+  --au-accent-hover: #66bcef;
+  --au-accent-ink: #042234;
+  --au-accent-soft: rgba(63, 166, 232, 0.16);
+  --au-accent-soft-border: rgba(63, 166, 232, 0.32);
   --au-ghost-border: rgba(255, 255, 255, 0.28);
   --au-input-bg: #0d131b;
   --au-input-border: #2a3744;
   --au-sep: rgba(255, 255, 255, 0.1);
   --au-rail-text: #aeb8c4;
-  --au-bar-bg: rgba(8, 20, 40, 0.55);
+  --au-bar-bg: rgba(8, 20, 40, 0.66);
   --au-bar-border: rgba(255, 255, 255, 0.14);
   --au-modal-bg: rgba(10, 22, 42, 0.97);
   --au-switch-off: rgba(255, 255, 255, 0.18);
@@ -159,6 +159,11 @@
   --au-field-c1: #b06cff;
   --au-field-c2: #ff6cc0;
   --au-field-c3: #6cd0ff;
+  --au-accent: #a06cf0;
+  --au-accent-hover: #b88cf5;
+  --au-accent-ink: #1c0f3a;
+  --au-accent-soft: rgba(160, 108, 240, 0.16);
+  --au-accent-soft-border: rgba(160, 108, 240, 0.32);
 }
 :root[data-tint="jade"] {
   --au-field-hi: #2f5a48;
@@ -168,29 +173,34 @@
   --au-field-c1: #3fc488;
   --au-field-c2: #67e8c0;
   --au-field-c3: #9be88a;
+  --au-accent: #3fc488;
+  --au-accent-hover: #66d3a2;
+  --au-accent-ink: #06241a;
+  --au-accent-soft: rgba(63, 196, 136, 0.16);
+  --au-accent-soft-border: rgba(63, 196, 136, 0.32);
 }
 
 /* Light theme (defined after tints so its fixed light field wins) */
 :root[data-theme="light"] {
-  --au-glass-bg: rgba(255, 255, 255, 0.62);
+  --au-glass-bg: rgba(255, 255, 255, 0.74);
   --au-glass-border: rgba(20, 45, 75, 0.12);
   --au-glass-shadow: 0 10px 30px rgba(30, 60, 100, 0.16);
   --au-heading: #10202e;
   --au-text: #1d2733;
   --au-sub: #52606e;
-  --au-faint: rgba(25, 45, 65, 0.45);
+  --au-faint: rgba(22, 40, 58, 0.7);
   --au-group-title: #71808f;
-  --au-accent: #1f9d68;
-  --au-accent-hover: #178a59;
+  --au-accent: #1c74b8;
+  --au-accent-hover: #16659f;
   --au-accent-ink: #ffffff;
-  --au-accent-soft: rgba(31, 157, 104, 0.16);
-  --au-accent-soft-border: rgba(31, 157, 104, 0.34);
+  --au-accent-soft: rgba(28, 116, 184, 0.16);
+  --au-accent-soft-border: rgba(28, 116, 184, 0.34);
   --au-ghost-border: rgba(25, 50, 80, 0.22);
   --au-input-bg: #ffffff;
   --au-input-border: #bcc6d2;
   --au-sep: rgba(20, 45, 75, 0.12);
   --au-rail-text: #52606e;
-  --au-bar-bg: rgba(255, 255, 255, 0.66);
+  --au-bar-bg: rgba(255, 255, 255, 0.78);
   --au-bar-border: rgba(20, 45, 75, 0.14);
   --au-modal-bg: rgba(248, 251, 254, 0.98);
   --au-switch-off: #d3d9e0;
@@ -234,6 +244,35 @@
   --au-field-horizon-op: 0.55;
   --au-field-vignette: rgba(70, 110, 150, 0.16);
   --au-field-sheen: rgba(255, 255, 255, 0.35);
+}
+
+/* Light tints: extra [data-tint] specificity (0,3,0) beats the light block
+   above (0,2,0), so changing Background re-tints the light field too. */
+:root[data-theme="light"][data-tint="violet"] {
+  --au-field-hi: #faf6fe;
+  --au-field-mid: #ecdcf7;
+  --au-field-deep: #dcc8f0;
+  --au-field-deep2: #ecdcf6;
+  --au-field-c1: #c4a9f0;
+  --au-field-c2: #f7a9d6;
+  --au-field-c3: #a9c4f7;
+  --au-accent: #7d52c8;
+  --au-accent-hover: #6c45b5;
+  --au-accent-soft: rgba(125, 82, 200, 0.16);
+  --au-accent-soft-border: rgba(125, 82, 200, 0.34);
+}
+:root[data-theme="light"][data-tint="jade"] {
+  --au-field-hi: #f3fef8;
+  --au-field-mid: #d6f7e6;
+  --au-field-deep: #bcf0d4;
+  --au-field-deep2: #d6f6e4;
+  --au-field-c1: #86f7c0;
+  --au-field-c2: #a9f0c4;
+  --au-field-c3: #c4f78f;
+  --au-accent: #1f9d68;
+  --au-accent-hover: #178a59;
+  --au-accent-soft: rgba(31, 157, 104, 0.16);
+  --au-accent-soft-border: rgba(31, 157, 104, 0.34);
 }
 
 /* Reset */

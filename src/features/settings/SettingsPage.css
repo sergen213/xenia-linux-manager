@@ -68,10 +68,8 @@
 }
 
 .settings-page__path-label {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
 }
 
 .settings-page__path-value {
@@ -155,7 +153,7 @@
 }
 
 .settings-page__textarea {
-  min-width: 420px;
+  width: 100%;
   min-height: 120px;
   resize: vertical;
 }
@@ -187,6 +185,13 @@
   cursor: pointer;
 }
 
+.settings-page__preset-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+
 .settings-page__edit-small {
   padding: 0.25rem 0.5rem;
   background: transparent;
@@ -199,6 +204,11 @@
 
 .settings-page__edit-small:hover {
   background: var(--color-bg-hover);
+}
+
+.settings-page__edit-small[aria-pressed="true"] {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
 }
 
 .settings-page__pref-help {

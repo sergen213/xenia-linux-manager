@@ -1,4 +1,5 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 export interface SelectOption {
   value: string;
@@ -12,10 +13,18 @@ interface CustomSelectProps {
   options: SelectOption[];
   onChange: (value: string) => void;
   disabled?: boolean;
+  /** Extra class on the portaled menu, so scoped variants (e.g. the Xenia card)
+   *  can style it even though it renders under <body>, not under their tree. */
+  menuClassName?: string;
 }
 
-export function CustomSelect({ id, className, value, options, onChange, disabled = false }: CustomSelectProps) {
+export function CustomSelect({ id, className, value, options, onChange, disabled = false, menuClassName }: CustomSelectProps) {
   const [open, setOpen] = useState(false);
+  // The menu portals to <body> so it isn't clipped by overflow/backdrop-filter
+  // ancestors (e.g. the scrolling details-modal body). Position is fixed to the
+  // trigger rect in viewport coords.
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number; width: number } | null>(null);
+  const menuRef = useRef<HTMLUListElement>(null);
   // Keyboard roving position (gamepad uses the app's spatial nav instead). A ref,
   // not state — nothing renders from it.
   const activeIndexRef = useRef(-1);
@@ -30,12 +39,30 @@ export function CustomSelect({ id, className, value, options, onChange, disabled
   useEffect(() => {
     if (!open) return;
     function handleClick(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
+      const target = e.target as Node;
+      // The menu lives in a portal outside containerRef — exclude it too, or a
+      // click on an option would read as "outside" and close before onChange.
+      if (containerRef.current?.contains(target) || menuRef.current?.contains(target)) return;
+      setOpen(false);
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
+  }, [open]);
+
+  // Anchor the fixed menu to the trigger; re-place on scroll/resize while open.
+  useLayoutEffect(() => {
+    if (!open) return;
+    const place = () => {
+      const r = triggerRef.current?.getBoundingClientRect();
+      if (r) setMenuPos({ top: r.bottom, left: r.left, width: r.width });
+    };
+    place();
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true); // capture: catch nested scrollers
+    return () => {
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
   }, [open]);
 
   // When the menu opens, focus the selected option (or the first one).
@@ -123,12 +150,22 @@ export function CustomSelect({ id, className, value, options, onChange, disabled
         <span className="custom-select__value">{selected?.label ?? value}</span>
         <span className="custom-select__arrow" aria-hidden="true">{open ? "▲" : "▼"}</span>
       </button>
-      {open && (
+      {open && menuPos && createPortal(
         <ul
+          ref={menuRef}
           id={listboxId}
-          className="custom-select__menu"
+          className={`custom-select__menu${menuClassName ? ` ${menuClassName}` : ""}`}
           role="listbox"
           onKeyDown={handleMenuKeyDown}
+          style={{
+            position: "fixed",
+            top: menuPos.top,
+            left: menuPos.left,
+            width: menuPos.width,
+            // Above modals (z 400) — a portaled menu can't inherit modal-relative
+            // stacking, so it must sit on the popover layer.
+            zIndex: "var(--z-tooltip)" as unknown as number,
+          }}
         >
           {options.map((opt, index) => (
             <li key={opt.value} role="none">
@@ -151,7 +188,8 @@ export function CustomSelect({ id, className, value, options, onChange, disabled
               </button>
             </li>
           ))}
-        </ul>
+        </ul>,
+        document.body,
       )}
     </div>
   );

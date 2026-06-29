@@ -32,8 +32,11 @@
 .aurora-field__blob {
   position: absolute;
   border-radius: 50%;
+  /* Static blur: rasterized once into the blob's own layer, then the keyframes
+     animate transform only so the compositor moves the pre-blurred bitmap on
+     the GPU — no per-frame blur convolution. */
   filter: blur(48px);
-  will-change: transform, filter;
+  will-change: transform;
 }
 
 .aurora-field__blob--1 {
@@ -93,59 +96,48 @@
   );
 }
 
+/* Transform-only — no animated filter (see .aurora-field__blob). */
 @keyframes auroraDrift1 {
   0% {
     transform: translate(0, 0) scale(1) rotate(0deg);
-    filter: blur(48px) saturate(1) brightness(1);
   }
   30% {
     transform: translate(90px, -54px) scale(1.18) rotate(4deg);
-    filter: blur(44px) saturate(1.5) brightness(1.22);
   }
   65% {
     transform: translate(-46px, 30px) scale(0.92) rotate(-3deg);
-    filter: blur(52px) saturate(1.2) brightness(1.05);
   }
   100% {
     transform: translate(0, 0) scale(1) rotate(0deg);
-    filter: blur(48px) saturate(1) brightness(1);
   }
 }
 
 @keyframes auroraDrift2 {
   0% {
     transform: translate(0, 0) scale(1) rotate(0deg);
-    filter: blur(48px) saturate(1) brightness(1);
   }
   35% {
     transform: translate(-84px, 44px) scale(1.16) rotate(-5deg);
-    filter: blur(43px) saturate(1.55) brightness(1.2);
   }
   70% {
     transform: translate(52px, -34px) scale(0.9) rotate(3deg);
-    filter: blur(53px) saturate(1.15) brightness(1.04);
   }
   100% {
     transform: translate(0, 0) scale(1) rotate(0deg);
-    filter: blur(48px) saturate(1) brightness(1);
   }
 }
 
 @keyframes auroraDrift3 {
   0% {
     transform: translate(0, 0) scale(1) rotate(0deg);
-    filter: blur(48px) saturate(1) brightness(1);
   }
   40% {
     transform: translate(60px, 50px) scale(1.2) rotate(6deg);
-    filter: blur(42px) saturate(1.6) brightness(1.25);
   }
   75% {
     transform: translate(-58px, -26px) scale(0.94) rotate(-4deg);
-    filter: blur(54px) saturate(1.2) brightness(1.06);
   }
   100% {
     transform: translate(0, 0) scale(1) rotate(0deg);
-    filter: blur(48px) saturate(1) brightness(1);
   }
 }

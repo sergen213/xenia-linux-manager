@@ -80,7 +80,9 @@ const STUB = `
     get_library_game_details: () => DETAILS, inspect_game_content: () => CONTENT,
     get_source_catalog: () => ({ candidates: [] }), get_all_catalogs: () => [],
     list_library_sources: () => [], list_save_backups: () => [], list_game_profiles: () => [],
-    get_task_history: () => [], load_task_history: () => [],
+    // TasksProvider reads history.jobs (LOAD_HISTORY_SUCCESS iterates it); a bare
+    // [] makes .jobs undefined → "not iterable" blanks the whole app (no boundary).
+    get_task_history: () => ({ jobs: [] }), load_task_history: () => ({ jobs: [] }),
     // FolderBrowser (in-app, controller-mode folder picker) expects a
     // { path, parent, entries } listing; the [] default breaks its shape.
     // No regex here — backslashes get eaten by the injected-script template.

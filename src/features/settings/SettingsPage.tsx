@@ -18,6 +18,13 @@ import {
   type ViewMode,
 } from "../../theme/auroraPrefs";
 import { AuroraRadio } from "../../components/aurora/AuroraRadio";
+import {
+  parseLaunchEnv,
+  toggleEnvPreset,
+  isEnvPresetActive,
+  ENV_PRESETS,
+  WRAPPER_PRESETS,
+} from "../shared/launchPresets";
 import "./SettingsPage.css";
 import "./AuroraSettings.css";
 
@@ -41,7 +48,7 @@ const CATEGORIES: Array<[SettingsCategory, string]> = [
 ];
 
 function GroupTitle({ children }: { children: React.ReactNode }) {
-  return <div className="aurora-grouptitle">{children}</div>;
+  return <h2 className="aurora-grouptitle">{children}</h2>;
 }
 
 function AuroraCheck({ label, checked, onClick }: { label: string; checked: boolean; onClick: () => void }) {
@@ -59,27 +66,9 @@ function AuroraCheck({ label, checked, onClick }: { label: string; checked: bool
   );
 }
 
-function parseLaunchEnvironment(raw: string): Array<[string, string]> {
-  return raw
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0 && !line.startsWith("#"))
-    .flatMap((line) => {
-      const idx = line.indexOf("=");
-      if (idx <= 0) return [];
-      return [[line.slice(0, idx).trim(), line.slice(idx + 1).trim()] as [string, string]];
-    });
-}
-
 function mergeLaunchEnvironment(raw: string): string {
   const merged = new Map<string, string>();
-  for (const [key, value] of parseLaunchEnvironment(raw)) merged.set(key, value);
-  return Array.from(merged.entries()).map(([k, v]) => `${k}=${v}`).join("\n");
-}
-
-function applyPreset(raw: string, preset: Record<string, string>): string {
-  const merged = new Map<string, string>(parseLaunchEnvironment(raw));
-  for (const [key, value] of Object.entries(preset)) merged.set(key, value);
+  for (const [key, value] of parseLaunchEnv(raw)) merged.set(key, value);
   return Array.from(merged.entries()).map(([k, v]) => `${k}=${v}`).join("\n");
 }
 
@@ -142,6 +131,13 @@ export function SettingsPage() {
     dispatch({ type: "SET_SETTINGS", settings: updated });
   };
 
+  const handleScreenshotsToggle = async () => {
+    if (!settings) return;
+    const updated = { ...settings, show_game_screenshots: !settings.show_game_screenshots };
+    await saveSettings(updated);
+    dispatch({ type: "SET_SETTINGS", settings: updated });
+  };
+
   const handleLaunchEnvSave = async () => {
     if (!settings) return;
     const updated = { ...settings, launch_environment: launchEnvValue };
@@ -156,6 +152,23 @@ export function SettingsPage() {
     await saveSettings(updated);
     dispatch({ type: "SET_SETTINGS", settings: updated });
     setLaunchWrapperEditing(false);
+  };
+
+  // Quick-apply preset toggles (display mode): mutate the saved value and
+  // persist immediately, so presets work without entering raw-edit mode.
+  const handleEnvPresetToggle = async (vars: Record<string, string>) => {
+    if (!settings) return;
+    const updated = { ...settings, launch_environment: toggleEnvPreset(settings.launch_environment || "", vars) };
+    await saveSettings(updated);
+    dispatch({ type: "SET_SETTINGS", settings: updated });
+  };
+
+  const handleWrapperPresetToggle = async (command: string) => {
+    if (!settings) return;
+    const next = (settings.launch_wrapper || "").trim() === command ? "" : command;
+    const updated = { ...settings, launch_wrapper: next };
+    await saveSettings(updated);
+    dispatch({ type: "SET_SETTINGS", settings: updated });
   };
 
   const VIEW_MODES: Array<[ViewMode, string]> = [
@@ -195,6 +208,7 @@ export function SettingsPage() {
                       value={gamerTagValue}
                       onChange={(e) => setGamerTagValue(e.target.value)}
                       placeholder="Enter your gamer tag"
+                      aria-label="Xbox Live gamer tag"
                     />
                     <button className="settings-page__save-btn ui-button ui-button--primary ui-button--small" onClick={handleGamerTagSave}>
                       Save
@@ -255,16 +269,24 @@ export function SettingsPage() {
             <div className="aurora-settings__cols">
               <div className="aurora-settings__col">
                 <GroupTitle>Library View</GroupTitle>
-                {VIEW_MODES.map(([id, label]) => (
-                  <AuroraRadio key={id} label={label} active={prefs.viewMode === id} onClick={() => setPref("viewMode", id)} />
-                ))}
+                <div role="radiogroup" aria-label="Library view">
+                  {VIEW_MODES.map(([id, label]) => (
+                    <AuroraRadio key={id} label={label} active={prefs.viewMode === id} onClick={() => setPref("viewMode", id)} />
+                  ))}
+                </div>
                 <p className="aurora-help">Choose how your game library is presented.</p>
               </div>
               <div className="aurora-settings__col">
                 <GroupTitle>Click Behavior</GroupTitle>
-                <AuroraRadio label="Single click" active={settings.click_behavior === "single"} onClick={() => handleClickBehaviorChange("single")} />
-                <AuroraRadio label="Double click" active={settings.click_behavior === "double"} onClick={() => handleClickBehaviorChange("double")} />
+                <div role="radiogroup" aria-label="Click behavior">
+                  <AuroraRadio label="Single click" active={settings.click_behavior === "single"} onClick={() => handleClickBehaviorChange("single")} />
+                  <AuroraRadio label="Double click" active={settings.click_behavior === "double"} onClick={() => handleClickBehaviorChange("double")} />
+                </div>
                 <p className="aurora-help">How to open games in the library.</p>
+                <div style={{ height: 18 }} />
+                <GroupTitle>Game Info</GroupTitle>
+                <AuroraCheck label="Show game screenshots" checked={settings.show_game_screenshots} onClick={handleScreenshotsToggle} />
+                <p className="aurora-help">Download screenshots for your games from the online title database.</p>
               </div>
             </div>
 
@@ -320,17 +342,22 @@ export function SettingsPage() {
                     value={launchEnvValue}
                     onChange={(e) => setLaunchEnvValue(e.target.value)}
                     placeholder={"MANGOHUD=1\nMANGOHUD_CONFIG=fps,gpu_temp,ram\n# One KEY=VALUE per line"}
+                    aria-label="Launch environment variables"
                     rows={6}
                   />
                   <div className="settings-page__preset-row">
-                    <button className="settings-page__edit-small" onClick={() => setLaunchEnvValue((c) => applyPreset(c, { MANGOHUD: "1" }))}>
-                      Preset: MangoHud
-                    </button>
-                    <button className="settings-page__edit-small" onClick={() => setLaunchEnvValue((c) => applyPreset(c, { LD_PRELOAD: "libgamemodeauto.so.0" }))}>
-                      Preset: GameMode
-                    </button>
-                    <button className="settings-page__edit-small" onClick={() => setLaunchEnvValue((c) => applyPreset(c, { ENABLE_GAMESCOPE_WSI: "1" }))}>
-                      Preset: gamescope
+                    {ENV_PRESETS.map((preset) => (
+                      <button
+                        key={preset.label}
+                        className="settings-page__edit-small"
+                        aria-pressed={isEnvPresetActive(launchEnvValue, preset.vars)}
+                        onClick={() => setLaunchEnvValue((c) => toggleEnvPreset(c, preset.vars))}
+                      >
+                        Preset: {preset.label}
+                      </button>
+                    ))}
+                    <button className="settings-page__edit-small" onClick={() => setLaunchEnvValue("")}>
+                      Clear all
                     </button>
                   </div>
                   <button className="settings-page__save-btn" onClick={handleLaunchEnvSave}>Save</button>
@@ -341,15 +368,27 @@ export function SettingsPage() {
                   <span className="settings-page__pref-value settings-page__pref-value--multiline">
                     {settings.launch_environment?.trim() || "Not set"}
                   </span>
-                  <button
-                    className="settings-page__edit-small"
-                    onClick={() => {
-                      setLaunchEnvValue(settings.launch_environment || "");
-                      setLaunchEnvEditing(true);
-                    }}
-                  >
-                    Edit
-                  </button>
+                  <div className="settings-page__preset-row">
+                    {ENV_PRESETS.map((preset) => (
+                      <button
+                        key={preset.label}
+                        className="settings-page__edit-small"
+                        aria-pressed={isEnvPresetActive(settings.launch_environment || "", preset.vars)}
+                        onClick={() => void handleEnvPresetToggle(preset.vars)}
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                    <button
+                      className="settings-page__edit-small"
+                      onClick={() => {
+                        setLaunchEnvValue(settings.launch_environment || "");
+                        setLaunchEnvEditing(true);
+                      }}
+                    >
+                      Edit raw…
+                    </button>
+                  </div>
                 </div>
               )}
               <div className="settings-page__effective-env">
@@ -369,10 +408,24 @@ export function SettingsPage() {
                     value={launchWrapperValue}
                     onChange={(e) => setLaunchWrapperValue(e.target.value)}
                     placeholder="gamemoderun or gamescope --mangoapp --"
+                    aria-label="Launch wrapper command"
                   />
                   <div className="settings-page__preset-row">
-                    <button className="settings-page__edit-small" onClick={() => setLaunchWrapperValue("gamemoderun")}>Preset: GameMode</button>
-                    <button className="settings-page__edit-small" onClick={() => setLaunchWrapperValue("gamescope --mangoapp --")}>Preset: gamescope</button>
+                    {WRAPPER_PRESETS.map((preset) => (
+                      <button
+                        key={preset.label}
+                        className="settings-page__edit-small"
+                        aria-pressed={launchWrapperValue.trim() === preset.command}
+                        onClick={() =>
+                          setLaunchWrapperValue((c) => (c.trim() === preset.command ? "" : preset.command))
+                        }
+                      >
+                        Preset: {preset.label}
+                      </button>
+                    ))}
+                    <button className="settings-page__edit-small" onClick={() => setLaunchWrapperValue("")}>
+                      Clear
+                    </button>
                   </div>
                   <button className="settings-page__save-btn" onClick={handleLaunchWrapperSave}>Save</button>
                   <button className="settings-page__cancel-btn" onClick={() => setLaunchWrapperEditing(false)}>Cancel</button>
@@ -382,15 +435,27 @@ export function SettingsPage() {
                   <span className="settings-page__pref-value settings-page__pref-value--multiline">
                     {settings.launch_wrapper?.trim() || "Not set"}
                   </span>
-                  <button
-                    className="settings-page__edit-small"
-                    onClick={() => {
-                      setLaunchWrapperValue(settings.launch_wrapper || "");
-                      setLaunchWrapperEditing(true);
-                    }}
-                  >
-                    Edit
-                  </button>
+                  <div className="settings-page__preset-row">
+                    {WRAPPER_PRESETS.map((preset) => (
+                      <button
+                        key={preset.label}
+                        className="settings-page__edit-small"
+                        aria-pressed={(settings.launch_wrapper || "").trim() === preset.command}
+                        onClick={() => void handleWrapperPresetToggle(preset.command)}
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                    <button
+                      className="settings-page__edit-small"
+                      onClick={() => {
+                        setLaunchWrapperValue(settings.launch_wrapper || "");
+                        setLaunchWrapperEditing(true);
+                      }}
+                    >
+                      Edit raw…
+                    </button>
+                  </div>
                 </div>
               )}
               <p className="settings-page__pref-help">
@@ -410,14 +475,18 @@ export function SettingsPage() {
           <div className="aurora-settings__cols">
             <div className="aurora-settings__col">
               <GroupTitle>Theme</GroupTitle>
-              {THEME_OPTIONS.map(([id, label]) => (
-                <AuroraRadio key={id} label={label} active={prefs.theme === id} onClick={() => setPref("theme", id)} />
-              ))}
+              <div role="radiogroup" aria-label="Theme">
+                {THEME_OPTIONS.map(([id, label]) => (
+                  <AuroraRadio key={id} label={label} active={prefs.theme === id} onClick={() => setPref("theme", id)} />
+                ))}
+              </div>
               <div style={{ height: 18 }} />
               <GroupTitle>Background</GroupTitle>
-              {TINT_OPTIONS.map(([id, label]) => (
-                <AuroraRadio key={id} label={label} active={prefs.fieldTint === id} onClick={() => setPref("fieldTint", id)} />
-              ))}
+              <div role="radiogroup" aria-label="Background">
+                {TINT_OPTIONS.map(([id, label]) => (
+                  <AuroraRadio key={id} label={label} active={prefs.fieldTint === id} onClick={() => setPref("fieldTint", id)} />
+                ))}
+              </div>
             </div>
             <div className="aurora-settings__col">
               <GroupTitle>Effects</GroupTitle>

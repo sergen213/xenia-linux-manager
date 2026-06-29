@@ -1,5 +1,6 @@
 import { useState, type CSSProperties } from "react";
 import { convertFileSrc } from "../../platform/bridge";
+import { displayTitle } from "../../features/shared/format";
 
 /**
  * The Aurora 3D game case and its flat cover art. Ported from the design
@@ -138,7 +139,7 @@ export function CoverArt({ card, w, gloss = true }: CoverArtProps) {
             textShadow: "0 2px 7px rgba(0,0,0,0.6)",
           }}
         >
-          {card.title}
+          {displayTitle(card.title)}
         </div>
       </div>
       <div
@@ -201,7 +202,7 @@ export function GameCase({ card, w, angle, selected }: GameCaseProps) {
   const D = CASE_DEPTH;
   const { c1, c2 } = coverColors(card.title);
   const ring = selected
-    ? "0 0 0 2px rgba(255,255,255,0.95), 0 12px 42px rgba(95,185,255,0.6)"
+    ? "0 0 0 2px rgba(255,255,255,0.95), 0 12px 42px color-mix(in srgb, var(--au-accent) 60%, transparent)"
     : "0 10px 24px rgba(0,0,0,0.45)";
 
   const wrapper: CSSProperties = {
@@ -265,7 +266,7 @@ export function GameCase({ card, w, angle, selected }: GameCaseProps) {
             maxHeight: H - 10,
           }}
         >
-          {card.title}
+          {displayTitle(card.title)}
         </div>
       </div>
       {/* Right edge (pages) */}

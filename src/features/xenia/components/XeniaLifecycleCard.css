@@ -12,11 +12,9 @@
 }
 
 .xenia-card__title {
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
-  color: var(--color-text-muted);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
+  color: var(--color-text-secondary);
   margin-bottom: 8px;
 }
 
@@ -54,8 +52,6 @@
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
   font-weight: var(--font-weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
 }
 
 .xenia-card__select {
@@ -113,12 +109,10 @@
   margin-left: 8px;
 }
 
-.xenia-card .custom-select--xenia .custom-select__menu {
-  position: absolute;
-  z-index: var(--z-dropdown);
-  top: 100%;
-  left: 0;
-  right: 0;
+/* Flat (not ancestor-scoped) so it still matches once CustomSelect portals the
+   menu to <body>, out of the .xenia-card tree. Position comes from inline fixed
+   styles; margin-top adds the gap below the trigger. */
+.custom-select__menu--xenia {
   margin-top: 2px;
   padding: 4px 0;
   list-style: none;
@@ -133,7 +127,7 @@
   opacity: 1;
 }
 
-.xenia-card .custom-select--xenia .custom-select__option {
+.custom-select__menu--xenia .custom-select__option {
   display: flex;
   align-items: center;
   width: 100%;
@@ -149,8 +143,8 @@
   opacity: 1;
 }
 
-.xenia-card .custom-select--xenia .custom-select__option:hover,
-.xenia-card .custom-select--xenia .custom-select__option.is-active {
+.custom-select__menu--xenia .custom-select__option:hover,
+.custom-select__menu--xenia .custom-select__option.is-active {
   background: var(--color-bg-hover);
 }
 
