@@ -257,11 +257,9 @@ export function LibraryCarousel({
           let refl: ReactNode;
           if (rail) {
             visual = <RailCover card={card} selected={isSel} w={caseW} />;
-            refl = (
-              <div style={{ transformOrigin: "bottom center", transform: isSel ? "scale(1.12)" : "scale(1)" }}>
-                <CoverArt card={card} w={caseW} />
-              </div>
-            );
+            // Native size, not a transform-scale — see the cover3D reflection note:
+            // a scaled child overflows the fade mask's box and gets its sides shaved.
+            refl = <CoverArt card={card} w={isSel ? Math.round(caseW * 1.12) : caseW} />;
           } else {
             visual = cover3D ? (
               <GameCase card={card} w={caseW} angle={angle} selected={isSel} spin={isSel} />
@@ -269,11 +267,14 @@ export function LibraryCarousel({
               <FlatCover card={card} selected={isSel} w={caseW} />
             );
             refl = cover3D ? (
-              <GameCase card={card} w={caseW} angle={angle} selected={isSel} spin={isSel} />
+              // Reflection renders the case at its NATIVE size (selected → 1.5×
+              // width, not an internal transform-scale). That keeps the layout box
+              // as wide as the visual, so the reflection's fade mask (mask-clip:
+              // border-box) lands on the front-face silhouette — full-width cover,
+              // without shaving the sides or bleeding the 3D spine/edges into it.
+              <GameCase card={card} w={isSel ? Math.round(caseW * 1.5) : caseW} angle={angle} selected={false} spin={isSel} />
             ) : (
-              <div style={{ transformOrigin: "bottom center", transform: isSel ? "scale(1.5)" : "scale(1)" }}>
-                <CoverArt card={card} w={caseW} />
-              </div>
+              <CoverArt card={card} w={isSel ? Math.round(caseW * 1.5) : caseW} />
             );
           }
           return (
