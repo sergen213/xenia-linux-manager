@@ -60,6 +60,9 @@ pub struct AppSettings {
     /// Click behavior for game cards: "single" or "double" click to open.
     #[serde(default = "default_click_behavior")]
     pub click_behavior: String,
+    /// Whether to fetch game screenshots from the online title database.
+    #[serde(default = "default_true")]
+    pub show_game_screenshots: bool,
     /// Extra environment variables applied when launching Xenia/game processes.
     /// Stored as newline-delimited KEY=VALUE entries for portability/editability.
     #[serde(default)]
@@ -74,6 +77,10 @@ fn default_click_behavior() -> String {
     "double".to_string()
 }
 
+fn default_true() -> bool {
+    true
+}
+
 impl Default for AppSettings {
     fn default() -> Self {
         let (xenia, data, lib) = defaults::all_defaults();
@@ -85,6 +92,7 @@ impl Default for AppSettings {
             last_active_route: None,
             gamer_tag: None,
             click_behavior: "double".to_string(),
+            show_game_screenshots: true,
             launch_environment: String::new(),
             launch_wrapper: String::new(),
         }

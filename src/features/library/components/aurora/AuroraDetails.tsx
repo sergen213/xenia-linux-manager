@@ -1,10 +1,14 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Play, Puzzle, Download, SlidersHorizontal, Terminal, Save, Tag } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { createPortal } from "react-dom";
+import { Play, Info, Puzzle, Download, SlidersHorizontal, Terminal, Save, Tag, ChevronLeft, ChevronRight, X } from "lucide-react";
 import {
   detectSteamInstall,
   exportGameToSteam,
+  fetchGameScreenshots,
+  fetchGameSynopsis,
   inspectGameContent,
 } from "../../api/libraryClient";
+import { convertFileSrc } from "../../../../platform/bridge";
 import type { GameInstalledContent, LibraryGameDetails } from "../../model/libraryTypes";
 import type {
   EffectiveConfig,
@@ -20,12 +24,18 @@ import { SaveQuickActions } from "../SaveQuickActions";
 import { UnsavedProfileChangesDialog } from "../UnsavedProfileChangesDialog";
 import { useSettings } from "../../../settings/state/settingsStore";
 import { GameCase } from "../../../../components/aurora/GameCase";
+import { toggleEnvPreset, isEnvPresetActive, ENV_PRESETS, WRAPPER_PRESETS } from "../../../shared/launchPresets";
+import { displayTitle } from "../../../shared/format";
 import "./AuroraDetails.css";
 
 const TITLE_UPDATE_TYPE = "000B0000";
 
+/** Resting coverflow tilt of the hero case; drag rotates away from it. */
+const REST_ANGLE = -14;
+
 /** Xbox-360-Aurora-style blade rail: each blade swaps the section on the right. */
 const BLADES = [
+  { id: "info", label: "Info", Icon: Info },
   { id: "patches", label: "Patches", Icon: Puzzle },
   { id: "content", label: "Content", Icon: Download },
   { id: "profiles", label: "Profiles", Icon: SlidersHorizontal },
@@ -95,37 +105,84 @@ export interface AuroraDetailsProps {
   onClearSaveResults: () => void;
 }
 
-function parseEnv(raw: string): Array<[string, string]> {
-  return raw
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter((l) => l.length > 0 && !l.startsWith("#"))
-    .flatMap((l) => {
-      const i = l.indexOf("=");
-      return i <= 0 ? [] : [[l.slice(0, i).trim(), l.slice(i + 1).trim()] as [string, string]];
-    });
-}
-function applyPreset(raw: string, preset: Record<string, string>): string {
-  const m = new Map(parseEnv(raw));
-  for (const [k, v] of Object.entries(preset)) m.set(k, v);
-  return Array.from(m.entries()).map(([k, v]) => `${k}=${v}`).join("\n");
-}
-
 export function AuroraDetails(props: AuroraDetailsProps) {
   const { details, appDataPath, libraryMetadataPath } = props;
   const { state: settingsState } = useSettings();
   const [installedContent, setInstalledContent] = useState<GameInstalledContent | null>(null);
-  const [blade, setBlade] = useState<BladeId>("patches");
+  const [synopsis, setSynopsis] = useState<string | null>(null);
+  const [screenshots, setScreenshots] = useState<string[]>([]);
+  const [screenshotsLoading, setScreenshotsLoading] = useState(false);
+  const [lightbox, setLightbox] = useState<number | null>(null);
+  const [blade, setBlade] = useState<BladeId>("info");
   const [launchEnvValue, setLaunchEnvValue] = useState("");
   const [launchWrapperValue, setLaunchWrapperValue] = useState("");
   const [steamPending, setSteamPending] = useState(false);
   const [steamMessage, setSteamMessage] = useState<string | null>(null);
 
+  // Drag-to-rotate the hero case so the back cover can be inspected; dragging
+  // adds ~0.6° of rotateY per horizontal pixel away from REST_ANGLE.
+  const caseDragRef = useRef<{ x: number; angle: number } | null>(null);
+  const [caseAngle, setCaseAngle] = useState(REST_ANGLE);
+  const [caseDragging, setCaseDragging] = useState(false);
+  const onCasePointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    caseDragRef.current = { x: e.clientX, angle: caseAngle };
+    setCaseDragging(true);
+  };
+  const onCasePointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const start = caseDragRef.current;
+    if (!start) return;
+    setCaseAngle(start.angle + (e.clientX - start.x) * 0.6);
+  };
+  const onCasePointerUp = () => {
+    caseDragRef.current = null;
+    setCaseDragging(false);
+  };
+  // Snap back to rest when switching games.
+  useEffect(() => {
+    setCaseAngle(REST_ANGLE);
+  }, [details?.game_id]);
+
   useEffect(() => {
     setLaunchEnvValue(details?.launch_environment ?? "");
     setLaunchWrapperValue(details?.launch_wrapper ?? "");
-    setBlade("patches");
+    setBlade("info");
   }, [details?.game_id, details?.launch_environment, details?.launch_wrapper]);
+
+  // Synopsis + screenshots from x360db (cached in the sidecar); synopsis is the
+  // same source as the Home tab, screenshots are the title's gallery images
+  // (gated by the show_game_screenshots setting).
+  const showScreenshots = settingsState.settings?.show_game_screenshots ?? true;
+  useEffect(() => {
+    setSynopsis(null);
+    setScreenshots([]);
+    setScreenshotsLoading(false);
+    setLightbox(null);
+    if (!details?.game_id || !libraryMetadataPath) return;
+    let live = true;
+    fetchGameSynopsis(libraryMetadataPath, details.game_id)
+      .then((r) => live && setSynopsis(r.synopsis))
+      .catch(() => {});
+    if (showScreenshots) {
+      setScreenshotsLoading(true);
+      fetchGameScreenshots(libraryMetadataPath, details.game_id)
+        .then((r) => live && setScreenshots(r.screenshots))
+        .catch(() => {})
+        .finally(() => live && setScreenshotsLoading(false));
+    }
+    return () => {
+      live = false;
+    };
+  }, [details?.game_id, libraryMetadataPath, showScreenshots]);
+
+  // Step through screenshots with wraparound. Keyboard/controller routing for
+  // the open lightbox lives in AppShell (it owns global input and traps it on
+  // the overlay); these handlers fire from the on-screen nav buttons it clicks.
+  const stepLightbox = useCallback(
+    (delta: number) =>
+      setLightbox((i) => (i === null ? i : (i + delta + screenshots.length) % screenshots.length)),
+    [screenshots.length],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -203,11 +260,22 @@ export function AuroraDetails(props: AuroraDetailsProps) {
 
       <div className="aurora-details__main">
         <header className="aurora-details__hero">
-          <div className="aurora-details__case">
-            <GameCase card={details} w={112} angle={-14} selected={false} />
+          <div
+            className="aurora-details__case"
+            onPointerDown={onCasePointerDown}
+            onPointerMove={onCasePointerMove}
+            onPointerUp={onCasePointerUp}
+            onPointerCancel={onCasePointerUp}
+            onDoubleClick={() => setCaseAngle(REST_ANGLE)}
+            style={{ cursor: caseDragging ? "grabbing" : "grab", touchAction: "none" }}
+            role="img"
+            aria-label={`${displayTitle(details.title)} case — drag to rotate and inspect the back`}
+            title="Drag to rotate · double-click to reset"
+          >
+            <GameCase card={details} w={112} angle={caseAngle} selected={false} instant={caseDragging} />
           </div>
           <div className="aurora-details__identity">
-            <h2 className="aurora-details__title">{details.title}</h2>
+            <h2 className="aurora-details__title">{displayTitle(details.title)}</h2>
             <p className="aurora-details__meta">
               {details.kind}
               {details.title_id ? ` · Title ID ${details.title_id}` : ""}
@@ -227,6 +295,53 @@ export function AuroraDetails(props: AuroraDetailsProps) {
         </header>
 
         <div className="aurora-details__section" role="tabpanel">
+          {blade === "info" && (
+            <>
+              <h3 className="aurora-details__col-title">Synopsis</h3>
+              {synopsis ? (
+                <p className="aurora-details__synopsis">{synopsis}</p>
+              ) : (
+                <p className="aurora-details__muted">No synopsis available for this title.</p>
+              )}
+              {showScreenshots && (screenshotsLoading || screenshots.length > 0) && (
+                <>
+                  <h3 className="aurora-details__col-title aurora-details__col-title--spaced">
+                    Screenshots
+                  </h3>
+                  <div className="aurora-details__gallery">
+                    {screenshotsLoading
+                      ? Array.from({ length: 3 }).map((_, i) => (
+                          <div
+                            key={i}
+                            className="aurora-details__shot aurora-details__shot--loading"
+                            aria-hidden
+                          />
+                        ))
+                      : screenshots.map((path, i) => (
+                          <button
+                            key={path}
+                            type="button"
+                            className="aurora-details__shot-btn"
+                            onClick={() => setLightbox(i)}
+                            aria-label={`Open screenshot ${i + 1}`}
+                          >
+                            <img
+                              className="aurora-details__shot"
+                              src={convertFileSrc(path)}
+                              alt=""
+                              loading="lazy"
+                            />
+                          </button>
+                        ))}
+                  </div>
+                  {screenshotsLoading && (
+                    <p className="aurora-details__muted">Loading screenshots…</p>
+                  )}
+                </>
+              )}
+            </>
+          )}
+
           {blade === "patches" && (
             <>
               <div className="aurora-details__col-head">
@@ -364,8 +479,18 @@ export function AuroraDetails(props: AuroraDetailsProps) {
                 placeholder={"MANGOHUD=1\n# KEY=VALUE per line"}
               />
               <div className="game-details__actions">
-                <button type="button" onClick={() => setLaunchEnvValue((c) => applyPreset(c, { MANGOHUD: "1" }))}>
-                  Preset: MangoHud
+                {ENV_PRESETS.map((preset) => (
+                  <button
+                    key={preset.label}
+                    type="button"
+                    aria-pressed={isEnvPresetActive(launchEnvValue, preset.vars)}
+                    onClick={() => setLaunchEnvValue((c) => toggleEnvPreset(c, preset.vars))}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+                <button type="button" onClick={() => setLaunchEnvValue("")}>
+                  Clear all
                 </button>
                 <button
                   type="button"
@@ -385,6 +510,21 @@ export function AuroraDetails(props: AuroraDetailsProps) {
                 placeholder="gamemoderun or gamescope --mangoapp --"
               />
               <div className="game-details__actions">
+                {WRAPPER_PRESETS.map((preset) => (
+                  <button
+                    key={preset.label}
+                    type="button"
+                    aria-pressed={launchWrapperValue.trim() === preset.command}
+                    onClick={() =>
+                      setLaunchWrapperValue((c) => (c.trim() === preset.command ? "" : preset.command))
+                    }
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+                <button type="button" onClick={() => setLaunchWrapperValue("")}>
+                  Clear
+                </button>
                 <button
                   type="button"
                   className="game-details__primary"
@@ -432,6 +572,61 @@ export function AuroraDetails(props: AuroraDetailsProps) {
           )}
         </div>
       </div>
+
+      {lightbox !== null && screenshots[lightbox] && createPortal(
+        <div
+          className="aurora-lightbox"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Screenshot viewer"
+          onClick={() => setLightbox(null)}
+        >
+          <button
+            type="button"
+            className="aurora-lightbox__close"
+            aria-label="Close"
+            onClick={() => setLightbox(null)}
+          >
+            <X size={22} aria-hidden />
+          </button>
+          {screenshots.length > 1 && (
+            <button
+              type="button"
+              className="aurora-lightbox__nav aurora-lightbox__nav--prev"
+              aria-label="Previous screenshot"
+              onClick={(e) => {
+                e.stopPropagation();
+                stepLightbox(-1);
+              }}
+            >
+              <ChevronLeft size={30} aria-hidden />
+            </button>
+          )}
+          <img
+            className="aurora-lightbox__img"
+            src={convertFileSrc(screenshots[lightbox])}
+            alt={`Screenshot ${lightbox + 1}`}
+            onClick={(e) => e.stopPropagation()}
+          />
+          {screenshots.length > 1 && (
+            <button
+              type="button"
+              className="aurora-lightbox__nav aurora-lightbox__nav--next"
+              aria-label="Next screenshot"
+              onClick={(e) => {
+                e.stopPropagation();
+                stepLightbox(1);
+              }}
+            >
+              <ChevronRight size={30} aria-hidden />
+            </button>
+          )}
+          <div className="aurora-lightbox__counter">
+            {lightbox + 1} / {screenshots.length}
+          </div>
+        </div>,
+        document.body,
+      )}
 
       <UnsavedProfileChangesDialog
         visible={props.unsavedDialogVisible}

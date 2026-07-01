@@ -78,6 +78,10 @@ const STUB = `
     get_library_status: () => ({ sources: [], active_scans: 0, queued_scans: 0 }),
     browse_library: () => ({ cards: CARDS, review_inbox_count: 0, review_duplicate_count: 0, review_low_confidence_count: 0 }),
     get_library_game_details: () => DETAILS, inspect_game_content: () => CONTENT,
+    // AuroraDetails' Info blade reads {synopsis} and {screenshots}; the bare []
+    // default leaves r.screenshots undefined → screenshots.length blanks the app.
+    fetch_game_synopsis: () => ({ synopsis: "A towering ape defends a filmmaker on Skull Island." }),
+    fetch_game_screenshots: () => ({ screenshots: [] }),
     get_source_catalog: () => ({ candidates: [] }), get_all_catalogs: () => [],
     list_library_sources: () => [], list_save_backups: () => [], list_game_profiles: () => [],
     // TasksProvider reads history.jobs (LOAD_HISTORY_SUCCESS iterates it); a bare

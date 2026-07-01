@@ -11,9 +11,11 @@ import {
   type LibraryState,
 } from "../../features/library/state/libraryStore";
 import type { LibraryAction } from "../../features/library/state/libraryStore";
-import { activateFocused, focusFirst, moveFocus, rememberFocus, scrollActiveRegion, type Dir } from "./spatialNav";
+import { SORT_LABELS, SORT_NEXT } from "../../features/library/components/aurora/LibraryLayouts";
+import { activateFocused, focusFirst, moveFocus, rememberFocus, rotateActiveCase, scrollActiveRegion, spinHomeActiveCase, type Dir } from "./spatialNav";
 import { useGamepad } from "./useGamepad";
 import { OnScreenKeyboard } from "./OnScreenKeyboard";
+import { oskInsert, oskBackspace, oskMoveCaret } from "./oskEdit";
 import { UpdateBanner } from "./UpdateBanner";
 import "./AppShell.css";
 
@@ -57,7 +59,15 @@ export function AppShell({ children }: AppShellProps) {
   const closeOsk = () => {
     const t = oskTarget.current;
     setOskOpen(false);
-    t?.focus(); // return focus to the field so spatial nav resumes there
+    // Return focus to the field so spatial nav resumes there — except the hidden
+    // library search proxy, which lives off-screen; let the reel take over instead.
+    if (t && !t.classList.contains("aurora-library__search-input")) t.focus();
+  };
+  // Bottom-legend Search (and the "/" key / gamepad X on Library): open the
+  // on-screen keyboard on the off-screen library search field.
+  const openSearch = () => {
+    const el = document.querySelector<HTMLInputElement>(".aurora-library__search-input");
+    if (el) openOsk(el);
   };
 
   // Latest values for the always-mounted key/gamepad listeners (so they don't
@@ -101,20 +111,39 @@ export function AppShell({ children }: AppShellProps) {
     );
   }
   // An open menu/modal traps nav so the d-pad can't wander onto what's behind it.
-  // An open dropdown is innermost, so it wins.
+  // Innermost wins: the CustomSelect menu portals to <body> (it isn't a DOM child
+  // of .custom-select, so match it directly), then the nested unsaved-changes
+  // dialog beats the details panel it lives inside, then any modal panel.
   const navRoot = (): ParentNode =>
     document.querySelector(".osk") ??
-    document.querySelector(".custom-select.is-open .custom-select__menu") ??
+    document.querySelector(".custom-select__menu") ??
+    document.querySelector(".unsaved-dialog") ??
     document.querySelector(".aurora-modal__panel, .xenia-dialog") ??
     document.querySelector(".app-shell") ??
     document;
+  // True while an overlay (on-screen keyboard, open dropdown, any modal panel —
+  // Details or the folder picker — dialog, or lightbox) owns input. Global
+  // tab/navigation shortcuts (LB/RB, the page-jump buttons, zoom, sort) must not
+  // leak to the screen behind it. Pure DOM check so the mount-once key/gamepad
+  // listeners always see live state.
+  const inputTrapped = () =>
+    !!document.querySelector(
+      ".osk, .custom-select.is-open, .aurora-modal__panel, .xenia-dialog, .aurora-lightbox",
+    );
   const reelEl = () =>
     document.querySelector(".aurora-grid, .aurora-carousel");
+  // The screenshot lightbox (body portal, above the details modal) traps input
+  // while open: it owns no listeners itself, so we drive its on-screen nav/close
+  // buttons here — d-pad/arrows flip screenshots, A/B/Esc dismiss it.
+  const lightboxEl = () => document.querySelector(".aurora-lightbox");
+  const clickSel = (sel: string) =>
+    (document.querySelector(sel) as HTMLElement | null)?.click();
   // Show focus rings only while steering by controller/keyboard, not for mouse.
   const usingController = () => document.body.classList.add("using-controller");
 
   // ── Imperative actions (read latest via ref) ──────────────────────────
   function cycleTab(dir: number) {
+    if (inputTrapped()) return; // don't switch background tabs behind a modal/menu/keyboard
     const { pathname: p, navigate: nav } = ref.current;
     let i = TAB_ORDER.indexOf(p);
     if (i < 0) i = 1;
@@ -126,7 +155,14 @@ export function AppShell({ children }: AppShellProps) {
   // Only acts while a card reel is on screen so it never fires off-Library.
   function zoomLib(delta: number) {
     const d = ref.current;
-    if (cardView(d)) d.applyZoom(delta);
+    if (!inputTrapped() && cardView(d)) d.applyZoom(delta);
+  }
+
+  // Cycle the Library sort order (legend chip / keyboard S / L3). Only acts while
+  // a card reel is on screen so it never fires off-Library.
+  function cycleSort() {
+    const d = ref.current;
+    if (!inputTrapped() && cardView(d)) d.dispatch({ type: "SET_SORT", sortMode: SORT_NEXT[d.state.sortMode] });
   }
 
   // Scroll the focused menu a chunk (legend chip / PageUp-Down) — the keyboard
@@ -148,6 +184,19 @@ export function AppShell({ children }: AppShellProps) {
   // Directional input — routes to reel index nav or DOM spatial nav.
   function steer(dir: Dir) {
     usingController();
+    // Lightbox open: left/right browse screenshots; up/down do nothing.
+    if (lightboxEl()) {
+      if (dir === "left") clickSel(".aurora-lightbox__nav--prev");
+      else if (dir === "right") clickSel(".aurora-lightbox__nav--next");
+      return;
+    }
+    // Any other overlay (on-screen keyboard, dropdown, modal): steer only within
+    // it — never let the reel re-enter logic hijack the d-pad off the overlay (the
+    // on-screen keyboard sits over the library reel, where cardView is still true).
+    if (inputTrapped()) {
+      moveFocus(dir, navRoot());
+      return;
+    }
     const d = ref.current;
     if (cardView(d) && plane.current === "reel") {
       const grid = d.gridStride > 1;
@@ -194,7 +243,10 @@ export function AppShell({ children }: AppShellProps) {
   function confirm() {
     usingController();
     const d = ref.current;
-    if (cardView(d) && plane.current === "reel") {
+    // Don't launch from the reel while an overlay is up (e.g. the on-screen
+    // keyboard over the library, where cardView is still true) — A there should
+    // activate the focused overlay control / type the highlighted key.
+    if (!inputTrapped() && cardView(d) && plane.current === "reel") {
       if (d.state.selectedGameId) d.dispatch({ type: "REQUEST_LAUNCH" });
       return;
     }
@@ -222,6 +274,7 @@ export function AppShell({ children }: AppShellProps) {
   }
 
   function openDetails() {
+    if (inputTrapped()) return; // no-op behind a menu/keyboard, or when already open
     const d = ref.current;
     if (
       (d.pathname === "/" || d.pathname === "/home") &&
@@ -238,13 +291,30 @@ export function AppShell({ children }: AppShellProps) {
       closeOsk();
       return;
     }
-    // An open dropdown captures Back: close just the menu (reuse its own Escape
-    // handling), not the modal/page behind it.
+    // An open dropdown captures Back: close just the menu, not the modal/page
+    // behind it. Toggle it via its own trigger (which also restores focus there).
+    // A synthetic Escape would bubble back into this same global handler and, with
+    // the menu still in the DOM for that tick, recurse until the stack overflows.
     const openSelect = document.querySelector(".custom-select.is-open");
     if (openSelect) {
-      (document.activeElement ?? openSelect).dispatchEvent(
-        new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
-      );
+      const trigger = openSelect.querySelector<HTMLElement>(".custom-select__trigger");
+      trigger?.click();
+      trigger?.focus();
+      return;
+    }
+    // Nested "unsaved profile changes" dialog (lives inside the details panel):
+    // Back cancels just it, not the whole details modal behind it.
+    const cancelUnsaved = document.querySelector<HTMLElement>(".unsaved-dialog__cancel");
+    if (cancelUnsaved) {
+      cancelUnsaved.click();
+      return;
+    }
+    // Controller-only folder picker. Its own Escape handler isn't reached by the
+    // gamepad B button (which calls back() directly, not via a keydown), so cancel
+    // it here by clicking its Cancel button (the first action button).
+    const cancelFolder = document.querySelector<HTMLElement>(".folder-browser__actions button");
+    if (cancelFolder) {
+      cancelFolder.click();
       return;
     }
     const d = ref.current;
@@ -303,6 +373,15 @@ export function AppShell({ children }: AppShellProps) {
         if (e.key === "Escape") t.blur();
         return;
       }
+      // Lightbox open: trap all keys here so arrows browse screenshots and
+      // Escape closes the viewer (not the details modal behind it).
+      if (lightboxEl()) {
+        if (e.key === "ArrowLeft") clickSel(".aurora-lightbox__nav--prev");
+        else if (e.key === "ArrowRight") clickSel(".aurora-lightbox__nav--next");
+        else if (e.key === "Escape") clickSel(".aurora-lightbox__close");
+        e.preventDefault();
+        return;
+      }
       switch (e.key) {
         case "[":
           cycleTab(-1);
@@ -327,6 +406,10 @@ export function AppShell({ children }: AppShellProps) {
           if (ref.current.state.detailsOpen) back();
           else openDetails();
           break;
+        case "s":
+        case "S":
+          cycleSort();
+          break;
         case "-":
         case "_":
           zoomLib(-1);
@@ -343,6 +426,9 @@ export function AppShell({ children }: AppShellProps) {
           break;
         case "Enter":
           confirm();
+          break;
+        case "/":
+          if (ref.current.pathname === "/") openSearch(); // Library search hotkey
           break;
         case "b":
         case "B":
@@ -368,6 +454,31 @@ export function AppShell({ children }: AppShellProps) {
   // state via `ref`, so passing fresh closures each render is safe.
   useGamepad({
     onButton: (i) => {
+      // Lightbox open: trap the pad on the viewer. D-pad L/R flip screenshots,
+      // A/B close it; everything else is swallowed so nothing behind reacts.
+      if (lightboxEl()) {
+        usingController();
+        if (i === 14) clickSel(".aurora-lightbox__nav--prev");
+        else if (i === 15) clickSel(".aurora-lightbox__nav--next");
+        else if (i === 0 || i === 1) clickSel(".aurora-lightbox__close");
+        return;
+      }
+      // On-screen keyboard open: map the controller buttons to edit actions so the
+      // user isn't forced to d-pad to every key. A (type the highlighted key), B
+      // (close), and the d-pad (move between keys) fall through to the switch below.
+      const oskField = document.querySelector(".osk") ? oskTarget.current : null;
+      if (oskField) {
+        usingController();
+        switch (i) {
+          case 2: oskBackspace(oskField); return;     // X — Backspace
+          case 3: oskInsert(oskField, " "); return;   // Y — Space
+          case 4: oskMoveCaret(oskField, -1); return; // LB — caret left
+          case 5: oskMoveCaret(oskField, 1); return;  // RB — caret right
+          case 6: clickSel(".osk__key--symbols"); return; // LT — Symbols set
+          case 7: clickSel(".osk__key--accents"); return; // RT — Accents set
+          case 10: clickSel(".osk__key--caps"); return;   // L3 — Caps toggle
+        }
+      }
       switch (i) {
         case 14: steer("left"); break;
         case 15: steer("right"); break;
@@ -375,29 +486,54 @@ export function AppShell({ children }: AppShellProps) {
         case 13: steer("down"); break;
         case 0: confirm(); break;
         case 1: back(); break;
-        case 2: ref.current.navigate("/"); break;
+        case 2:
+          if (inputTrapped()) break;
+          if (ref.current.pathname === "/") openSearch(); // X on Library = Search
+          else ref.current.navigate("/");
+          break;
         case 3: openDetails(); break;
         case 4: cycleTab(-1); break;
         case 5: cycleTab(1); break;
         case 6: zoomLib(-1); break; // LT — zoom out
         case 7: zoomLib(1); break; // RT — zoom in
-        case 9: ref.current.navigate("/settings"); break;
+        case 10: cycleSort(); break; // L3 — cycle sort
+        case 9: if (!inputTrapped()) ref.current.navigate("/settings"); break;
       }
     },
     onAxisDir: steer,
     onScroll: scrollActiveRegion,
+    onRotate: (dx) => {
+      // Right-stick X spins the selected coverflow case; only while the reel owns
+      // input (no-op in grid/rail — rotateActiveCase finds no spinnable case).
+      const d = ref.current;
+      if (cardView(d) && plane.current === "reel") rotateActiveCase(dx);
+    },
+    onRotateEnd: () => {
+      const d = ref.current;
+      if (cardView(d) && plane.current === "reel") spinHomeActiveCase();
+    },
   });
 
   const A: LegendItem = { glyph: "A", color: LEGEND_COLORS.A, label: "Launch", kbd: "Enter", onAction: requestLaunch };
   const B: LegendItem = { glyph: "B", color: LEGEND_COLORS.B, label: "Back", kbd: "Esc", onAction: back };
   const X: LegendItem = { glyph: "X", color: LEGEND_COLORS.X, label: "Browse", kbd: "Space", onAction: () => navigate("/") };
+  // On Library, X searches (opens the on-screen keyboard on the hidden field). The
+  // chip doubles as the active-query readout; click/press it to edit or clear.
+  const q = state.search.trim();
+  const searchLabel = q ? `“${q.length > 14 ? q.slice(0, 13) + "…" : q}”` : "Search";
+  const libraryHasGames = (state.browse?.cards.length ?? 0) > 0;
+  const X_SEARCH: LegendItem = { glyph: "X", color: LEGEND_COLORS.X, label: searchLabel, kbd: "/", onAction: openSearch, labelWidth: 120 };
   const Y: LegendItem = { glyph: "Y", color: LEGEND_COLORS.Y, label: "Details", kbd: "I", onAction: openDetails };
   const LB: LegendItem = { glyph: "LB", color: LEGEND_COLORS.neutral, label: "Prev Tab", kbd: "[", onAction: () => cycleTab(-1) };
   const RB: LegendItem = { glyph: "RB", color: LEGEND_COLORS.neutral, label: "Next Tab", kbd: "]", onAction: () => cycleTab(1) };
   const LT: LegendItem = { glyph: "LT", color: LEGEND_COLORS.neutral, label: "Zoom −", kbd: "-", onAction: () => zoomLib(-1) };
   const RT: LegendItem = { glyph: "RT", color: LEGEND_COLORS.neutral, label: "Zoom +", kbd: "=", onAction: () => zoomLib(1) };
   const RS: LegendItem = { glyph: "RS", color: LEGEND_COLORS.neutral, label: "Scroll", kbd: "PgDn", onAction: () => scrollMenu(1) };
-  const legend = onLibrary ? [A, B, X, Y, LB, RB, LT, RT] : onGame ? [A, B, X, Y, LB, RB] : [B, X, LB, RB, RS];
+  // labelWidth fits the widest "Sort: <mode>" so cycling never reflows the row.
+  const SORT: LegendItem = { glyph: "L3", color: LEGEND_COLORS.neutral, label: `Sort: ${SORT_LABELS[state.sortMode]}`, kbd: "S", onAction: cycleSort, labelWidth: 82 };
+  const legend = onLibrary
+    ? [A, B, libraryHasGames ? X_SEARCH : X, Y, SORT, LB, RB, LT, RT]
+    : onGame ? [A, B, X, Y, LB, RB] : [B, X, LB, RB, RS];
 
   return (
     <div className="app-shell">

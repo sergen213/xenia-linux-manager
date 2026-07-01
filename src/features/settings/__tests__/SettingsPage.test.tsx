@@ -24,6 +24,7 @@ const mockSettings: AppSettings = {
   last_active_route: null,
   gamer_tag: null,
   click_behavior: "single" as const,
+  show_game_screenshots: true,
   launch_environment: "MANGOHUD=1",
   launch_wrapper: "gamemoderun",
 };

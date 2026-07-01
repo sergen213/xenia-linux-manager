@@ -362,6 +362,28 @@ export function FirstRunSetup() {
                   ))}
                 </div>
               </fieldset>
+              <fieldset className="first-run__appearance-group">
+                <legend className="first-run__appearance-title">Game Info</legend>
+                <div role="radiogroup" aria-label="Game screenshots">
+                  <AuroraRadio
+                    label="Show screenshots"
+                    active={settings.show_game_screenshots}
+                    onClick={() =>
+                      dispatch({ type: "UPDATE_FIELD", field: "show_game_screenshots", value: true })
+                    }
+                  />
+                  <AuroraRadio
+                    label="Don't show"
+                    active={!settings.show_game_screenshots}
+                    onClick={() =>
+                      dispatch({ type: "UPDATE_FIELD", field: "show_game_screenshots", value: false })
+                    }
+                  />
+                </div>
+                <p className="first-run__appearance-help">
+                  Download screenshots for your games from the online title database.
+                </p>
+              </fieldset>
             </div>
           </>
         )}

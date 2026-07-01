@@ -1,36 +1,168 @@
+/* Aurora on-screen keyboard — glass modal modeled on the Xbox 360 "Change
+   Gamertag" screen. Centered over the Aurora field; the app's AuroraField shows
+   through the scrim. All color from the shared --au-* tokens so it tracks theme
+   (dark/light) and accent tint automatically. */
+
 .osk {
   position: fixed;
-  left: 50%;
-  bottom: 16px;
-  transform: translateX(-50%);
+  inset: 0;
   z-index: var(--z-modal, 1000);
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 12px;
-  border-radius: 14px;
-  background: var(--au-modal-bg, rgba(18, 24, 38, 0.96));
-  border: 1px solid var(--au-glass-border, rgba(255, 255, 255, 0.12));
-  box-shadow: var(--au-glass-shadow, 0 18px 50px rgba(0, 0, 0, 0.5));
-  backdrop-filter: blur(12px);
+  align-items: center;
+  justify-content: flex-end; /* dock to the bottom of the screen */
+  gap: 14px;
+  padding: 24px 16px 18px;
+  background: rgba(3, 8, 18, 0.42);
+  animation: osk-scrim-in 160ms ease both;
 }
 
-.osk__row {
+.osk__panel {
+  width: min(900px, 94vw);
+  padding: 26px 30px 22px;
+  border-radius: 16px;
+  /* Tint the panel toward the live accent so it tracks the theme color
+     (--au-accent changes per data-tint / light theme). */
+  background: color-mix(in srgb, var(--au-accent) 12%, var(--au-modal-bg));
+  border: 1px solid var(--au-glass-border);
+  box-shadow: var(--au-glass-shadow);
+  backdrop-filter: blur(14px);
+  /* Slide up from below the bottom edge on open. */
+  animation: osk-slide-up 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes osk-scrim-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes osk-slide-up {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.osk__title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 28px;
+  letter-spacing: 0.01em;
+  color: var(--au-heading);
+}
+
+/* ── Value mirror ─────────────────────────────────────────────────────── */
+.osk__field {
   display: flex;
-  gap: 6px;
-  justify-content: center;
+  align-items: center;
+  gap: 14px;
+  height: 60px;
+  margin: 14px 0 20px;
+  padding: 0 18px;
+  border-radius: 8px;
+  background: var(--au-input-bg);
+  border: 1px solid var(--au-input-border);
+  overflow: hidden;
 }
 
+.osk__value {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--au-heading);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.osk__placeholder {
+  color: var(--au-faint);
+  font-weight: 400;
+}
+
+/* Blinking caret marker at the field's caret position. */
+.osk__caret {
+  display: inline-block;
+  width: 2px;
+  height: 1.1em;
+  margin: 0 1px;
+  vertical-align: text-bottom;
+  background: var(--au-accent);
+  animation: osk-caret 1s step-end infinite;
+}
+
+@keyframes osk-caret {
+  50% { opacity: 0; }
+}
+
+.osk__counter {
+  flex: 0 0 auto;
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--au-sub);
+}
+
+.osk__counter.is-full {
+  color: var(--au-accent);
+}
+
+/* ── Keyboard body: rail · grid · rail ────────────────────────────────── */
+.osk__body {
+  display: flex;
+  gap: 9px;
+  align-items: stretch;
+}
+
+.osk__rail {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  width: 132px;
+}
+
+.osk__grid {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  flex: 1;
+  min-width: 0;
+}
+
+.osk__grid-row {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 7px;
+}
+
+.osk__action-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+}
+
+.osk__action-row--3 {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+/* ── Keys ─────────────────────────────────────────────────────────────── */
 .osk__key {
-  min-width: 44px;
-  height: 44px;
-  padding: 0 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-width: 0;
+  height: 46px;
+  padding: 0 12px;
   border-radius: 8px;
-  border: 1px solid transparent;
+  border: 1px solid var(--au-glass-border);
   background: rgba(255, 255, 255, 0.06);
-  color: var(--au-text, #fff);
-  font-size: 16px;
+  color: var(--au-text);
+  font-family: inherit;
+  font-size: 17px;
+  font-weight: 600;
   cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
 }
 
 .osk__key:hover {
@@ -41,7 +173,7 @@
 body.using-controller .osk__key:focus {
   outline: none;
   border-color: var(--au-accent);
-  background: color-mix(in srgb, var(--au-accent) 28%, transparent);
+  background: var(--au-accent-soft);
 }
 
 .osk__key.is-active {
@@ -49,16 +181,111 @@ body.using-controller .osk__key:focus {
   background: var(--au-accent-soft);
 }
 
-.osk__key--wide {
-  min-width: 80px;
+/* Rails and Done stack a badge over a label and grow to fill the column. */
+.osk__key--rail {
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: 5px;
 }
 
-.osk__key--space {
-  min-width: 240px;
+.osk__key-label {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.osk__key-ico {
+  font-size: 16px;
 }
 
 .osk__key--done {
-  background: var(--au-accent, #3ddc84);
-  color: var(--au-accent-ink, #07210f);
+  background: var(--au-accent);
+  border-color: var(--au-accent);
+  color: var(--au-accent-ink);
+}
+
+.osk__key--done:hover {
+  background: var(--au-accent);
+}
+
+.osk__key--done .osk__key-ico {
+  font-size: 15px;
+}
+
+/* Light theme: the 6% white key fill is invisible on a pale panel. */
+[data-theme="light"] .osk__key {
+  background: rgba(20, 45, 75, 0.05);
+}
+[data-theme="light"] .osk__key:hover {
+  background: rgba(20, 45, 75, 0.1);
+}
+[data-theme="light"] .osk__key--done,
+[data-theme="light"] .osk__key--done:hover {
+  background: var(--au-accent);
+}
+
+/* ── Gamepad-button badges ────────────────────────────────────────────── */
+.osk__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  min-width: 22px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.14);
+  color: var(--au-faint);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.osk__badge--a,
+.osk__badge--b,
+.osk__badge--x,
+.osk__badge--y {
+  width: 20px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 12px;
+}
+
+.osk__badge--a { background: #6fc77f; color: #06210f; }
+.osk__badge--b { background: #e5675f; color: #2a0b0a; }
+.osk__badge--x { background: #5aa8e6; color: #04223a; }
+.osk__badge--y { background: #e6c34a; color: #241d04; }
+
+[data-theme="light"] .osk__badge {
+  background: rgba(20, 45, 75, 0.14);
+  color: #3a4654;
+}
+
+/* ── Footer legend ────────────────────────────────────────────────────── */
+/* Hide the page's controller legend while the keyboard is up: the OSK shows its
+   own A/B footer, and the page hints (Launch/Search/…) don't apply mid-typing.
+   visibility (not display) keeps the row's height so nothing reflows behind. */
+.app-shell:has(.osk) .legend-bar {
+  visibility: hidden;
+}
+
+.osk__footer {
+  display: flex;
+  gap: 26px;
+}
+
+.osk__footer-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
   font-weight: 600;
+  color: var(--au-text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .osk__caret,
+  .osk,
+  .osk__panel { animation: none; }
 }

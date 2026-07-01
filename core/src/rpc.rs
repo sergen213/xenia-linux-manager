@@ -318,10 +318,19 @@ pub async fn dispatch(ctx: &AppCtx, method: &str, params: Value) -> Result<Value
             let library_metadata_path: String = arg(&params, "libraryMetadataPath")?;
             Ok(serde_json::to_value(crate::commands::library::fetch_all_artwork(library_metadata_path).await).map_err(|e| e.to_string())?)
         }
+        "refetch_all_artwork" => {
+            let library_metadata_path: String = arg(&params, "libraryMetadataPath")?;
+            Ok(serde_json::to_value(crate::commands::library::refetch_all_artwork(library_metadata_path).await).map_err(|e| e.to_string())?)
+        }
         "fetch_game_synopsis" => {
             let library_metadata_path: String = arg(&params, "libraryMetadataPath")?;
             let game_id: String = arg(&params, "gameId")?;
             Ok(serde_json::to_value(crate::commands::library::fetch_game_synopsis(library_metadata_path, game_id).await).map_err(|e| e.to_string())?)
+        }
+        "fetch_game_screenshots" => {
+            let library_metadata_path: String = arg(&params, "libraryMetadataPath")?;
+            let game_id: String = arg(&params, "gameId")?;
+            Ok(serde_json::to_value(crate::commands::library::fetch_game_screenshots(library_metadata_path, game_id).await).map_err(|e| e.to_string())?)
         }
         "detect_steam_install" => {
             Ok(serde_json::to_value(crate::commands::library::detect_steam_install()?).map_err(|e| e.to_string())?)

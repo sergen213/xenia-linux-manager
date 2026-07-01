@@ -16,6 +16,9 @@ export interface LegendItem {
   label: string;
   kbd: string;
   onAction: () => void;
+  /** Reserve a fixed label width (px) so a changing label (e.g. the sort mode)
+   *  doesn't reflow and shove neighbouring chips around. */
+  labelWidth?: number;
 }
 
 /**
@@ -39,7 +42,12 @@ export function LegendBar({ items }: { items: LegendItem[] }) {
           >
             {item.glyph}
           </span>
-          <span className="legend-bar__label">{item.label}</span>
+          <span
+            className="legend-bar__label"
+            style={item.labelWidth ? { width: item.labelWidth } : undefined}
+          >
+            {item.label}
+          </span>
           <span className="legend-bar__kbd">{item.kbd}</span>
         </button>
       ))}

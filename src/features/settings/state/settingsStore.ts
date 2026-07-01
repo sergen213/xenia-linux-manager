@@ -55,7 +55,7 @@ export type SettingsAction =
   | { type: "SAVE_START" }
   | { type: "SAVE_SUCCESS"; validation: SettingsValidation }
   | { type: "SAVE_ERROR"; error: string }
-  | { type: "UPDATE_FIELD"; field: string; value: string }
+  | { type: "UPDATE_FIELD"; field: string; value: string | boolean }
   | { type: "SET_VALIDATION"; validation: SettingsValidation }
   | { type: "SET_SETTINGS"; settings: AppSettings }
   | { type: "SET_RELEASE_METADATA"; metadata: ReleaseMetadata };

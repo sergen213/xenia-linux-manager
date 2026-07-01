@@ -20,6 +20,7 @@ import { useLaunchActions } from "./state/useLaunchActions";
 import { useProfileActions } from "../profiles/state/useProfileActions";
 import { mergeProfileDraft, profileDraftIsDirty } from "./model/profileDraft";
 import { useAuroraPrefs, clampZoom, ZOOM_STEP } from "../../theme/auroraPrefs";
+import { displayTitle } from "../shared/format";
 import "./LibraryPage.css";
 import "./components/aurora/LibraryAurora.css";
 
@@ -57,7 +58,7 @@ export function LibraryPage() {
     0,
     visibleCards.findIndex((c) => c.game_id === state.selectedGameId),
   );
-  const focusTitle = visibleCards[sel]?.title ?? "";
+  const focusTitle = displayTitle(visibleCards[sel]?.title ?? "");
 
   const handleSelectGame = useCallback(
     (gameId: string) => {
@@ -126,7 +127,18 @@ export function LibraryPage() {
 
   const mode = prefs.viewMode;
   const loading = state.loading && !state.browse;
-  const empty = visibleCards.length === 0;
+  // A genuinely empty library ("No games yet") is distinct from a search that
+  // filtered every game out. The latter must KEEP the grid's search box mounted:
+  // unmounting it detaches the on-screen keyboard's target, so controller typing
+  // dies after the first character that yields no matches.
+  const noLibrary = (state.browse?.cards.length ?? 0) === 0;
+  const noMatches = !noLibrary && visibleCards.length === 0;
+  const noMatchesView = (
+    <div className="aurora-library__empty">
+      <h3>No matches</h3>
+      <p>No games match “{state.search.trim()}”.</p>
+    </div>
+  );
 
   return (
     <div className="aurora-library">
@@ -134,7 +146,7 @@ export function LibraryPage() {
         <div className="aurora-library__empty">
           <h3>Loading library…</h3>
         </div>
-      ) : empty ? (
+      ) : noLibrary ? (
         <div className="aurora-library__empty">
           <h3>No games yet</h3>
           <p>Add a library source under Settings → Library to populate your collection.</p>
@@ -143,15 +155,17 @@ export function LibraryPage() {
         <>
           <GridTopBar
             total={visibleCards.length}
-            search={state.search}
             sortMode={state.sortMode}
             zoom={prefs.zoom}
-            onSearch={(search) => dispatch({ type: "SET_SEARCH", search })}
             onSort={(sortMode) => dispatch({ type: "SET_SORT", sortMode })}
             onZoom={applyZoom}
           />
-          <LibraryGridWall cards={visibleCards} sel={sel} zoom={prefs.zoom} onPick={pick} onActivate={activate} />
+          {noMatches ? noMatchesView : (
+            <LibraryGridWall cards={visibleCards} sel={sel} zoom={prefs.zoom} onPick={pick} onActivate={activate} />
+          )}
         </>
+      ) : noMatches ? (
+        noMatchesView
       ) : (
         <>
           <LibraryCarousel variant={mode === "rail" ? "rail" : "blade"} cards={visibleCards} sel={sel} cover3D={prefs.cover3D} reflections={prefs.reflections} zoom={prefs.zoom} onPick={pick} onActivate={activate} />
@@ -161,8 +175,23 @@ export function LibraryPage() {
 
       {/* Carousel views: float the control in the bottom-right info-bar strip
           (clear of the reel). Grid hosts it in its top bar instead. */}
-      {!loading && !empty && (mode === "blade" || mode === "rail") && (
+      {!loading && !noLibrary && !noMatches && (mode === "blade" || mode === "rail") && (
         <LibraryZoomControl zoom={prefs.zoom} onZoom={applyZoom} />
+      )}
+
+      {/* Off-screen search field: the target the bottom-legend Search action opens
+          the on-screen keyboard on. Persisted across every view mode (and the "no
+          matches" state) so controller typing has a stable target. Excluded from
+          spatial nav via .aurora-library__search-input in NO_NAV. */}
+      {!loading && !noLibrary && (
+        <input
+          className="aurora-library__search-input"
+          type="search"
+          aria-label="Search library"
+          tabIndex={-1}
+          value={state.search}
+          onChange={(e) => dispatch({ type: "SET_SEARCH", search: e.target.value })}
+        />
       )}
 
       <DetailsModal open={state.detailsOpen} onClose={() => dispatch({ type: "CLOSE_DETAILS" })}>

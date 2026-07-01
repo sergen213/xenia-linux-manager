@@ -305,6 +305,12 @@
   color: var(--au-heading);
 }
 
+.first-run__appearance-help {
+  margin: 0.5rem 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--au-sub);
+}
+
 .first-run__confirm-btn {
   padding: 0.625rem 2rem;
   background: var(--au-accent);

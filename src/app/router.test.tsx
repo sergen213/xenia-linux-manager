@@ -95,12 +95,12 @@ const mockProfilesCtx = {
   dispatch: vi.fn(),
 };
 
-function renderApp(initialRoute = "/") {
+function renderApp(initialRoute = "/", libraryCtx = mockLibraryCtx) {
   return render(
     <SettingsContext value={mockSettingsCtx}>
       <TasksContext value={mockTasksCtx}>
         <XeniaContext value={mockXeniaCtx}>
-          <LibraryContext value={mockLibraryCtx}>
+          <LibraryContext value={libraryCtx}>
             <SavesContext value={mockSavesCtx}>
               <ProfilesContext value={mockProfilesCtx}>
                 <MemoryRouter initialEntries={[initialRoute]}>
@@ -133,6 +133,29 @@ describe("router", () => {
     renderApp("/");
     // Empty library (no browse cards) shows the Aurora empty state.
     expect(await screen.findByText("No games yet")).toBeInTheDocument();
+  });
+
+  it("shows 'No matches' (not the empty-library state) when a filter hides every game", async () => {
+    // A search that hides every game must stay distinct from a genuinely empty
+    // library. In grid view that keeps the search input mounted; unmounting it
+    // (the old `visibleCards.length === 0` empty check) detaches the on-screen
+    // keyboard's target, so controller typing died after the first no-match key.
+    const card = {
+      game_id: "g1", title: "Halo", executable_path: "/x", source_id: null,
+      source_label: "src", kind: "game", confidence: "high", artwork_path: null,
+      manual: false, review_flag: false, duplicate_badge_count: 0, last_played_at: null,
+    };
+    renderApp("/", {
+      state: {
+        ...INITIAL_LIBRARY_STATE,
+        initialized: true,
+        browse: { cards: [card], review_inbox_count: 0, review_duplicate_count: 0, review_low_confidence_count: 0 },
+        search: "zzz",
+      },
+      dispatch: vi.fn(),
+    });
+    expect(await screen.findByText("No matches")).toBeInTheDocument();
+    expect(screen.queryByText("No games yet")).not.toBeInTheDocument();
   });
 
   it("renders Tasks page at /tasks", async () => {

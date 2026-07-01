@@ -167,9 +167,20 @@
   -webkit-app-region: drag;
   padding-right: 50px;
 }
-.aurora-gridtop__search,
 .aurora-gridtop__sort {
   -webkit-app-region: no-drag;
+}
+/* Off-screen search proxy the bottom-legend Search action opens the on-screen
+   keyboard on. Kept in the DOM (not display:none) so it stays focusable and
+   holds a caret; positioned out of view since it has no visible affordance. */
+.aurora-library__search-input {
+  position: fixed;
+  left: -9999px;
+  top: 0;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
 }
 .aurora-gridtop__title {
   font-family: var(--font-display);
@@ -186,7 +197,6 @@
 .aurora-gridtop__spacer {
   flex: 1;
 }
-.aurora-gridtop__search,
 .aurora-gridtop__sort {
   font: inherit;
   font-size: 14px;
@@ -194,20 +204,6 @@
   border-radius: 20px;
   background: var(--au-bar-bg);
   border: 1px solid var(--au-bar-border);
-  color: var(--au-text);
-}
-.aurora-gridtop__search {
-  outline: none;
-  width: 160px;
-}
-.aurora-gridtop__search:focus-visible {
-  border-color: var(--au-accent);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--au-accent) 35%, transparent);
-}
-.aurora-gridtop__search::placeholder {
-  color: var(--au-sub);
-}
-.aurora-gridtop__sort {
   color: var(--au-sub);
   cursor: pointer;
   white-space: nowrap;

@@ -41,3 +41,6 @@ agentdb.rvf.lock
 .serena/
 .sisyphus/
 .codex
+
+# Agent handoff scratch (not source)
+handoff_aurora_keyboard/

@@ -10,7 +10,8 @@ const FOCUSABLE =
 // Reel cells own their own index nav, and the legend bar is a button-hint row
 // you read (not steer onto) — its chips would otherwise trap downward focus at
 // the bottom of every screen. Keep both out of spatial focus.
-const NO_NAV = ".aurora-grid, .aurora-carousel, .legend-bar";
+const NO_NAV =
+  ".aurora-grid, .aurora-carousel, .legend-bar, .aurora-library__search-input";
 
 // Containers whose up/down nav follows DOM reading order instead of geometry, so
 // fields beside a tall side rail aren't skipped (the cross-axis penalty would
@@ -168,6 +169,64 @@ export function scrollDelta(ry: number, maxPerFrame = 22): number {
   if (a < SCROLL_DEADZONE) return 0;
   const mag = (a - SCROLL_DEADZONE) / (1 - SCROLL_DEADZONE);
   return Math.sign(ry) * mag * mag * maxPerFrame;
+}
+
+/** Map a right-stick X deflection (-1..1) to a per-frame spin in degrees for the
+ *  focused coverflow case. Same deadzone/x²-curve shape as scrollDelta. */
+export function rotateDelta(rx: number, maxPerFrame = 4): number {
+  const a = Math.abs(rx);
+  if (a < SCROLL_DEADZONE) return 0;
+  const mag = (a - SCROLL_DEADZONE) / (1 - SCROLL_DEADZONE);
+  return Math.sign(rx) * mag * mag * maxPerFrame;
+}
+
+const carouselTrack = () =>
+  document.querySelector<HTMLElement>(".aurora-carousel__track");
+
+let spinHomeRaf = 0;
+
+/** Stop any in-flight spin-home tween (a fresh grab/push takes over). */
+export function cancelSpinHome(): void {
+  if (spinHomeRaf) {
+    cancelAnimationFrame(spinHomeRaf);
+    spinHomeRaf = 0;
+  }
+}
+
+/** Spin the selected coverflow case by `deg` (gamepad right stick). Unbounded so
+ *  the case turns full 360s; writes the shared --au-spin var the selected case
+ *  reads. A no-op off the blade carousel (no track / grid+rail have no consumer). */
+export function rotateActiveCase(deg: number): void {
+  const track = carouselTrack();
+  if (!track) return;
+  cancelSpinHome();
+  const cur = parseFloat(track.style.getPropertyValue("--au-spin")) || 0;
+  track.style.setProperty("--au-spin", `${cur + deg}deg`);
+}
+
+/** Ease the selected case back to front when the user lets go (mouse up / right
+ *  stick at rest). Targets the nearest 0°-equivalent so it travels ≤180°, never
+ *  unwinding multiple turns. */
+export function spinHomeActiveCase(): void {
+  const track = carouselTrack();
+  if (!track) return;
+  cancelSpinHome();
+  const from = parseFloat(track.style.getPropertyValue("--au-spin")) || 0;
+  const target = Math.round(from / 360) * 360; // nearest "front"
+  if (from === target) {
+    track.style.setProperty("--au-spin", "0deg");
+    return;
+  }
+  const DUR = 480;
+  const ease = (t: number) => 1 - Math.pow(1 - t, 3); // easeOutCubic
+  const start = performance.now();
+  const tick = (now: number) => {
+    const t = Math.min(1, (now - start) / DUR);
+    const v = from + (target - from) * ease(t);
+    track.style.setProperty("--au-spin", t < 1 ? `${v}deg` : "0deg");
+    spinHomeRaf = t < 1 ? requestAnimationFrame(tick) : 0;
+  };
+  spinHomeRaf = requestAnimationFrame(tick);
 }
 
 function isScrollable(el: HTMLElement): boolean {

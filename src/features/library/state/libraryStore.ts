@@ -7,7 +7,7 @@ import type {
   NestedSourceWarning,
 } from "../model/libraryTypes";
 
-export type LibrarySortMode = "recent" | "title" | "source";
+export type LibrarySortMode = "recent" | "title";
 
 export interface LibraryState {
   sources: LibrarySource[];
@@ -181,9 +181,6 @@ export function selectVisibleLibraryCards(state: LibraryState): LibraryBrowseCar
   return filtered.sort((left, right) => {
     if (state.sortMode === "title") {
       return left.title.localeCompare(right.title);
-    }
-    if (state.sortMode === "source") {
-      return left.source_label.localeCompare(right.source_label);
     }
     return (right.last_played_at ?? 0) - (left.last_played_at ?? 0) || left.title.localeCompare(right.title);
   });

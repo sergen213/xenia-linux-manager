@@ -8,7 +8,7 @@ import { XeniaMaintenanceCard } from "../xenia/components/XeniaMaintenanceCard";
 import { PATH_FIELDS, getPathValue } from "./model/settingsSchema";
 import { saveSettings } from "./api/settingsClient";
 import { useLibrary } from "../library/state/libraryStore";
-import { browseLibrary, createManualGame } from "../library/api/libraryClient";
+import { browseLibrary, createManualGame, refetchAllArtwork } from "../library/api/libraryClient";
 import { LibrarySourcesPanel } from "../library/components/LibrarySourcesPanel";
 import { ManualGameForm } from "../library/components/ManualGameForm";
 import {
@@ -97,6 +97,28 @@ export function SettingsPage() {
     const created = await createManualGame(libPath, payload);
     await refreshLibrary(created.game_id);
   };
+
+  const [coverRefreshPending, setCoverRefreshPending] = useState(false);
+  const [coverRefreshStatus, setCoverRefreshStatus] = useState<string | null>(null);
+  const handleRefetchCovers = async () => {
+    if (!libPath || coverRefreshPending) return;
+    setCoverRefreshPending(true);
+    setCoverRefreshStatus("Re-downloading covers…");
+    try {
+      const results = await refetchAllArtwork(libPath);
+      const got = results.filter((r) => r.artwork_path).length;
+      const failed = results.length - got;
+      setCoverRefreshStatus(
+        `Updated ${got} cover${got === 1 ? "" : "s"}${failed > 0 ? ` · ${failed} unavailable` : ""}.`,
+      );
+      await refreshLibrary();
+    } catch {
+      setCoverRefreshStatus("Cover refresh failed. Check your connection and try again.");
+    } finally {
+      setCoverRefreshPending(false);
+    }
+  };
+
   const [cat, setCat] = useState<SettingsCategory>("profile");
   const [editOpen, setEditOpen] = useState(false);
   // ponytail: Xbox Live toggle is local-only — no Xbox Live backend yet.
@@ -287,6 +309,20 @@ export function SettingsPage() {
                 <GroupTitle>Game Info</GroupTitle>
                 <AuroraCheck label="Show game screenshots" checked={settings.show_game_screenshots} onClick={handleScreenshotsToggle} />
                 <p className="aurora-help">Download screenshots for your games from the online title database.</p>
+                <div style={{ height: 18 }} />
+                <GroupTitle>Cover Art</GroupTitle>
+                <button
+                  type="button"
+                  className="ui-button"
+                  onClick={handleRefetchCovers}
+                  disabled={!libPath || coverRefreshPending}
+                >
+                  {coverRefreshPending ? "Re-downloading…" : "Re-download all covers"}
+                </button>
+                <p className="aurora-help" aria-live="polite">
+                  {coverRefreshStatus ??
+                    "Refresh every cover from XboxUnity (full 3D-case wraps), falling back to the standard art. Replaces covers you already have."}
+                </p>
               </div>
             </div>
 

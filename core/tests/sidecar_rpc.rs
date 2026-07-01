@@ -121,6 +121,7 @@ fn known_methods_are_not_unknown() {
         "remove_game_content",
         "fetch_game_artwork",
         "fetch_all_artwork",
+        "refetch_all_artwork",
         "detect_steam_install",
         "export_game_to_steam",
         // shell

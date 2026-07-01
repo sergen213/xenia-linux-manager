@@ -9,6 +9,8 @@ export interface AppSettings {
   gamer_tag: string | null;
   /** Click behavior for game cards: "single" or "double" click to open. */
   click_behavior: "single" | "double";
+  /** Whether to fetch game screenshots from the online title database. */
+  show_game_screenshots: boolean;
   /** Extra KEY=VALUE environment variables applied when launching Xenia. */
   launch_environment?: string | null;
   /** Optional launch wrapper / prefix like `gamemoderun` or `gamescope --mangoapp --`. */

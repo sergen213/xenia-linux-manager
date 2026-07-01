@@ -1,10 +1,11 @@
-import { memo, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { memo, useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { ZoomIn, ZoomOut } from "lucide-react";
 import {
   CoverArt,
   GameCase,
   Reflection,
 } from "../../../../components/aurora/GameCase";
+import { cancelSpinHome, spinHomeActiveCase } from "../../../../components/app-shell/spatialNav";
 import type { LibraryBrowseCard } from "../../model/libraryTypes";
 import type { LibrarySortMode } from "../../state/libraryStore";
 import { ZOOM_MAX, ZOOM_MIN } from "../../../../theme/auroraPrefs";
@@ -139,6 +140,7 @@ export function LibraryCarousel({
   onActivate,
 }: CarouselProps) {
   const ref = useRef<HTMLDivElement>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
   const [areaH, setAreaH] = useState(0);
   // Latest selection for the mount-once wheel listener (no re-subscribe per move).
   const selRef = useRef(sel);
@@ -147,6 +149,42 @@ export function LibraryCarousel({
   // identity every time the selection moves), otherwise the cooldown resets to 0
   // after each step and rapid wheel events skip games again.
   const lastStepRef = useRef(0);
+
+  // Drag-to-rotate the selected 3D case (blade + cover3D only). Both this and the
+  // gamepad right stick (AppShell → rotateActiveCase) write the shared --au-spin
+  // var on the track; the selected GameCase reads it. Reset when selection moves.
+  const canSpin = variant === "blade" && cover3D;
+  const spinDragRef = useRef<{ x: number; start: number } | null>(null);
+  const [spinning, setSpinning] = useState(false);
+  useEffect(() => {
+    cancelSpinHome();
+    trackRef.current?.style.setProperty("--au-spin", "0deg");
+  }, [sel]);
+  const onSpinDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (!canSpin) return;
+    const slot = (e.target as HTMLElement).closest(".aurora-carousel__slot");
+    if (slot?.getAttribute("aria-current") !== "true") return; // only the selected case spins
+    const track = trackRef.current;
+    if (!track) return;
+    cancelSpinHome(); // grabbing mid spin-home takes over
+    spinDragRef.current = { x: e.clientX, start: parseFloat(track.style.getPropertyValue("--au-spin")) || 0 };
+    setSpinning(true);
+    track.setPointerCapture(e.pointerId);
+  };
+  const onSpinMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const d = spinDragRef.current;
+    const track = trackRef.current;
+    if (!d || !track) return;
+    // Unbounded — drag far enough to turn the case a full 360.
+    track.style.setProperty("--au-spin", `${d.start + (e.clientX - d.x) * 0.55}deg`);
+  };
+  const onSpinUp = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (!spinDragRef.current) return;
+    spinDragRef.current = null;
+    setSpinning(false);
+    trackRef.current?.releasePointerCapture(e.pointerId);
+    spinHomeActiveCase(); // let go → ease back to front
+  };
 
   // Track the live carousel height so cases never clip on a short window.
   useEffect(() => {
@@ -196,6 +234,11 @@ export function LibraryCarousel({
     <div className="aurora-carousel" ref={ref}>
       <div
         className="aurora-carousel__track"
+        ref={trackRef}
+        onPointerDown={onSpinDown}
+        onPointerMove={onSpinMove}
+        onPointerUp={onSpinUp}
+        onPointerCancel={onSpinUp}
         style={{
           height: caseH,
           transform: `translateX(${tx}px)`,
@@ -203,6 +246,7 @@ export function LibraryCarousel({
           // tx shifts every frame to keep the reel centered, so let it track
           // instantly instead of lagging behind the growth.
           transition: zooming ? "none" : undefined,
+          cursor: spinning ? "grabbing" : undefined,
         }}
       >
         {cards.map((card, i) => {
@@ -220,12 +264,12 @@ export function LibraryCarousel({
             );
           } else {
             visual = cover3D ? (
-              <GameCase card={card} w={caseW} angle={angle} selected={isSel} />
+              <GameCase card={card} w={caseW} angle={angle} selected={isSel} spin={isSel} />
             ) : (
               <FlatCover card={card} selected={isSel} w={caseW} />
             );
             refl = cover3D ? (
-              <GameCase card={card} w={caseW} angle={angle} selected={isSel} />
+              <GameCase card={card} w={caseW} angle={angle} selected={isSel} spin={isSel} />
             ) : (
               <div style={{ transformOrigin: "bottom center", transform: isSel ? "scale(1.5)" : "scale(1)" }}>
                 <CoverArt card={card} w={caseW} />
@@ -237,7 +281,13 @@ export function LibraryCarousel({
               key={card.game_id}
               type="button"
               className="aurora-carousel__slot"
-              style={{ left: i * slot, width: slot, zIndex: isSel ? 6 : 1 }}
+              style={{
+                left: i * slot,
+                width: slot,
+                zIndex: isSel ? 6 : 1,
+                cursor: canSpin && isSel ? (spinning ? "grabbing" : "grab") : undefined,
+                touchAction: canSpin && isSel ? "none" : undefined,
+              }}
               aria-label={displayTitle(card.title)}
               aria-current={isSel ? "true" : undefined}
               onClick={() => onPick(i)}
@@ -349,32 +399,27 @@ export function LibraryGridWall({ cards, sel, zoom, onPick, onActivate }: Layout
   );
 }
 
-const SORT_LABELS: Record<LibrarySortMode, string> = {
+export const SORT_LABELS: Record<LibrarySortMode, string> = {
   recent: "Recent",
   title: "Title",
-  source: "Source",
 };
-const SORT_NEXT: Record<LibrarySortMode, LibrarySortMode> = {
+export const SORT_NEXT: Record<LibrarySortMode, LibrarySortMode> = {
   recent: "title",
-  title: "source",
-  source: "recent",
+  title: "recent",
 };
 
-/** Grid-mode top bar: title + count + search + sort (replaces the blade nav). */
+/** Grid-mode top bar: title + count + sort (replaces the blade nav). Search is
+ *  driven from the bottom legend's Search action (on-screen keyboard), not a bar. */
 export function GridTopBar({
   total,
-  search,
   sortMode,
   zoom,
-  onSearch,
   onSort,
   onZoom,
 }: {
   total: number;
-  search: string;
   sortMode: LibrarySortMode;
   zoom: number;
-  onSearch: (value: string) => void;
   onSort: (mode: LibrarySortMode) => void;
   onZoom: (delta: number) => void;
 }) {
@@ -384,14 +429,6 @@ export function GridTopBar({
       <span className="aurora-gridtop__count">{total} GAMES</span>
       <div className="aurora-gridtop__spacer" />
       <LibraryZoomControl zoom={zoom} onZoom={onZoom} inline />
-      <input
-        className="aurora-gridtop__search"
-        type="search"
-        aria-label="Search library"
-        placeholder="Search"
-        value={search}
-        onChange={(e) => onSearch(e.target.value)}
-      />
       <button type="button" className="aurora-gridtop__sort" onClick={() => onSort(SORT_NEXT[sortMode])}>
         Sort: {SORT_LABELS[sortMode]} ▾
       </button>

@@ -299,6 +299,16 @@ export async function fetchAllArtwork(
   });
 }
 
+/** Re-download every cover, ignoring the cache — upgrades old front-only art
+ *  to XboxUnity's full 3D-case wraps. */
+export async function refetchAllArtwork(
+  libraryMetadataPath: string,
+): Promise<ArtworkResult[]> {
+  return invoke<ArtworkResult[]>("refetch_all_artwork", {
+    libraryMetadataPath,
+  });
+}
+
 export interface SynopsisResult {
   game_id: string;
   synopsis: string | null;
@@ -310,6 +320,22 @@ export async function fetchGameSynopsis(
   gameId: string,
 ): Promise<SynopsisResult> {
   return invoke<SynopsisResult>("fetch_game_synopsis", {
+    libraryMetadataPath,
+    gameId,
+  });
+}
+
+export interface ScreenshotsResult {
+  game_id: string;
+  screenshots: string[];
+  error: string | null;
+}
+
+export async function fetchGameScreenshots(
+  libraryMetadataPath: string,
+  gameId: string,
+): Promise<ScreenshotsResult> {
+  return invoke<ScreenshotsResult>("fetch_game_screenshots", {
     libraryMetadataPath,
     gameId,
   });

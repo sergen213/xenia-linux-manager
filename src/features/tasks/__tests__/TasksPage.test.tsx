@@ -59,6 +59,7 @@ function renderTasksPage(
         last_active_route: null,
         gamer_tag: null,
         click_behavior: "single" as const,
+        show_game_screenshots: true,
       },
     },
     dispatch: vi.fn(),

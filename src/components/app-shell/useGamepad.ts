@@ -1,13 +1,17 @@
 import { useEffect, useRef } from "react";
-import { readAxisDir, scrollDelta, type Dir } from "./spatialNav";
+import { readAxisDir, rotateDelta, scrollDelta, type Dir } from "./spatialNav";
 
 export interface GamepadHandlers {
   /** Edge-triggered controller button press (standard-mapping index). */
   onButton: (index: number) => void;
   /** Left-stick step — armed, deadzoned and rate-capped. */
   onAxisDir: (dir: Dir) => void;
-  /** Right-stick analog scroll — per-frame delta in px while the stick is held. */
+  /** Right-stick Y analog scroll — per-frame px delta while the stick is held. */
   onScroll: (dy: number) => void;
+  /** Right-stick X analog spin — per-frame degree delta while the stick is held. */
+  onRotate?: (dx: number) => void;
+  /** Fired once when the right stick X returns to rest after spinning (ease home). */
+  onRotateEnd?: () => void;
 }
 
 /**
@@ -47,9 +51,12 @@ export function useGamepad(handlers: GamepadHandlers): void {
     let axisNextFire = 0;
     const AXIS_DELAY = 350; // ms before a held stick starts auto-repeating
     const AXIS_RATE = 140; // ms between repeats (also the anti-spam floor)
-    // Right stick (axes 2/3) scrolls. Like the left stick it only arms once seen
-    // at rest, so a pad that rests/mismaps the right stick at ±1 scrolls nothing.
+    // Right stick (axes 2/3) scrolls (Y) and spins the focused 3D case (X). Like
+    // the left stick each axis only arms once seen at rest, so a pad that
+    // rests/mismaps the right stick at ±1 neither scrolls nor spins.
     let scrollArmed = false;
+    let rotateArmed = false;
+    let rotating = false;
     const mark = () => document.body.classList.add("using-controller");
     const anyConnected = () =>
       [...(navigator.getGamepads ? navigator.getGamepads() : [])].some(Boolean);
@@ -102,6 +109,21 @@ export function useGamepad(handlers: GamepadHandlers): void {
           mark();
           h.onScroll(dy);
         }
+
+        // Right stick (axis 2) spins the focused coverflow case every frame held;
+        // releasing it (back to rest) fires onRotateEnd once so the case eases home.
+        const dx = rotateDelta(g.axes[2] ?? 0);
+        if (dx === 0) {
+          rotateArmed = true; // stick at rest — safe to honor the next push
+          if (rotating) {
+            rotating = false;
+            h.onRotateEnd?.();
+          }
+        } else if (rotateArmed) {
+          mark();
+          h.onRotate?.(dx);
+          rotating = true;
+        }
       }
       raf = requestAnimationFrame(poll);
     };
@@ -119,6 +141,8 @@ export function useGamepad(handlers: GamepadHandlers): void {
       axisArmed = false;
       axisNextFire = 0;
       scrollArmed = false;
+      rotateArmed = false;
+      rotating = false;
     };
     const onDisconnect = () => {
       if (!anyConnected()) stop();

@@ -15,6 +15,7 @@ const mockSettings: AppSettings = {
   last_active_route: null,
   gamer_tag: null,
   click_behavior: "single" as const,
+  show_game_screenshots: true,
 };
 
 const mockValidation: SettingsValidation = {

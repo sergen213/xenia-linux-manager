@@ -328,6 +328,14 @@ pub async fn fetch_all_artwork(library_metadata_path: String) -> Vec<artwork::Ar
     artwork::fetch_all_missing_artwork(&library_metadata_path).await
 }
 
+/// Re-download cover art for every game, ignoring the local cache.
+///
+/// Upgrades an existing library to the XboxUnity full case wraps even where an
+/// older front-only cover is already cached.
+pub async fn refetch_all_artwork(library_metadata_path: String) -> Vec<artwork::ArtworkResult> {
+    artwork::refetch_all_artwork(&library_metadata_path).await
+}
+
 /// Fetch a game's synopsis (description) from the x360db title database.
 ///
 /// Uses the same title-ID resolution and provider as artwork; the text is
@@ -337,6 +345,17 @@ pub async fn fetch_game_synopsis(
     game_id: String,
 ) -> artwork::SynopsisResult {
     artwork::fetch_synopsis(&library_metadata_path, &game_id).await
+}
+
+/// Fetch a game's screenshot gallery from the x360db title database.
+///
+/// Images are downloaded to a per-game cache dir (same provider as artwork);
+/// returns local paths the renderer loads via `xlm-asset://`.
+pub async fn fetch_game_screenshots(
+    library_metadata_path: String,
+    game_id: String,
+) -> artwork::ScreenshotsResult {
+    artwork::fetch_screenshots(&library_metadata_path, &game_id).await
 }
 
 // ---------------------------------------------------------------------------
