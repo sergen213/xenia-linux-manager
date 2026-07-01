@@ -20,6 +20,24 @@ export interface WinControls {
   onMaximizeChange(cb: (maximized: boolean) => void): () => void;
 }
 
+/** Live auto-update state pushed from the Electron host. */
+export type UpdateStatus =
+  | { state: "idle" }
+  | { state: "checking" }
+  | { state: "available"; version: string }
+  | { state: "not-available" }
+  | { state: "downloading"; percent: number }
+  | { state: "downloaded"; version: string }
+  | { state: "error"; message: string };
+
+/** In-app auto-updater surface. Absent in the browser / themed-preview. */
+export interface UpdateApi {
+  check(): Promise<void>;
+  install(): Promise<void>;
+  getStatus(): Promise<UpdateStatus>;
+  onStatus(cb: (status: UpdateStatus) => void): () => void;
+}
+
 export interface XlmBridge {
   invoke<T = unknown>(method: string, params?: object): Promise<T>;
   /** Subscribe to a host event; returns a synchronous unsubscribe. */
@@ -27,6 +45,7 @@ export interface XlmBridge {
   convertFileSrc(path: string): string;
   openDialog(opts: object): Promise<{ canceled: boolean; filePaths: string[] }>;
   win?: WinControls;
+  updates?: UpdateApi;
 }
 
 declare global {
@@ -93,6 +112,26 @@ export async function open(
   });
   if (result.canceled || result.filePaths.length === 0) return null;
   return opts.multiple ? result.filePaths : result.filePaths[0];
+}
+
+/** Trigger a manual update check. No-op when the updater is unavailable. */
+export function checkForUpdates(): Promise<void> {
+  return window.xlm?.updates?.check() ?? Promise.resolve();
+}
+
+/** Quit and install a downloaded update. No-op when the updater is unavailable. */
+export function installUpdate(): Promise<void> {
+  return window.xlm?.updates?.install() ?? Promise.resolve();
+}
+
+/** Read the current update status (for components mounting mid-flow). */
+export function getUpdateStatus(): Promise<UpdateStatus> {
+  return window.xlm?.updates?.getStatus() ?? Promise.resolve({ state: "idle" });
+}
+
+/** Subscribe to update-status changes; returns an unsubscribe (no-op stub in preview). */
+export function onUpdateStatus(cb: (status: UpdateStatus) => void): () => void {
+  return window.xlm?.updates?.onStatus(cb) ?? (() => {});
 }
 
 /** Minimize the host window. No-op when window controls are unavailable. */

@@ -176,6 +176,41 @@
   color: var(--color-text-secondary);
 }
 
+.release-card__updater-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.875rem;
+}
+
+.release-card__updater-button {
+  align-self: flex-start;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  background: var(--color-bg-hover);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 0.375rem 0.875rem;
+  cursor: pointer;
+  transition: opacity var(--transition-fast) var(--ease-out);
+}
+
+.release-card__updater-button:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.release-card__updater-button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.release-card__updater-live {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  line-height: var(--line-height-snug);
+}
+
 .release-card__desktop-section {
   border-top: 1px solid var(--color-border);
   padding-top: 1rem;

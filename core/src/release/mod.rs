@@ -68,50 +68,34 @@ pub struct UpdaterReadiness {
     pub reason: String,
     /// Whether the running build is packaged (updater only works in AppImage).
     pub is_packaged: bool,
-    /// Whether the updater public key is configured (non-empty).
-    pub has_pubkey: bool,
-    /// Whether at least one updater endpoint is configured.
+    /// Whether the update feed endpoint is configured.
     pub has_endpoints: bool,
 }
 
 /// Check whether the updater is fully wired and should be offered to the user.
 ///
-/// The updater requires:
-/// 1. A packaged AppImage build (not dev).
-/// 2. A non-empty updater public key embedded at build time.
-/// 3. At least one configured endpoint.
-///
-/// This function reads from build-time env values and the runtime environment.
+/// electron-updater on Linux verifies downloads against the sha512 checksums in
+/// the generated `latest-linux.yml` — there is no separate maintainer signing
+/// key to configure (that was a Tauri-era requirement). So the only real
+/// prerequisite is a packaged AppImage build; the GitHub feed is baked into
+/// `app-update.yml` at build time from `build.publish`.
 pub fn check_updater_readiness() -> UpdaterReadiness {
-    let build_kind = detect_build_kind();
-    let is_packaged = build_kind == BuildKind::PackagedAppimage;
-
-    // The public key is embedded via build-time env. An empty string means the
-    // maintainer has not yet generated a signing key pair.
-    let pubkey_raw = option_env!("XLM_UPDATER_PUBKEY").unwrap_or("");
-    let has_pubkey = !pubkey_raw.is_empty();
-
-    // The update feed endpoint is owned by electron-builder's generated
-    // latest-linux.yml; the sidecar treats it as present and lets the Electron
-    // updater layer decide. A placeholder owner is treated as "configured but
-    // not yet published".
+    let is_packaged = detect_build_kind() == BuildKind::PackagedAppimage;
+    // The feed URL is compiled into app-update.yml by electron-builder, so once
+    // an AppImage exists its endpoint is always present.
     let has_endpoints = true;
-
-    let available = is_packaged && has_pubkey && has_endpoints;
+    let available = is_packaged && has_endpoints;
 
     let reason = if !is_packaged {
-        "Updater is only available in packaged AppImage builds".to_string()
-    } else if !has_pubkey {
-        "Updater signing key has not been configured yet".to_string()
+        "In-app updates are only available in packaged AppImage builds".to_string()
     } else {
-        "Updater is available and ready for update checks".to_string()
+        "In-app updates are enabled — the app checks for new releases automatically".to_string()
     };
 
     UpdaterReadiness {
         available,
         reason,
         is_packaged,
-        has_pubkey,
         has_endpoints,
     }
 }
@@ -142,7 +126,7 @@ pub fn get_release_metadata() -> ReleaseMetadata {
     let build_kind = detect_build_kind();
     let updater = check_updater_readiness();
     let release_notes_url =
-        format!("https://github.com/xenialinuxmanager/releases/tag/v{APP_VERSION}");
+        format!("https://github.com/sergen213/xenia-linux-manager/releases/tag/v{APP_VERSION}");
 
     ReleaseMetadata {
         version: APP_VERSION.to_string(),

@@ -14,6 +14,7 @@ import type { LibraryAction } from "../../features/library/state/libraryStore";
 import { activateFocused, focusFirst, moveFocus, rememberFocus, scrollActiveRegion, type Dir } from "./spatialNav";
 import { useGamepad } from "./useGamepad";
 import { OnScreenKeyboard } from "./OnScreenKeyboard";
+import { UpdateBanner } from "./UpdateBanner";
 import "./AppShell.css";
 
 type TextField = HTMLInputElement | HTMLTextAreaElement;
@@ -401,6 +402,7 @@ export function AppShell({ children }: AppShellProps) {
   return (
     <div className="app-shell">
       <AuroraField />
+      <UpdateBanner />
       <BladeNav />
       <main className="app-shell__content">{children}</main>
       <LegendBar items={legend} />

@@ -1,4 +1,6 @@
 import { useSettings } from "../state/settingsStore";
+import { useAppUpdates } from "../../../platform/useAppUpdates";
+import type { UpdateStatus } from "../../../platform/bridge";
 import "./ReleaseChannelCard.css";
 
 /**
@@ -94,14 +96,12 @@ export function ReleaseChannelCard() {
             met={metadata.updater.is_packaged}
           />
           <UpdaterCheck
-            label="Signing key configured"
-            met={metadata.updater.has_pubkey}
-          />
-          <UpdaterCheck
-            label="Update endpoints configured"
+            label="Update feed configured"
             met={metadata.updater.has_endpoints}
           />
         </div>
+
+        {metadata.updater.available && <UpdaterControls />}
       </div>
 
       {metadata.build_kind === "packaged_appimage" && (
@@ -129,6 +129,51 @@ function MetadataRow({
     <div className="release-card__row">
       <span className="release-card__row-label">{label}</span>
       <span className="release-card__row-value">{value}</span>
+    </div>
+  );
+}
+
+/** Human-readable line for the live update status. Null when nothing to say. */
+function updateStatusText(status: UpdateStatus): string | null {
+  switch (status.state) {
+    case "checking":
+      return "Checking for updates…";
+    case "available":
+      return `Downloading update v${status.version}…`;
+    case "downloading":
+      return `Downloading update… ${status.percent}%`;
+    case "downloaded":
+      return `Update v${status.version} ready — restart to apply.`;
+    case "not-available":
+      return "You're on the latest version.";
+    case "error":
+      return `Update check failed: ${status.message}`;
+    default:
+      return null;
+  }
+}
+
+/** Manual "Check for updates" button + live status, shown only in packaged builds. */
+function UpdaterControls() {
+  const { status, check } = useAppUpdates();
+  const busy = status.state === "checking" || status.state === "downloading";
+  const text = updateStatusText(status);
+  return (
+    <div className="release-card__updater-actions">
+      <button
+        type="button"
+        className="release-card__updater-button"
+        onClick={() => void check()}
+        disabled={busy}
+        data-testid="check-updates-button"
+      >
+        {busy ? "Checking…" : "Check for updates now"}
+      </button>
+      {text && (
+        <p className="release-card__updater-live" data-testid="updater-live-status">
+          {text}
+        </p>
+      )}
     </div>
   );
 }

@@ -11,6 +11,16 @@ contextBridge.exposeInMainWorld('xlm', {
   },
   openDialog: (opts: object) => ipcRenderer.invoke('xlm:openDialog', opts),
   convertFileSrc: (path: string) => `xlm-asset://local/${encodeURIComponent(path)}`,
+  updates: {
+    check: () => ipcRenderer.invoke('xlm:update:check'),
+    install: () => ipcRenderer.invoke('xlm:update:install'),
+    getStatus: () => ipcRenderer.invoke('xlm:update:getStatus'),
+    onStatus: (cb: (status: unknown) => void) => {
+      const listener = (_e: unknown, status: unknown) => cb(status)
+      ipcRenderer.on('xlm:update:status', listener)
+      return () => ipcRenderer.removeListener('xlm:update:status', listener)
+    },
+  },
   win: {
     minimize: () => ipcRenderer.invoke('xlm:win:minimize'),
     toggleMaximize: () => ipcRenderer.invoke('xlm:win:toggleMaximize'),

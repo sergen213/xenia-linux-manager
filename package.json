@@ -78,7 +78,7 @@
     "publish": [
       {
         "provider": "github",
-        "owner": "REPLACE_OWNER",
+        "owner": "sergen213",
         "repo": "xenia-linux-manager"
       }
     ]

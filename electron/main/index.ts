@@ -91,11 +91,11 @@ app.whenReady().then(async () => {
   // loading state until settings load, and pre-ready RPC writes buffer on the
   // child's stdin pipe. Creating the window now overlaps the sidecar spawn with
   // the renderer's (much longer) boot instead of serializing before it.
-  createWindow()
+  const win = createWindow()
   // Lazy-load the updater so its electron-updater subtree (semver/js-yaml/
   // fs-extra/lodash) is code-split out of the main chunk and only eval'd after
   // the window exists, not during pre-window bundle load.
-  void import('./updater').then((m) => m.initUpdater())
+  void import('./updater').then((m) => m.initUpdater(win))
   // Expand allowed roots from settings in the background; roots already default
   // to appDataDir(), so this must not gate (or hang) window creation.
   void refreshRoots()

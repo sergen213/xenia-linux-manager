@@ -34,6 +34,13 @@ vi.mock("../platform/bridge", () => ({
   listen: vi.fn(async () => () => {}),
   convertFileSrc: (path: string) => `xlm-asset://local/${encodeURIComponent(path)}`,
   open: vi.fn(async () => null),
+  windowMinimize: vi.fn(() => Promise.resolve()),
+  windowToggleMaximize: vi.fn(() => Promise.resolve()),
+  windowClose: vi.fn(() => Promise.resolve()),
+  checkForUpdates: vi.fn(() => Promise.resolve()),
+  installUpdate: vi.fn(() => Promise.resolve()),
+  getUpdateStatus: vi.fn(() => Promise.resolve({ state: "idle" })),
+  onUpdateStatus: vi.fn(() => () => {}),
 }));
 
 beforeEach(() => {

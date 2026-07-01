@@ -16,9 +16,7 @@ export interface UpdaterReadiness {
   reason: string;
   /** Whether the running build is a packaged AppImage. */
   is_packaged: boolean;
-  /** Whether the updater signing key is configured. */
-  has_pubkey: boolean;
-  /** Whether at least one updater endpoint is configured. */
+  /** Whether the update feed endpoint is configured. */
   has_endpoints: boolean;
 }
 
