@@ -23,20 +23,21 @@ Home picks up where you left off:
 
 ![Home](docs/screenshots/home.png)
 
-Every game has a details view for patches, title updates, DLC, and launch
-profiles:
+Each game opens a details view with a synopsis and screenshots, plus tabs for
+patches, extra content, launch profiles, and saves:
 
 ![Game details](docs/screenshots/game-details.png)
 
-Themes, background, effects, and the rest of the settings:
+Settings, from library sources and scanning to cover art and how the library is
+laid out:
 
 ![Settings](docs/screenshots/settings.png)
 
 ## What it does
 
-- **Library.** Point it at your game folders and it scans them, pulls cover art,
-  and lays everything out. Four ways to browse: the blade coverflow, a rail, a
-  grid wall, and a shelf.
+- **Library.** Point it at your game folders and it scans them, pulls box art
+  (full 3D-case wraps from XboxUnity), and lays everything out. Three ways to
+  browse: a blade carousel, a rail with carousel, or a grid wall.
 - **Per-game setup.** Manage patches, title updates, and DLC, and save launch
   profiles per title, so a game boots the way you want every time.
 - **Saves.** Browse and manage your game saves without digging through Xenia's
