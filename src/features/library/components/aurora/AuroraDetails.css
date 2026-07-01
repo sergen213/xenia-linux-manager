@@ -467,3 +467,119 @@
   opacity: 0.6;
   cursor: default;
 }
+
+/* ── Profiles blade ──────────────────────────────────────────────────────
+   ProfileEditorPanel ships with LibraryPage.css chrome — bordered cards on a
+   bluish fill and native checkboxes — which reads as a foreign form dropped
+   into the Aurora modal. Reskin it here to match the other blades: flat,
+   borderless, hairline-divided rows, thin section headings, and jade toggle
+   switches for booleans. Scoped under .aurora-details so the standalone
+   LibraryPage styling stays untouched. */
+.aurora-details .profile-editor {
+  gap: 20px;
+}
+
+/* Strip the boxed-card chrome off every panel the editor draws. */
+.aurora-details .profile-editor__selector,
+.aurora-details .profile-editor__category,
+.aurora-details .profile-editor__loading,
+.aurora-details .profile-editor__hint {
+  border: none;
+  background: transparent;
+  padding: 0;
+}
+
+.aurora-details .profile-editor__selector label {
+  color: var(--au-sub);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.aurora-details .profile-editor__hint,
+.aurora-details .profile-editor__loading,
+.aurora-details .profile-editor__dirty-indicator {
+  color: var(--au-sub);
+  font-size: 14px;
+}
+
+/* Category legend = thin Aurora heading, like .aurora-details__col-title. */
+.aurora-details .profile-editor__category {
+  gap: 0;
+}
+.aurora-details .profile-editor__category legend {
+  color: var(--au-group-title);
+  font-size: 20px;
+  font-weight: 300;
+  padding: 0;
+  margin-bottom: 4px;
+}
+
+/* Rows: hairline-divided like the Content blade; an override lifts into a soft
+   jade chip so it reads at a glance. */
+.aurora-details .profile-editor__field {
+  padding: 9px 2px;
+  border-bottom: 1px solid var(--au-sep);
+}
+.aurora-details .profile-editor__field label {
+  color: var(--au-text);
+}
+.aurora-details .profile-editor__field--changed {
+  border-bottom: none;
+  background: var(--au-accent-soft);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin: 4px 0;
+}
+
+/* Inputs already inherit Aurora tokens; just drop the section's stacked
+   top-margin so label | control | reset stay aligned on one row. */
+.aurora-details .profile-editor input,
+.aurora-details .profile-raw-editor input {
+  margin-top: 0;
+}
+.aurora-details .profile-editor__create input,
+.aurora-details .profile-editor__actions input {
+  flex: 1;
+  min-width: 160px;
+}
+
+/* Booleans become the same jade toggle switch used for patches, so a raw
+   checkbox never appears in the Aurora modal. */
+.aurora-details .profile-editor__field input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  justify-self: start;
+  width: 44px;
+  height: 25px;
+  padding: 0;
+  border: none;
+  border-radius: 13px;
+  background: var(--au-switch-off);
+  position: relative;
+  cursor: pointer;
+  transition: background var(--transition-fast) var(--ease-out);
+}
+.aurora-details .profile-editor__field input[type="checkbox"]::before {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  transition: left var(--transition-fast) var(--ease-out);
+}
+.aurora-details .profile-editor__field input[type="checkbox"]:checked {
+  background: var(--au-accent);
+}
+.aurora-details .profile-editor__field input[type="checkbox"]:checked::before {
+  left: 22px;
+}
+
+/* Set the save/discard bar apart with a hairline, matching Aurora dividers. */
+.aurora-details .profile-editor__save-bar {
+  border-top: 1px solid var(--au-sep);
+  padding-top: 16px;
+}

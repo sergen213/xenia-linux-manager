@@ -434,6 +434,7 @@ export function AuroraDetails(props: AuroraDetailsProps) {
 
           {blade === "profiles" && (
             <>
+              <h3 className="aurora-details__col-title">Profiles</h3>
               {props.recommendationAvailability?.status === "available" && (
                 <button
                   type="button"
