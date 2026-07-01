@@ -72,7 +72,8 @@
         "AppImage"
       ],
       "category": "Game",
-      "icon": "build/icon.png"
+      "icon": "build/icon.png",
+      "artifactName": "${name}-${version}.${ext}"
     },
     "asar": true,
     "publish": [
