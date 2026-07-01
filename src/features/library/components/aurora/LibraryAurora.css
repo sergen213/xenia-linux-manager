@@ -216,6 +216,13 @@
   top: 64px;
   bottom: 6px;
   overflow: auto;
+  /* Ease the jump when arrows/controller walk the selection past the fold, and
+     smooth wheel scrolling too. Disabled under reduced-motion below. */
+  scroll-behavior: smooth;
+  /* Headroom for scrollIntoView: without it the focused cell pins flush to the
+     scroll edge and its lift+scale "pop" overflows past the clip and gets cut
+     off (top row especially). Reserve enough for the pop on both edges. */
+  scroll-padding: 44px 0 28px;
   display: grid;
   grid-template-columns: repeat(6, 1fr);
   gap: 26px 22px;
@@ -280,6 +287,9 @@ body.using-controller .aurora-grid__cell.is-active .aurora-grid__label {
   color: var(--au-heading);
 }
 @media (prefers-reduced-motion: reduce) {
+  .aurora-grid {
+    scroll-behavior: auto;
+  }
   .aurora-grid__cover {
     transition: box-shadow 220ms ease;
   }

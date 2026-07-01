@@ -23,9 +23,12 @@ export interface LegendItem {
 
 /**
  * Bottom controller/keyboard legend. Each chip is a real button that fires its
- * action. The shell decides which items are present (game vs non-game screens).
+ * action. The shell decides which items are present (game vs non-game screens)
+ * and which token to show: `mode` picks the controller glyph OR the keyboard
+ * shortcut — never both, which overflows the row at 720p. Follows the last
+ * input device (see AppShell's inputMode).
  */
-export function LegendBar({ items }: { items: LegendItem[] }) {
+export function LegendBar({ items, mode }: { items: LegendItem[]; mode: "pad" | "key" }) {
   return (
     <div className="legend-bar" role="toolbar" aria-label="Controller actions">
       {items.map((item) => (
@@ -36,19 +39,22 @@ export function LegendBar({ items }: { items: LegendItem[] }) {
           title={item.label}
           onClick={item.onAction}
         >
-          <span
-            className="legend-bar__glyph"
-            style={{ borderColor: item.color, color: item.color }}
-          >
-            {item.glyph}
-          </span>
+          {mode === "pad" ? (
+            <span
+              className="legend-bar__glyph"
+              style={{ borderColor: item.color, color: item.color }}
+            >
+              {item.glyph}
+            </span>
+          ) : (
+            <span className="legend-bar__kbd">{item.kbd}</span>
+          )}
           <span
             className="legend-bar__label"
             style={item.labelWidth ? { width: item.labelWidth } : undefined}
           >
             {item.label}
           </span>
-          <span className="legend-bar__kbd">{item.kbd}</span>
         </button>
       ))}
     </div>

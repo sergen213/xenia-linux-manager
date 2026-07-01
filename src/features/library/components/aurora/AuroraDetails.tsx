@@ -45,6 +45,11 @@ const BLADES = [
 ] as const;
 type BladeId = (typeof BLADES)[number]["id"];
 
+/** Last blade viewed per game, so reopening Details returns to where the user
+ *  left off instead of always snapping back to Info. Module-level so it survives
+ *  the modal unmounting on close. */
+const lastBladeByGame = new Map<string, BladeId>();
+
 /** Props mirror the original GameDetailsPanel so LibraryPage's wiring is reused. */
 export interface AuroraDetailsProps {
   details: LibraryGameDetails | null;
@@ -113,7 +118,9 @@ export function AuroraDetails(props: AuroraDetailsProps) {
   const [screenshots, setScreenshots] = useState<string[]>([]);
   const [screenshotsLoading, setScreenshotsLoading] = useState(false);
   const [lightbox, setLightbox] = useState<number | null>(null);
-  const [blade, setBlade] = useState<BladeId>("info");
+  const [blade, setBlade] = useState<BladeId>(
+    () => (details?.game_id ? lastBladeByGame.get(details.game_id) ?? "info" : "info"),
+  );
   const [launchEnvValue, setLaunchEnvValue] = useState("");
   const [launchWrapperValue, setLaunchWrapperValue] = useState("");
   const [steamPending, setSteamPending] = useState(false);
@@ -146,8 +153,13 @@ export function AuroraDetails(props: AuroraDetailsProps) {
   useEffect(() => {
     setLaunchEnvValue(details?.launch_environment ?? "");
     setLaunchWrapperValue(details?.launch_wrapper ?? "");
-    setBlade("info");
+    setBlade(details?.game_id ? lastBladeByGame.get(details.game_id) ?? "info" : "info");
   }, [details?.game_id, details?.launch_environment, details?.launch_wrapper]);
+
+  // Remember the current blade per game so the next open restores it.
+  useEffect(() => {
+    if (details?.game_id) lastBladeByGame.set(details.game_id, blade);
+  }, [blade, details?.game_id]);
 
   // Synopsis + screenshots from x360db (cached in the sidecar); synopsis is the
   // same source as the Home tab, screenshots are the title's gallery images

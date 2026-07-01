@@ -153,13 +153,7 @@ export function LibraryPage() {
         </div>
       ) : mode === "grid" ? (
         <>
-          <GridTopBar
-            total={visibleCards.length}
-            sortMode={state.sortMode}
-            zoom={prefs.zoom}
-            onSort={(sortMode) => dispatch({ type: "SET_SORT", sortMode })}
-            onZoom={applyZoom}
-          />
+          <GridTopBar total={visibleCards.length} zoom={prefs.zoom} onZoom={applyZoom} />
           {noMatches ? noMatchesView : (
             <LibraryGridWall cards={visibleCards} sel={sel} zoom={prefs.zoom} onPick={pick} onActivate={activate} />
           )}

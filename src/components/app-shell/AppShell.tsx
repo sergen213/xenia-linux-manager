@@ -15,8 +15,9 @@ import { SORT_LABELS, SORT_NEXT } from "../../features/library/components/aurora
 import { activateFocused, focusFirst, moveFocus, rememberFocus, rotateActiveCase, scrollActiveRegion, spinHomeActiveCase, type Dir } from "./spatialNav";
 import { useGamepad } from "./useGamepad";
 import { OnScreenKeyboard } from "./OnScreenKeyboard";
-import { oskInsert, oskBackspace, oskMoveCaret } from "./oskEdit";
+import { oskInsert, oskBackspace, oskMoveCaret, oskCommit } from "./oskEdit";
 import { UpdateBanner } from "./UpdateBanner";
+import { windowClose } from "../../platform/bridge";
 import "./AppShell.css";
 
 type TextField = HTMLInputElement | HTMLTextAreaElement;
@@ -29,14 +30,24 @@ function asTextField(el: Element | null): TextField | null {
 
 /** Tab order for [ / ] and LB/RB cycling (matches the blade nav). */
 const TAB_ORDER = ["/home", "/", "/saves", "/settings"];
-const GRID_COLUMNS = 6;
+
+/** Live column count of the rendered grid wall. The grid's column count is
+ *  dynamic (LibraryGridWall derives it from width + zoom), so a hardcoded stride
+ *  makes up/down jump to the wrong cell — read the real value off the DOM.
+ *  Returns 1 when no grid is on screen (rail/blade views), so `grid = stride > 1`
+ *  still discriminates grid mode. */
+function gridStride(): number {
+  const el = document.querySelector<HTMLElement>(".aurora-grid");
+  if (!el) return 1;
+  const cols = getComputedStyle(el).gridTemplateColumns.split(" ").filter(Boolean).length;
+  return Math.max(1, cols);
+}
 
 interface ShellRefData {
   pathname: string;
   navigate: NavigateFunction;
   state: LibraryState;
   dispatch: (action: LibraryAction) => void;
-  gridStride: number;
   applyZoom: (delta: number) => void;
 }
 
@@ -52,6 +63,22 @@ export function AppShell({ children }: AppShellProps) {
   // The text field the on-screen keyboard is editing (controller typing), or null.
   const oskTarget = useRef<TextField | null>(null);
   const [oskOpen, setOskOpen] = useState(false);
+  // Which device drove the last input — picks the legend variant so the bottom
+  // bar shows controller glyphs OR keyboard shortcuts (not both, which overflows
+  // the row at 720p). A pad connected at mount defaults to glyphs.
+  const [inputMode, setInputMode] = useState<"pad" | "key">(() =>
+    typeof navigator !== "undefined" &&
+    navigator.getGamepads &&
+    [...navigator.getGamepads()].some(Boolean)
+      ? "pad"
+      : "key",
+  );
+  const inputModeRef = useRef(inputMode);
+  const markInput = (m: "pad" | "key") => {
+    if (inputModeRef.current === m) return;
+    inputModeRef.current = m;
+    setInputMode(m);
+  };
   const openOsk = (el: TextField) => {
     oskTarget.current = el;
     setOskOpen(true);
@@ -77,7 +104,6 @@ export function AppShell({ children }: AppShellProps) {
     navigate,
     state,
     dispatch,
-    gridStride: GRID_COLUMNS,
     applyZoom: () => {},
   });
   // Keep the latest values available to the mount-once key/gamepad listeners.
@@ -87,7 +113,6 @@ export function AppShell({ children }: AppShellProps) {
       navigate,
       state,
       dispatch,
-      gridStride: prefs.viewMode === "grid" ? GRID_COLUMNS : 1,
       applyZoom: (delta: number) =>
         setPref("zoom", clampZoom(prefs.zoom + delta * ZOOM_STEP)),
     };
@@ -177,7 +202,7 @@ export function AppShell({ children }: AppShellProps) {
     if (!cards.length) return;
     let i = cards.findIndex((c) => c.game_id === d.state.selectedGameId);
     if (i < 0) i = 0;
-    i = Math.max(0, Math.min(cards.length - 1, i + dx + dy * d.gridStride));
+    i = Math.max(0, Math.min(cards.length - 1, i + dx + dy * (dy ? gridStride() : 1)));
     d.dispatch({ type: "SELECT_GAME", gameId: cards[i].game_id });
   }
 
@@ -199,7 +224,8 @@ export function AppShell({ children }: AppShellProps) {
     }
     const d = ref.current;
     if (cardView(d) && plane.current === "reel") {
-      const grid = d.gridStride > 1;
+      const stride = gridStride();
+      const grid = stride > 1;
       const sel = Math.max(
         0,
         selectVisibleLibraryCards(d.state).findIndex(
@@ -210,7 +236,7 @@ export function AppShell({ children }: AppShellProps) {
       if (dir === "right") return moveSel(1, 0);
       if (dir === "down") return grid ? moveSel(0, 1) : undefined;
       // up: move a row in the grid, else hop up into the chrome.
-      if (grid && sel >= d.gridStride) return moveSel(0, -1);
+      if (grid && sel >= stride) return moveSel(0, -1);
       plane.current = "chrome";
       // Prefer a button (text inputs trap keyboard arrows in the typing guard).
       (
@@ -322,6 +348,14 @@ export function AppShell({ children }: AppShellProps) {
     else if (d.pathname !== "/home") d.navigate("/home");
   }
 
+  // Quit (Start/Menu button, Ctrl+Q, or the legend chip). Matches the title-bar
+  // close button — instant, no confirm. Guarded so a press behind a modal / OSK /
+  // lightbox no-ops instead of surprise-quitting; Back dismisses those first.
+  function quit() {
+    if (inputTrapped()) return;
+    void windowClose();
+  }
+
   function requestLaunch() {
     const d = ref.current;
     if (
@@ -337,14 +371,29 @@ export function AppShell({ children }: AppShellProps) {
   useEffect(() => {
     plane.current = "reel";
     if (!document.body.classList.contains("using-controller")) return;
-    const generic =
-      state.detailsOpen ||
-      !(pathname === "/" && selectVisibleLibraryCards(state).length > 0);
-    if (!generic) return;
-    const root = state.detailsOpen
-      ? document.querySelector(".aurora-modal__panel")
-      : (document.querySelector(".app-shell__content") ??
-        document.querySelector(".app-shell"));
+    if (state.detailsOpen) {
+      const panel = document.querySelector(".aurora-modal__panel");
+      // The modal focuses its own panel container on open; treat that (and no
+      // focus) as "not yet inside" so we still seed a real control. Only skip
+      // when focus already sits on an actual focusable child.
+      const active = document.activeElement;
+      const alreadyInside = !!panel && active !== panel && panel.contains(active);
+      if (panel && !alreadyInside) {
+        // Land on the left rail's active blade (Info by default, or the one this
+        // game was last left on) — not the modal's close button, which is the
+        // first focusable but the wrong place to steer from.
+        const blade =
+          panel.querySelector<HTMLElement>(".aurora-details__blade.is-active") ??
+          panel.querySelector<HTMLElement>(".aurora-details__blade");
+        if (blade) blade.focus();
+        else focusFirst(panel);
+      }
+      return;
+    }
+    if (pathname === "/" && selectVisibleLibraryCards(state).length > 0) return;
+    const root =
+      document.querySelector(".app-shell__content") ??
+      document.querySelector(".app-shell");
     if (root && !root.contains(document.activeElement)) focusFirst(root);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname, state.detailsOpen]);
@@ -359,10 +408,29 @@ export function AppShell({ children }: AppShellProps) {
     return () => window.removeEventListener("focusin", onFocusIn);
   }, []);
 
+  // Mouse use flips the legend back to keyboard shortcuts (a mouse user has no
+  // controller glyphs to read), matching how mousemove already drops the focus
+  // rings in useGamepad. markInput no-ops when already "key", so the constant
+  // mousemove stream costs nothing.
+  useEffect(() => {
+    const toKey = () => markInput("key");
+    window.addEventListener("mousemove", toKey, { passive: true });
+    window.addEventListener("mousedown", toKey, { passive: true });
+    window.addEventListener("wheel", toKey, { passive: true });
+    return () => {
+      window.removeEventListener("mousemove", toKey);
+      window.removeEventListener("mousedown", toKey);
+      window.removeEventListener("wheel", toKey);
+    };
+    // Mount-once; markInput is stable via inputModeRef/setInputMode.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // ── Keyboard ──────────────────────────────────────────────────────────
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.defaultPrevented) return; // a menu (e.g. CustomSelect) handled it
+      markInput("key"); // keyboard drives the legend to shortcut glyphs
       const t = e.target as HTMLElement | null;
       const typing =
         t &&
@@ -380,6 +448,11 @@ export function AppShell({ children }: AppShellProps) {
         else if (e.key === "ArrowRight") clickSel(".aurora-lightbox__nav--next");
         else if (e.key === "Escape") clickSel(".aurora-lightbox__close");
         e.preventDefault();
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && (e.key === "q" || e.key === "Q")) {
+        e.preventDefault();
+        quit();
         return;
       }
       switch (e.key) {
@@ -454,6 +527,7 @@ export function AppShell({ children }: AppShellProps) {
   // state via `ref`, so passing fresh closures each render is safe.
   useGamepad({
     onButton: (i) => {
+      markInput("pad"); // controller drives the legend to button glyphs
       // Lightbox open: trap the pad on the viewer. D-pad L/R flip screenshots,
       // A/B close it; everything else is swallowed so nothing behind reacts.
       if (lightboxEl()) {
@@ -477,6 +551,9 @@ export function AppShell({ children }: AppShellProps) {
           case 6: clickSel(".osk__key--symbols"); return; // LT — Symbols set
           case 7: clickSel(".osk__key--accents"); return; // RT — Accents set
           case 10: clickSel(".osk__key--caps"); return;   // L3 — Caps toggle
+          case 8:                                          // Select/Back — Done
+          case 9:                                          // Start (standard map) — Done
+          case 11: oskCommit(oskField); closeOsk(); return; // Menu/Start (this app's map) — apply + close
         }
       }
       switch (i) {
@@ -498,11 +575,19 @@ export function AppShell({ children }: AppShellProps) {
         case 7: zoomLib(1); break; // RT — zoom in
         case 10: cycleSort(); break; // L3 — cycle sort
         case 9: if (!inputTrapped()) ref.current.navigate("/settings"); break;
+        case 11: quit(); break; // Menu/Start — quit the app
       }
     },
-    onAxisDir: steer,
-    onScroll: scrollActiveRegion,
+    onAxisDir: (dir) => {
+      markInput("pad");
+      steer(dir);
+    },
+    onScroll: (dy) => {
+      markInput("pad");
+      scrollActiveRegion(dy);
+    },
     onRotate: (dx) => {
+      markInput("pad");
       // Right-stick X spins the selected coverflow case; only while the reel owns
       // input (no-op in grid/rail — rotateActiveCase finds no spinnable case).
       const d = ref.current;
@@ -520,9 +605,9 @@ export function AppShell({ children }: AppShellProps) {
   // On Library, X searches (opens the on-screen keyboard on the hidden field). The
   // chip doubles as the active-query readout; click/press it to edit or clear.
   const q = state.search.trim();
-  const searchLabel = q ? `“${q.length > 14 ? q.slice(0, 13) + "…" : q}”` : "Search";
+  const searchLabel = q ? `“${q.length > 10 ? q.slice(0, 9) + "…" : q}”` : "Search";
   const libraryHasGames = (state.browse?.cards.length ?? 0) > 0;
-  const X_SEARCH: LegendItem = { glyph: "X", color: LEGEND_COLORS.X, label: searchLabel, kbd: "/", onAction: openSearch, labelWidth: 120 };
+  const X_SEARCH: LegendItem = { glyph: "X", color: LEGEND_COLORS.X, label: searchLabel, kbd: "/", onAction: openSearch, labelWidth: 88 };
   const Y: LegendItem = { glyph: "Y", color: LEGEND_COLORS.Y, label: "Details", kbd: "I", onAction: openDetails };
   const LB: LegendItem = { glyph: "LB", color: LEGEND_COLORS.neutral, label: "Prev Tab", kbd: "[", onAction: () => cycleTab(-1) };
   const RB: LegendItem = { glyph: "RB", color: LEGEND_COLORS.neutral, label: "Next Tab", kbd: "]", onAction: () => cycleTab(1) };
@@ -531,9 +616,10 @@ export function AppShell({ children }: AppShellProps) {
   const RS: LegendItem = { glyph: "RS", color: LEGEND_COLORS.neutral, label: "Scroll", kbd: "PgDn", onAction: () => scrollMenu(1) };
   // labelWidth fits the widest "Sort: <mode>" so cycling never reflows the row.
   const SORT: LegendItem = { glyph: "L3", color: LEGEND_COLORS.neutral, label: `Sort: ${SORT_LABELS[state.sortMode]}`, kbd: "S", onAction: cycleSort, labelWidth: 82 };
+  const QUIT: LegendItem = { glyph: "☰", color: LEGEND_COLORS.neutral, label: "Quit", kbd: "Ctrl Q", onAction: quit };
   const legend = onLibrary
-    ? [A, B, libraryHasGames ? X_SEARCH : X, Y, SORT, LB, RB, LT, RT]
-    : onGame ? [A, B, X, Y, LB, RB] : [B, X, LB, RB, RS];
+    ? [A, B, libraryHasGames ? X_SEARCH : X, Y, SORT, LB, RB, LT, RT, QUIT]
+    : onGame ? [A, B, X, Y, LB, RB, QUIT] : [B, X, LB, RB, RS, QUIT];
 
   return (
     <div className="app-shell">
@@ -541,7 +627,7 @@ export function AppShell({ children }: AppShellProps) {
       <UpdateBanner />
       <BladeNav />
       <main className="app-shell__content">{children}</main>
-      <LegendBar items={legend} />
+      <LegendBar items={legend} mode={inputMode} />
       <WindowControls />
       {oskOpen && oskTarget.current && (
         <OnScreenKeyboard target={oskTarget.current} onClose={closeOsk} />

@@ -378,6 +378,14 @@ export function LibraryGridWall({ cards, sel, zoom, onPick, onActivate }: Layout
     return () => ro.disconnect();
   }, [zoom]);
 
+  // Keep the selection on screen as arrows/controller walk it past the fold —
+  // the grid scrolls itself (overflow:auto), so nothing moves without this.
+  // block:"nearest" no-ops when the cell is already visible (mouse clicks).
+  useEffect(() => {
+    const cell = ref.current?.children[sel] as HTMLElement | undefined;
+    cell?.scrollIntoView({ block: "nearest" });
+  }, [sel]);
+
   return (
     <div
       className="aurora-grid"
@@ -408,19 +416,16 @@ export const SORT_NEXT: Record<LibrarySortMode, LibrarySortMode> = {
   title: "recent",
 };
 
-/** Grid-mode top bar: title + count + sort (replaces the blade nav). Search is
- *  driven from the bottom legend's Search action (on-screen keyboard), not a bar. */
+/** Grid-mode top bar: title + count + zoom (replaces the blade nav). Sort lives
+ *  in the bottom legend (S / L3), same as the blade view — no duplicate chip up
+ *  here. Search is driven from the legend's Search action, not a bar. */
 export function GridTopBar({
   total,
-  sortMode,
   zoom,
-  onSort,
   onZoom,
 }: {
   total: number;
-  sortMode: LibrarySortMode;
   zoom: number;
-  onSort: (mode: LibrarySortMode) => void;
   onZoom: (delta: number) => void;
 }) {
   return (
@@ -429,9 +434,6 @@ export function GridTopBar({
       <span className="aurora-gridtop__count">{total} GAMES</span>
       <div className="aurora-gridtop__spacer" />
       <LibraryZoomControl zoom={zoom} onZoom={onZoom} inline />
-      <button type="button" className="aurora-gridtop__sort" onClick={() => onSort(SORT_NEXT[sortMode])}>
-        Sort: {SORT_LABELS[sortMode]} ▾
-      </button>
     </div>
   );
 }

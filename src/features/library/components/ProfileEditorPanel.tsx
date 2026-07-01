@@ -485,6 +485,19 @@ function NumberFieldInput({
     value != null && value !== "" ? String(value) : "",
   );
 
+  // Sync when the value changes from the outside (Reset / Discard) — but not when
+  // it merely echoes what we just typed (Number(text) === value), which would
+  // fight live typing and clobber intermediate input like "6." or "0.5". Not a
+  // remount: remounting swaps the DOM node, and the on-screen keyboard's cached
+  // target would then write to a detached input (dropping every char after the
+  // first).
+  useEffect(() => {
+    const current = text.trim() === "" ? null : Number(text);
+    const incoming = value == null || value === "" ? null : Number(value);
+    if (current !== incoming) setText(incoming == null ? "" : String(incoming));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+
   return (
     <input
       id={`field-${fieldKey}`}
@@ -526,7 +539,6 @@ function renderFieldInput(
     case "number":
       return (
         <NumberFieldInput
-          key={`${fieldDef.key}:${String(value ?? "")}`}
           fieldKey={fieldDef.key}
           value={value}
           onChange={onChange}

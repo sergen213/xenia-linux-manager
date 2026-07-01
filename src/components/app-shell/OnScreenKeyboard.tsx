@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { focusFirst } from "./spatialNav";
-import { oskBackspace, oskInsert, oskMoveCaret, type TextField } from "./oskEdit";
+import { oskBackspace, oskCommit, oskInsert, oskMoveCaret, type TextField } from "./oskEdit";
 import "./OnScreenKeyboard.css";
 
 // Three key sets, matching the Aurora reference. Symbols/Accents each toggle
@@ -93,17 +93,44 @@ export function OnScreenKeyboard({
     };
   }, [target]);
 
-  // Escape closes; capture + stop so AppShell's global Escape doesn't also fire.
+  // Physical keyboard support. While the OSK is up it owns text keys and routes
+  // them straight into the target field, so a real keyboard works — not just the
+  // on-screen keys. Capture + preventDefault + stopPropagation so neither the
+  // focused key's native activation (which double-typed on Enter) nor AppShell's
+  // global handler (which swallowed letters and let i/b close the modal) also
+  // fires. Arrows aren't touched — they fall through to the grid's spatial nav.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         e.stopPropagation();
         onClose();
+        return;
       }
+      if (e.ctrlKey || e.metaKey || e.altKey) return; // leave shortcuts alone
+      // Ignore keys aimed at a text field (focus is on the OSK's own buttons): a
+      // field target means our own oskCommit re-dispatched Enter into it — don't
+      // recurse, let the field's handler apply it.
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      const isTextarea = target.tagName === "TEXTAREA";
+      if (e.key === "Enter") {
+        if (isTextarea) oskInsert(target, "\n");
+        else { oskCommit(target); onClose(); } // single-line: Enter applies + closes
+      } else if (e.key === "Backspace") {
+        oskBackspace(target);
+      } else if (e.key === "Tab") {
+        // keep focus trapped in the keyboard
+      } else if (e.key.length === 1) {
+        const max = target.maxLength > 0 ? target.maxLength : null;
+        if (max === null || target.value.length < max) oskInsert(target, e.key);
+      } else {
+        return; // arrows, Home/End, F-keys… let grid nav / the shell handle them
+      }
+      e.preventDefault();
+      e.stopPropagation();
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
-  }, [onClose]);
+  }, [target, onClose]);
 
   const type = (ch: string) => {
     if (max !== null && target.value.length >= max) return; // honor the field's cap
@@ -204,7 +231,7 @@ export function OnScreenKeyboard({
               <Badge btn="RT" />
               <span className="osk__key-label">Accents</span>
             </button>
-            <button type="button" className="osk__key osk__key--rail osk__key--done" onClick={onClose}>
+            <button type="button" className="osk__key osk__key--rail osk__key--done" onClick={() => { oskCommit(target); onClose(); }}>
               <span className="osk__key-ico">▶</span>
               <span className="osk__key-label">Done</span>
             </button>
@@ -215,6 +242,7 @@ export function OnScreenKeyboard({
       <div className="osk__footer">
         <span className="osk__footer-chip"><Badge btn="A" />Select</span>
         <span className="osk__footer-chip"><Badge btn="B" />Back</span>
+        <span className="osk__footer-chip"><Badge btn="☰" />Done</span>
       </div>
     </div>
   );
