@@ -44,3 +44,10 @@ agentdb.rvf.lock
 
 # Agent handoff scratch (not source)
 handoff_aurora_keyboard/
+
+# Removed from the public repo, kept local (dev-only / not for end users)
+/DESIGN.md
+/PRODUCT.md
+/run.sh
+/.github/workflows/
+/.claude/skills/run-app/
