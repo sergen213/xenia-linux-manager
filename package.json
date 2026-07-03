@@ -3,6 +3,7 @@
   "private": true,
   "version": "0.1.3",
   "description": "Xenia Xbox 360 Emulator Manager for Linux",
+  "license": "GPL-3.0-only",
   "author": "Sergen",
   "type": "module",
   "main": "out/main/index.js",
