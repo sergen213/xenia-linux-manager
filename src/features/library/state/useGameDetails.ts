@@ -13,12 +13,15 @@ export function useGameDetails() {
   const libPath = settingsState.settings?.library_metadata_path ?? "";
   const selectedGameId = state.selectedGameId;
 
-  // Load details when the selected game changes.
+  // Load details when the selected game changes. Debounced: holding d-pad/wheel
+  // walks the selection fast, and firing an IPC fetch per step floods the
+  // sidecar and lands responses (→ re-renders) mid slide animation. Only fetch
+  // once the selection has settled.
   useEffect(() => {
     if (!libPath || !selectedGameId) return;
     let cancelled = false;
 
-    void (async () => {
+    const timer = setTimeout(async () => {
       try {
         const details = await getLibraryGameDetails(libPath, selectedGameId);
         if (cancelled) return;
@@ -28,10 +31,11 @@ export function useGameDetails() {
         const message = error instanceof Error ? error.message : "Failed to load game details";
         dispatch({ type: "SET_ERROR", error: message });
       }
-    })();
+    }, 200);
 
     return () => {
       cancelled = true;
+      clearTimeout(timer);
     };
   }, [libPath, selectedGameId, dispatch]);
 

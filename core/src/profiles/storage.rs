@@ -95,7 +95,7 @@ pub fn load_inventory(
     library_metadata_path: &str,
     game_id: &str,
 ) -> Result<ProfileInventory, String> {
-    let catalog = load_shared_catalog(library_metadata_path);
+    let catalog = load_shared_catalog(library_metadata_path)?;
     let manifest = load_manifest(library_metadata_path, game_id)?;
     let mut summaries = Vec::with_capacity(catalog.len());
 
@@ -121,11 +121,17 @@ pub fn load_inventory(
 }
 
 /// Load the shared profile catalog (all profile records).
-fn load_shared_catalog(library_metadata_path: &str) -> Vec<ProfileRecord> {
+///
+/// Missing file → empty catalog. An existing file that fails to read or parse
+/// is an error: treating it as empty would let the next save permanently erase
+/// every profile record.
+fn load_shared_catalog(library_metadata_path: &str) -> Result<Vec<ProfileRecord>, String> {
     let path = shared_catalog_path(library_metadata_path);
     match fs::read_to_string(&path) {
-        Ok(contents) => serde_json::from_str(&contents).unwrap_or_default(),
-        Err(_) => Vec::new(),
+        Ok(contents) => serde_json::from_str(&contents)
+            .map_err(|e| format!("Failed to parse profile catalog: {}", e)),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Vec::new()),
+        Err(e) => Err(format!("Failed to read profile catalog: {}", e)),
     }
 }
 
@@ -150,7 +156,7 @@ pub fn create_profile(
         return Err("Profile name cannot be empty".to_string());
     }
 
-    let mut catalog = load_shared_catalog(library_metadata_path);
+    let mut catalog = load_shared_catalog(library_metadata_path)?;
     if catalog.iter().any(|p| p.name == trimmed) {
         return Err(format!("A profile named \"{}\" already exists", trimmed));
     }
@@ -202,7 +208,7 @@ pub fn rename_profile(
         return Err("Profile name cannot be empty".to_string());
     }
 
-    let mut catalog = load_shared_catalog(library_metadata_path);
+    let mut catalog = load_shared_catalog(library_metadata_path)?;
     if catalog
         .iter()
         .any(|p| p.name == trimmed && p.id != profile_id)
@@ -229,7 +235,7 @@ pub fn delete_profile(
     game_id: &str,
     profile_id: &str,
 ) -> Result<ProfileInventory, String> {
-    let mut catalog = load_shared_catalog(library_metadata_path);
+    let mut catalog = load_shared_catalog(library_metadata_path)?;
     let original_len = catalog.len();
     catalog.retain(|p| p.id != profile_id);
 
@@ -265,7 +271,7 @@ pub fn select_active_profile(
     let mut manifest = load_manifest(library_metadata_path, game_id)?;
 
     if let Some(pid) = profile_id {
-        let catalog = load_shared_catalog(library_metadata_path);
+        let catalog = load_shared_catalog(library_metadata_path)?;
         if !catalog.iter().any(|p| p.id == pid) {
             return Err(format!("Profile not found: {}", pid));
         }
@@ -285,7 +291,7 @@ pub fn save_profile_overrides(
     profile_id: &str,
     overrides: HashMap<String, serde_json::Value>,
 ) -> Result<ProfileDocument, String> {
-    let mut catalog = load_shared_catalog(library_metadata_path);
+    let mut catalog = load_shared_catalog(library_metadata_path)?;
     if !catalog.iter().any(|p| p.id == profile_id) {
         return Err(format!("Profile not found: {}", profile_id));
     }
@@ -349,7 +355,7 @@ pub fn create_recommended_profile(
         return Err("Profile name cannot be empty".to_string());
     }
 
-    let mut catalog = load_shared_catalog(library_metadata_path);
+    let mut catalog = load_shared_catalog(library_metadata_path)?;
     if catalog.iter().any(|p| p.name == trimmed) {
         return Err(format!("A profile named \"{}\" already exists", trimmed));
     }
@@ -447,19 +453,18 @@ fn write_json_atomic<T: Serialize>(path: &Path, value: &T) -> Result<(), String>
     let contents = serde_json::to_string_pretty(value)
         .map_err(|e| format!("Failed to serialize profile metadata: {}", e))?;
 
-    // Write directly to the final path and sync.
-    // We intentionally do NOT use temp+rename because after rename the kernel
-    // page cache may still hold stale data on the old inode, causing the next
-    // read (getProfileEffectiveConfig, materialize_launch_config, Xenia startup)
-    // to miss the freshly written values.  Direct write + sync_all forces the
-    // kernel to flush data to the correct inode before we return.
+    // Write to a temp file in the same directory, sync, then rename over the
+    // target so a crash mid-write can never leave a truncated/corrupt file.
     use std::io::Write;
+    let tmp = path.with_extension("json.tmp");
     let mut file =
-        fs::File::create(path).map_err(|e| format!("Failed to create profile metadata: {}", e))?;
+        fs::File::create(&tmp).map_err(|e| format!("Failed to create profile metadata: {}", e))?;
     file.write_all(contents.as_bytes())
         .map_err(|e| format!("Failed to write profile metadata: {}", e))?;
     file.sync_all()
         .map_err(|e| format!("Failed to sync profile metadata: {}", e))?;
+    drop(file);
+    fs::rename(&tmp, path).map_err(|e| format!("Failed to replace profile metadata: {}", e))?;
 
     Ok(())
 }

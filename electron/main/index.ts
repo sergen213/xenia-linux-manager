@@ -18,6 +18,45 @@ async function refreshRoots(): Promise<void> {
   } catch { /* keep default root */ }
 }
 
+// Every match arm in core/src/rpc.rs dispatch(). Rejecting unknown methods in
+// the main process keeps a compromised renderer from probing the sidecar.
+const RPC_METHODS = new Set([
+  'ping', 'get_default_settings', 'load_settings', 'save_settings', 'validate_paths',
+  'list_game_profiles', 'create_game_profile', 'rename_game_profile', 'delete_game_profile',
+  'select_active_game_profile', 'get_profile_effective_config', 'save_profile_overrides',
+  'apply_recommended_profile', 'load_task_history', 'clear_task_history',
+  'get_release_metadata', 'get_updater_readiness', 'get_environment_diagnostics',
+  'check_patches_status', 'deploy_game_patches', 'get_game_xenia_patches',
+  'toggle_xenia_patch_entry', 'import_xenia_patch_file', 'get_export_preflight',
+  'export_save_archive', 'inspect_save_archive', 'get_import_conflict_plan',
+  'apply_save_import', 'cleanup_save_import_staging', 'list_save_backups',
+  'fetch_latest_release', 'fetch_recent_releases', 'get_install_status',
+  'check_for_update_auto', 'clear_install_failure', 'cleanup_install_artifacts',
+  'switch_active_xenia_build', 'remove_xenia_install', 'add_library_source',
+  'remove_library_source', 'get_all_catalogs', 'browse_library', 'get_library_game_details',
+  'create_manual_game', 'update_library_game_identity', 'update_preferred_xenia_build',
+  'update_game_launch_environment', 'update_game_launch_wrapper', 'get_launch_preflight',
+  'launch_library_game', 'export_game_desktop_shortcut', 'get_shortcut_locations',
+  'inspect_game_content', 'import_game_content', 'remove_game_content',
+  'fetch_game_artwork', 'fetch_all_artwork', 'refetch_all_artwork', 'fetch_game_synopsis',
+  'fetch_game_screenshots', 'detect_steam_install', 'export_game_to_steam',
+  'clear_shader_cache', 'export_log_bundle', 'list_directory', 'open_path',
+  'start_install', 'start_update', 'retry_last_operation', 'start_source_scan',
+  'scan_all_sources', 'get_library_status',
+])
+
+// Bulk network/IO methods that legitimately run past the 30s default RPC timeout.
+const LONG_RPC = new Set([
+  'fetch_all_artwork', 'refetch_all_artwork', 'fetch_game_artwork', 'fetch_game_synopsis',
+  'fetch_game_screenshots', 'import_game_content', 'inspect_game_content',
+  'scan_all_sources', 'start_source_scan', 'start_install', 'start_update',
+  'retry_last_operation', 'export_save_archive', 'apply_save_import',
+  'export_game_to_steam', 'export_log_bundle', 'fetch_latest_release',
+  'fetch_recent_releases', 'deploy_game_patches', 'import_xenia_patch_file',
+  'launch_library_game',
+])
+const LONG_RPC_TIMEOUT_MS = 10 * 60_000
+
 registerAssetScheme()
 
 function createWindow(): BrowserWindow {
@@ -67,7 +106,13 @@ app.whenReady().then(async () => {
   sidecar = new SidecarClient({ binaryPath: resolveSidecarPath(), autoRestart: !isSmoke })
   sidecar.start()
 
-  ipcMain.handle('xlm:invoke', (_e, method: string, params?: object) => sidecar.request(method, params))
+  ipcMain.handle('xlm:invoke', async (_e, method: string, params?: object) => {
+    if (!RPC_METHODS.has(method)) throw new Error(`unknown method: ${method}`)
+    const result = await sidecar.request(method, params, LONG_RPC.has(method) ? LONG_RPC_TIMEOUT_MS : undefined)
+    // Path settings feed the xlm-asset allowlist; pick up changes immediately.
+    if (method === 'save_settings') void refreshRoots()
+    return result
+  })
 
   ipcMain.handle('xlm:openDialog', (_e, opts: Electron.OpenDialogOptions) => {
     const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
@@ -97,8 +142,10 @@ app.whenReady().then(async () => {
   // the window exists, not during pre-window bundle load.
   void import('./updater').then((m) => m.initUpdater(win))
   // Expand allowed roots from settings in the background; roots already default
-  // to appDataDir(), so this must not gate (or hang) window creation.
+  // to appDataDir(), so this must not gate (or hang) window creation. Re-run on
+  // every 'ready' so a boot-time failure or sidecar restart still lands roots.
   void refreshRoots()
+  sidecar.on('ready', () => { void refreshRoots() })
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow() })
 })
 

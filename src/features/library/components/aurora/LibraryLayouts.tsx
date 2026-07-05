@@ -128,6 +128,89 @@ function useTweenedValue(target: number, ms: number): [number, boolean] {
   return [value, animating];
 }
 
+/** One carousel slot (case/poster + optional reflection). Memoized so a
+ *  selection move only re-renders the slots whose props actually change (the
+ *  old + new selection and the sides whose tilt flips) — not the whole ±8
+ *  window of layered 3D cases, five times per step (SELECT_GAME plus the async
+ *  details/profiles/saves dispatches all re-render the page mid slide
+ *  animation). Relies on the parent passing stable onPick/onActivate refs. */
+const CarouselSlot = memo(function CarouselSlot({
+  card,
+  index,
+  isSel,
+  after,
+  rail,
+  cover3D,
+  reflections,
+  caseW,
+  slot,
+  grab,
+  grabbing,
+  onPick,
+  onActivate,
+}: {
+  card: LibraryBrowseCard;
+  index: number;
+  isSel: boolean;
+  /** Slot sits after the selection (tilts the other way). */
+  after: boolean;
+  rail: boolean;
+  cover3D: boolean;
+  reflections: boolean;
+  caseW: number;
+  slot: number;
+  grab: boolean;
+  grabbing: boolean;
+  onPick: (index: number) => void;
+  onActivate: (index: number) => void;
+}) {
+  const angle = isSel ? -12 : after ? -52 : 52;
+  let visual: ReactNode;
+  let refl: ReactNode;
+  if (rail) {
+    visual = <RailCover card={card} selected={isSel} w={caseW} />;
+    // Native size, not a transform-scale — see the cover3D reflection note:
+    // a scaled child overflows the fade mask's box and gets its sides shaved.
+    refl = <CoverArt card={card} w={isSel ? Math.round(caseW * 1.12) : caseW} />;
+  } else {
+    visual = cover3D ? (
+      <GameCase card={card} w={caseW} angle={angle} selected={isSel} spin={isSel} />
+    ) : (
+      <FlatCover card={card} selected={isSel} w={caseW} />
+    );
+    refl = cover3D ? (
+      // Reflection renders the case at its NATIVE size (selected → 1.5×
+      // width, not an internal transform-scale). That keeps the layout box
+      // as wide as the visual, so the reflection's fade mask (mask-clip:
+      // border-box) lands on the front-face silhouette — full-width cover,
+      // without shaving the sides or bleeding the 3D spine/edges into it.
+      <GameCase card={card} w={isSel ? Math.round(caseW * 1.5) : caseW} angle={angle} selected={false} spin={isSel} />
+    ) : (
+      <CoverArt card={card} w={isSel ? Math.round(caseW * 1.5) : caseW} />
+    );
+  }
+  return (
+    <button
+      type="button"
+      className="aurora-carousel__slot"
+      style={{
+        left: index * slot,
+        width: slot,
+        zIndex: isSel ? 6 : 1,
+        cursor: grab ? (grabbing ? "grabbing" : "grab") : undefined,
+        touchAction: grab ? "none" : undefined,
+      }}
+      aria-label={displayTitle(card.title)}
+      aria-current={isSel ? "true" : undefined}
+      onClick={() => onPick(index)}
+      onDoubleClick={() => onActivate(index)}
+    >
+      {visual}
+      {reflections && <Reflection>{refl}</Reflection>}
+    </button>
+  );
+});
+
 /** Blade (3D coverflow) / Rail (flat filmstrip) reel. */
 export function LibraryCarousel({
   cards,
@@ -145,10 +228,17 @@ export function LibraryCarousel({
   // Latest selection for the mount-once wheel listener (no re-subscribe per move).
   const selRef = useRef(sel);
   selRef.current = sel;
-  // Cooldown timestamp must survive effect re-subscription (onPick changes
-  // identity every time the selection moves), otherwise the cooldown resets to 0
-  // after each step and rapid wheel events skip games again.
   const lastStepRef = useRef(0);
+
+  // onPick/onActivate change identity on every selection move; wrap them in
+  // refs so CarouselSlot's memo can skip unaffected slots and the wheel
+  // listener below never re-subscribes.
+  const onPickRef = useRef(onPick);
+  onPickRef.current = onPick;
+  const onActivateRef = useRef(onActivate);
+  onActivateRef.current = onActivate;
+  const pick = useCallback((i: number) => onPickRef.current(i), []);
+  const activate = useCallback((i: number) => onActivateRef.current(i), []);
 
   // Drag-to-rotate the selected 3D case (blade + cover3D only). Both this and the
   // gamepad right stick (AppShell → rotateActiveCase) write the shared --au-spin
@@ -219,11 +309,11 @@ export function LibraryCarousel({
       const dir = e.deltaY > 0 ? 1 : -1;
       const cur = selRef.current;
       const next = Math.max(0, Math.min(cards.length - 1, cur + dir));
-      if (next !== cur) onPick(next);
+      if (next !== cur) pick(next);
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
-  }, [cards.length, onPick]);
+  }, [cards.length, pick]);
 
   const rail = variant === "rail";
   const slot = Math.round(caseW * (rail ? RAIL_SLOT_RATIO : SLOT_RATIO));
@@ -252,51 +342,23 @@ export function LibraryCarousel({
         {cards.map((card, i) => {
           if (Math.abs(i - sel) > CAROUSEL_WINDOW) return null;
           const isSel = i === sel;
-          const angle = isSel ? -12 : i < sel ? 52 : -52;
-          let visual: ReactNode;
-          let refl: ReactNode;
-          if (rail) {
-            visual = <RailCover card={card} selected={isSel} w={caseW} />;
-            // Native size, not a transform-scale — see the cover3D reflection note:
-            // a scaled child overflows the fade mask's box and gets its sides shaved.
-            refl = <CoverArt card={card} w={isSel ? Math.round(caseW * 1.12) : caseW} />;
-          } else {
-            visual = cover3D ? (
-              <GameCase card={card} w={caseW} angle={angle} selected={isSel} spin={isSel} />
-            ) : (
-              <FlatCover card={card} selected={isSel} w={caseW} />
-            );
-            refl = cover3D ? (
-              // Reflection renders the case at its NATIVE size (selected → 1.5×
-              // width, not an internal transform-scale). That keeps the layout box
-              // as wide as the visual, so the reflection's fade mask (mask-clip:
-              // border-box) lands on the front-face silhouette — full-width cover,
-              // without shaving the sides or bleeding the 3D spine/edges into it.
-              <GameCase card={card} w={isSel ? Math.round(caseW * 1.5) : caseW} angle={angle} selected={false} spin={isSel} />
-            ) : (
-              <CoverArt card={card} w={isSel ? Math.round(caseW * 1.5) : caseW} />
-            );
-          }
           return (
-            <button
+            <CarouselSlot
               key={card.game_id}
-              type="button"
-              className="aurora-carousel__slot"
-              style={{
-                left: i * slot,
-                width: slot,
-                zIndex: isSel ? 6 : 1,
-                cursor: canSpin && isSel ? (spinning ? "grabbing" : "grab") : undefined,
-                touchAction: canSpin && isSel ? "none" : undefined,
-              }}
-              aria-label={displayTitle(card.title)}
-              aria-current={isSel ? "true" : undefined}
-              onClick={() => onPick(i)}
-              onDoubleClick={() => onActivate(i)}
-            >
-              {visual}
-              {reflections && <Reflection>{refl}</Reflection>}
-            </button>
+              card={card}
+              index={i}
+              isSel={isSel}
+              after={i > sel}
+              rail={rail}
+              cover3D={cover3D}
+              reflections={reflections}
+              caseW={caseW}
+              slot={slot}
+              grab={canSpin && isSel}
+              grabbing={spinning && isSel}
+              onPick={pick}
+              onActivate={activate}
+            />
           );
         })}
       </div>

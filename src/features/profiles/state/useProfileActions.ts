@@ -1,5 +1,5 @@
-import { useCallback } from "react";
-import { useProfiles } from "./profilesStore";
+import { useCallback, useRef } from "react";
+import { useProfiles, type UnsavedDialogTarget } from "./profilesStore";
 import {
   listGameProfiles,
   createGameProfile,
@@ -18,11 +18,18 @@ export function useProfileActions() {
 
   const libPath = settingsState.settings?.library_metadata_path ?? "";
 
+  // Monotonic request ids so a slow response for a previous game/profile can't
+  // overwrite the latest one (rapid d-pad selection fires these back to back).
+  const loadProfilesReq = useRef(0);
+  const loadEffectiveReq = useRef(0);
+
   const loadProfiles = useCallback(async (gameId: string) => {
     if (!libPath || !gameId) return;
 
+    const req = ++loadProfilesReq.current;
     profilesDispatch({ type: "PROFILES_LOADING" });
     const profiles = await listGameProfiles(libPath, gameId);
+    if (req !== loadProfilesReq.current) return; // stale response — a newer load won
     profilesDispatch({ type: "PROFILES_LOADED", inventory: profiles });
   }, [libPath, profilesDispatch]);
 
@@ -88,8 +95,10 @@ export function useProfileActions() {
     async (gameId: string, profileId: string) => {
       if (!libPath || !gameId) return;
 
+      const req = ++loadEffectiveReq.current;
       profilesDispatch({ type: "PROFILE_EFFECTIVE_LOADING" });
       const config = await getProfileEffectiveConfig(libPath, gameId, profileId);
+      if (req !== loadEffectiveReq.current) return; // stale response — a newer load won
       profilesDispatch({ type: "PROFILE_EFFECTIVE_LOADED", config });
     },
     [libPath, profilesDispatch]
@@ -100,9 +109,12 @@ export function useProfileActions() {
       if (!libPath || !gameId) return;
 
       profilesDispatch({ type: "APPLY_RECOMMENDATION_PENDING", pending: true });
-      const inventory = await applyRecommendedProfile(libPath, gameId);
-      profilesDispatch({ type: "PROFILES_LOADED", inventory });
-      profilesDispatch({ type: "APPLY_RECOMMENDATION_PENDING", pending: false });
+      try {
+        const inventory = await applyRecommendedProfile(libPath, gameId);
+        profilesDispatch({ type: "PROFILES_LOADED", inventory });
+      } finally {
+        profilesDispatch({ type: "APPLY_RECOMMENDATION_PENDING", pending: false });
+      }
     },
     [libPath, profilesDispatch]
   );
@@ -126,7 +138,7 @@ export function useProfileActions() {
   }, [profilesDispatch]);
 
   const showUnsavedDialog = useCallback(
-    (target: string | null) => {
+    (target: UnsavedDialogTarget | null) => {
       profilesDispatch({ type: "SHOW_UNSAVED_DIALOG", target });
     },
     [profilesDispatch]

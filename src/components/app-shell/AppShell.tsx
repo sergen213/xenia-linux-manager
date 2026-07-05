@@ -498,6 +498,9 @@ export function AppShell({ children }: AppShellProps) {
           scrollMenu(-1);
           break;
         case "Enter":
+          // confirm() clicks the focused control itself; suppress the browser's
+          // native Enter activation or every focused button fires twice.
+          e.preventDefault();
           confirm();
           break;
         case "/":

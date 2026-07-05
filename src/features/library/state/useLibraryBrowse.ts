@@ -86,13 +86,16 @@ export function useLibraryBrowse() {
           console.info("[artwork] Downloaded:", succeeded.map((r) => `${r.game_id} -> ${r.artwork_path}`));
         }
         if (anyNew) {
-          void refreshLibrary(state.selectedGameId);
+          // Refresh WITHOUT touching the selection: this resolves long after the
+          // effect ran, and re-selecting the id captured back then would yank the
+          // user's newer selection back to it.
+          void refreshLibrary();
         }
       })
       .catch((err) => {
         console.warn("[artwork] Background artwork fetch command failed:", err);
       });
-  }, [libPath, state.browse, state.selectedGameId, refreshLibrary]);
+  }, [libPath, state.browse, refreshLibrary]);
 
   // Fetch artwork for selected game if missing
   useEffect(() => {
@@ -108,7 +111,8 @@ export function useLibraryBrowse() {
       .then((result) => {
         if (result.artwork_path && !result.already_cached) {
           console.info(`[artwork] Downloaded artwork for selected game: ${result.artwork_path}`);
-          void refreshLibrary(state.selectedGameId);
+          // Same stale-selection hazard as above: refresh without re-selecting.
+          void refreshLibrary();
         }
       })
       .catch(() => {

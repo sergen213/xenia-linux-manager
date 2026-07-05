@@ -89,6 +89,19 @@ pub struct ExportResult {
     pub archive_filename: String,
     pub items_exported: usize,
     pub total_size_bytes: u64,
+    /// Manifest items that were missing on disk at zip time and were not packed.
+    #[serde(default)]
+    pub warnings: Vec<String>,
+}
+
+/// True when a manifest-supplied relative path is safe to join under a root:
+/// non-empty, not absolute, and free of `..`/`.`/prefix components. Shared by
+/// manifest validation and every join site on the import apply path.
+pub(crate) fn is_safe_archive_rel(raw: &str) -> bool {
+    !raw.is_empty()
+        && Path::new(raw)
+            .components()
+            .all(|c| matches!(c, std::path::Component::Normal(_)))
 }
 
 // ---------------------------------------------------------------------------
@@ -157,23 +170,29 @@ pub async fn create_export_archive(
     // Build zip in a blocking context since zip crate is sync.
     let manifest_clone = manifest.clone();
     let archive_path_clone = archive_path.clone();
-    tokio::task::spawn_blocking(move || write_zip_archive(&archive_path_clone, &manifest_clone))
-        .await
-        .map_err(|e| ArchiveError::CreationFailed(format!("Task join error: {e}")))?
-        .map_err(|e| ArchiveError::CreationFailed(format!("{e}")))?;
+    let missing =
+        tokio::task::spawn_blocking(move || write_zip_archive(&archive_path_clone, &manifest_clone))
+            .await
+            .map_err(|e| ArchiveError::CreationFailed(format!("Task join error: {e}")))?
+            .map_err(|e| ArchiveError::CreationFailed(format!("{e}")))?;
 
     Ok(ExportResult {
         game_id: manifest.game_id,
         game_title: manifest.game_title,
         archive_path: archive_path.to_string_lossy().to_string(),
         archive_filename: filename.to_string(),
-        items_exported: manifest.items.len(),
+        items_exported: manifest.items.len() - missing.len(),
         total_size_bytes: manifest.total_size_bytes,
+        warnings: missing
+            .into_iter()
+            .map(|p| format!("Missing at export time, not packed: {p}"))
+            .collect(),
     })
 }
 
 /// Write a zip archive synchronously using the `zip` crate.
-fn write_zip_archive(output: &Path, manifest: &ArchiveManifest) -> Result<(), String> {
+/// Returns the archive paths of manifest items missing on disk at zip time.
+fn write_zip_archive(output: &Path, manifest: &ArchiveManifest) -> Result<Vec<String>, String> {
     use zip::CompressionMethod;
     use zip::write::FileOptions;
 
@@ -192,6 +211,7 @@ fn write_zip_archive(output: &Path, manifest: &ArchiveManifest) -> Result<(), St
         .map_err(|e| format!("Failed to write manifest: {e}"))?;
 
     // Write each item.
+    let mut missing = Vec::new();
     for item in &manifest.items {
         let src = Path::new(&item.original_path);
         if src.is_dir() {
@@ -203,12 +223,16 @@ fn write_zip_archive(output: &Path, manifest: &ArchiveManifest) -> Result<(), St
                 .map_err(|e| format!("Failed to add {}: {e}", item.archive_path))?;
             std::io::Write::write_all(&mut zip, &contents)
                 .map_err(|e| format!("Failed to write {}: {e}", item.archive_path))?;
+        } else {
+            // Source vanished between preflight and export; report it instead
+            // of silently shipping an incomplete archive.
+            missing.push(item.archive_path.clone());
         }
     }
 
     zip.finish()
         .map_err(|e| format!("Failed to finalize archive: {e}"))?;
-    Ok(())
+    Ok(missing)
 }
 
 // ---------------------------------------------------------------------------
@@ -308,6 +332,17 @@ fn validate_manifest(manifest: &ArchiveManifest) -> Result<(), ArchiveError> {
         return Err(ArchiveError::InvalidManifest(
             "Manifest has no items".to_string(),
         ));
+    }
+
+    // Reject path traversal: labels and archive paths get joined under local
+    // roots during import, so absolute paths or `..` components are hostile.
+    for item in &manifest.items {
+        if !is_safe_archive_rel(&item.archive_path) || !is_safe_archive_rel(&item.label) {
+            return Err(ArchiveError::InvalidManifest(format!(
+                "Manifest item has an unsafe path: {} ({})",
+                item.archive_path, item.label
+            )));
+        }
     }
 
     Ok(())

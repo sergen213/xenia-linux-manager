@@ -6,6 +6,7 @@ import { EventEmitter } from 'events'
 export interface SidecarMessage {
   kind: 'response' | 'event'
   id?: string
+  ok?: boolean
   result?: unknown
   error?: string
   event?: string
@@ -13,7 +14,7 @@ export interface SidecarMessage {
 }
 
 export type SidecarEvent = { event: string; payload: unknown }
-type Pending = { resolve: (v: unknown) => void; reject: (e: Error) => void }
+type Pending = { resolve: (v: unknown) => void; reject: (e: Error) => void; timer: NodeJS.Timeout }
 
 export interface SidecarOptions {
   binaryPath: string
@@ -43,6 +44,9 @@ export class SidecarClient {
     this.rl = createInterface({ input: child.stdout })
     this.rl.on('line', (line) => this.onLine(line))
     child.stderr.on('data', (b) => { process.stderr.write(`[xlm-core] ${b}`) })
+    // A write racing the child's death emits EPIPE on stdin; without a listener
+    // that's an uncaught stream error that kills the whole main process.
+    child.stdin.on('error', () => { /* exit handler rejects pending requests */ })
     let exitHandled = false
     const handleExit = () => { if (exitHandled) return; exitHandled = true; this.onExit() }
     child.on('exit', handleExit)
@@ -58,6 +62,7 @@ export class SidecarClient {
       const p = this.pending.get(msg.id!)
       if (!p) return
       this.pending.delete(msg.id!)
+      clearTimeout(p.timer)
       if (msg.ok) p.resolve(msg.result!)
       else p.reject(new Error(typeof msg.error === 'string' ? msg.error : 'sidecar error'))
       return
@@ -65,7 +70,8 @@ export class SidecarClient {
     if (msg.kind === 'event') {
       if (msg.event === 'ready') {
         this.ready = true
-        this.version = msg.payload?.version ?? ''
+        this.restarts = 0 // successful recovery replenishes the auto-restart budget
+        this.version = (msg.payload as { version?: string } | undefined)?.version ?? ''
         this.readyResolvers.splice(0).forEach((r) => r({ version: this.version }))
       }
       this.emitter.emit('any', { event: msg.event!, payload: msg.payload })
@@ -75,7 +81,7 @@ export class SidecarClient {
 
   private onExit(): void {
     const err = new Error('sidecar process exited')
-    this.pending.forEach((p) => p.reject(err))
+    this.pending.forEach((p) => { clearTimeout(p.timer); p.reject(err) })
     this.pending.clear()
     this.rl?.close()
     this.rl = null
@@ -103,12 +109,19 @@ export class SidecarClient {
     })
   }
 
-  request(method: string, params: object = {}): Promise<unknown> {
+  request(method: string, params: object = {}, timeoutMs = 30_000): Promise<unknown> {
     return new Promise((resolve, reject) => {
-      if (!this.child) return reject(new Error('sidecar not running'))
+      const child = this.child
+      if (!child || child.stdin.destroyed) return reject(new Error('sidecar not running'))
       const id = randomUUID()
-      this.pending.set(id, { resolve, reject })
-      this.child.stdin.write(JSON.stringify({ id, method, params }) + '\n')
+      // A dropped response line (stray stdout, `id: null` malformed-request
+      // replies) must not hang the caller forever.
+      const timer = setTimeout(() => {
+        this.pending.delete(id)
+        reject(new Error(`sidecar request timed out: ${method}`))
+      }, timeoutMs)
+      this.pending.set(id, { resolve, reject, timer })
+      child.stdin.write(JSON.stringify({ id, method, params }) + '\n')
     })
   }
 

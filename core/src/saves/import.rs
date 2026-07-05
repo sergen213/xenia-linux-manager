@@ -304,23 +304,33 @@ pub async fn apply_import(
 
         if let Some(ref profile_root) = roots.profile_root {
             if profile_root.is_dir() {
-                let _ = storage::create_backup(
+                if let Err(e) = storage::create_backup(
                     app_data_path,
                     profile_root,
                     &format!("{}-settings", plan.game_id),
                 )
-                .await;
+                .await
+                {
+                    return Err(format!(
+                        "Backup creation failed. Import aborted to protect local data. Error: {e}"
+                    ));
+                }
             }
         }
 
         if let Some(ref patch_root) = roots.patch_root {
             if patch_root.is_dir() {
-                let _ = storage::create_backup(
+                if let Err(e) = storage::create_backup(
                     app_data_path,
                     patch_root,
                     &format!("{}-patches", plan.game_id),
                 )
-                .await;
+                .await
+                {
+                    return Err(format!(
+                        "Backup creation failed. Import aborted to protect local data. Error: {e}"
+                    ));
+                }
             }
         }
     }
@@ -345,6 +355,21 @@ pub async fn apply_import(
                 continue;
             }
             _ => {}
+        }
+
+        // The plan arrives over IPC, so re-check path safety at the write site
+        // even though inspect-time manifest validation already rejects these.
+        if !archive::is_safe_archive_rel(&item.archive_path)
+            || !archive::is_safe_archive_rel(&item.label)
+        {
+            failed_count += 1;
+            results.push(ApplyItemResult {
+                archive_path: item.archive_path.clone(),
+                label: item.label.clone(),
+                status: ApplyItemStatus::Failed,
+                detail: "Unsafe path in import plan; item rejected".to_string(),
+            });
+            continue;
         }
 
         let src = staging.join(&item.archive_path);

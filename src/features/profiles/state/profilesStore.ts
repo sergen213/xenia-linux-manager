@@ -5,6 +5,13 @@ import type {
   RecommendationAvailability,
 } from "../../library/model/profileTypes";
 
+/** What the user was switching to when the unsaved-changes dialog interrupted:
+ *  a different game (library card) or a different profile (Details dropdown).
+ *  Tagged so Save/Discard resumes the right kind of switch. */
+export type UnsavedDialogTarget =
+  | { kind: "game"; id: string }
+  | { kind: "profile"; id: string };
+
 export interface ProfilesState {
   activeGameId: string | null;
   profileInventory: ProfileInventory | null;
@@ -18,7 +25,7 @@ export interface ProfilesState {
   profileDirty: boolean;
   profileSavePending: boolean;
   unsavedDialogVisible: boolean;
-  unsavedDialogTarget: string | null;
+  unsavedDialogTarget: UnsavedDialogTarget | null;
 }
 
 export const INITIAL_PROFILES_STATE: ProfilesState = {
@@ -49,7 +56,7 @@ export type ProfilesAction =
   | { type: "SET_PROFILE_DRAFT"; draft: Record<string, unknown> }
   | { type: "SET_PROFILE_DIRTY"; dirty: boolean }
   | { type: "SET_PROFILE_SAVE_PENDING"; pending: boolean }
-  | { type: "SHOW_UNSAVED_DIALOG"; target: string | null }
+  | { type: "SHOW_UNSAVED_DIALOG"; target: UnsavedDialogTarget | null }
   | { type: "HIDE_UNSAVED_DIALOG" }
   | { type: "RESET_PROFILE_DRAFT" };
 

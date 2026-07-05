@@ -53,7 +53,14 @@ export function LibraryPage() {
     onError: (message) => dispatch({ type: "SET_ERROR", error: message }),
   });
 
-  const visibleCards = useMemo(() => selectVisibleLibraryCards(state), [state]);
+  // Deps narrowed to the fields the selector reads — depending on the whole
+  // state re-filtered + re-sorted the library on every dispatch (selection
+  // moves, pending flags, …).
+  const visibleCards = useMemo(
+    () => selectVisibleLibraryCards(state),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [state.browse, state.search, state.sortMode],
+  );
   const sel = Math.max(
     0,
     visibleCards.findIndex((c) => c.game_id === state.selectedGameId),
@@ -63,7 +70,7 @@ export function LibraryPage() {
   const handleSelectGame = useCallback(
     (gameId: string) => {
       if (profileActions.profileDirty && gameId !== state.selectedGameId) {
-        profileActions.showUnsavedDialog(gameId);
+        profileActions.showUnsavedDialog({ kind: "game", id: gameId });
         return;
       }
       dispatch({ type: "SELECT_GAME", gameId });
@@ -74,7 +81,7 @@ export function LibraryPage() {
   const handleActivateGame = useCallback(
     async (gameId: string) => {
       if (profileActions.profileDirty && gameId !== state.selectedGameId) {
-        profileActions.showUnsavedDialog(gameId);
+        profileActions.showUnsavedDialog({ kind: "game", id: gameId });
         return;
       }
       dispatch({ type: "SELECT_GAME", gameId });
@@ -82,6 +89,19 @@ export function LibraryPage() {
     },
     [profileActions, state.selectedGameId, dispatch, launchActions],
   );
+
+  // Resume whatever switch the unsaved-changes dialog interrupted (after the
+  // user picked Save or Discard): a game selection or a profile selection.
+  const resumeUnsavedTarget = async () => {
+    const target = profileActions.unsavedDialogTarget;
+    if (!target) return;
+    if (target.kind === "game") {
+      dispatch({ type: "SELECT_GAME", gameId: target.id });
+    } else if (state.selectedGameId) {
+      await profileActions.selectProfile(state.selectedGameId, target.id);
+      profileActions.resetProfileDraft();
+    }
+  };
 
   // Click a card: center it; re-click the centered card opens Details.
   const pick = useCallback(
@@ -118,7 +138,11 @@ export function LibraryPage() {
 
   useEffect(() => {
     setActiveGame(state.selectedGameId);
-    if (state.selectedGameId) void loadProfiles(state.selectedGameId);
+    const gameId = state.selectedGameId;
+    if (!gameId) return;
+    // Debounced like useGameDetails: no profile IPC per rapid selection step.
+    const timer = setTimeout(() => void loadProfiles(gameId), 200);
+    return () => clearTimeout(timer);
   }, [state.selectedGameId, setActiveGame, loadProfiles]);
 
   useEffect(() => {
@@ -273,7 +297,7 @@ export function LibraryPage() {
           onProfileSelect={async (profileId) => {
             if (!profileId) return;
             if (profileActions.profileDirty) {
-              profileActions.showUnsavedDialog(profileId);
+              profileActions.showUnsavedDialog({ kind: "profile", id: profileId });
               return;
             }
             if (!state.selectedGameId) return;
@@ -297,16 +321,12 @@ export function LibraryPage() {
               ),
             );
             profileActions.hideUnsavedDialog();
-            if (profileActions.unsavedDialogTarget !== null) {
-              dispatch({ type: "SELECT_GAME", gameId: profileActions.unsavedDialogTarget });
-            }
+            await resumeUnsavedTarget();
           }}
-          onUnsavedDialogDiscard={() => {
+          onUnsavedDialogDiscard={async () => {
             profileActions.resetProfileDraft();
             profileActions.hideUnsavedDialog();
-            if (profileActions.unsavedDialogTarget !== null) {
-              dispatch({ type: "SELECT_GAME", gameId: profileActions.unsavedDialogTarget });
-            }
+            await resumeUnsavedTarget();
           }}
           onUnsavedDialogCancel={() => profileActions.hideUnsavedDialog()}
           saveQuickActionsOpen={saveExportActions.saveQuickActionsOpen}

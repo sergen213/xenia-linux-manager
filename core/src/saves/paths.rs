@@ -271,9 +271,14 @@ fn sanitize_filename(name: &str) -> String {
     }
     result = result.trim().replace(' ', "-");
 
-    // Truncate to reasonable length.
+    // Truncate to a reasonable length, on a char boundary so multibyte
+    // titles (e.g. CJK) can't panic String::truncate.
     if result.len() > 60 {
-        result.truncate(60);
+        let mut end = 60;
+        while !result.is_char_boundary(end) {
+            end -= 1;
+        }
+        result.truncate(end);
     }
 
     if result.is_empty() {

@@ -58,6 +58,9 @@ struct ShortcutEntry {
 enum VdfValue {
     Str(String),
     U32(u32),
+    /// Raw bytes of a sub-map's contents (e.g. "tags"), including the
+    /// terminating 0x08, preserved verbatim so rewrites can't lose them.
+    Map(Vec<u8>),
 }
 
 // ---------------------------------------------------------------------------
@@ -224,15 +227,13 @@ fn parse_shortcuts_vdf(data: &[u8]) -> Result<Vec<ShortcutEntry>, String> {
                     fields.push((key, VdfValue::U32(val)));
                 }
                 VDF_MAP_START => {
-                    // Sub-map (e.g. "tags"). We skip the content but preserve it
-                    // by reading through to its end marker.
+                    // Sub-map (e.g. "tags", i.e. the user's Steam collections).
+                    // Preserve the raw bytes verbatim so the whole-file rewrite
+                    // on export round-trips existing entries losslessly.
                     let key = read_null_terminated_string(data, &mut pos)?;
-                    // For now, flatten sub-maps to an empty string marker so we
-                    // know where they were. A full round-trip would store the raw
-                    // bytes; for our purpose skipping is acceptable because we
-                    // only _add_ entries and never modify existing ones.
+                    let content_start = pos;
                     skip_vdf_map(data, &mut pos)?;
-                    fields.push((key, VdfValue::Str("__submap__".to_string())));
+                    fields.push((key, VdfValue::Map(data[content_start..pos].to_vec())));
                 }
                 VDF_MAP_END => {
                     break;
@@ -302,21 +303,20 @@ fn serialize_shortcuts_vdf(entries: &[ShortcutEntry]) -> Vec<u8> {
         for (key, value) in &entry.fields {
             match value {
                 VdfValue::Str(s) => {
-                    if s == "__submap__" {
-                        // Write an empty sub-map
-                        buf.push(VDF_MAP_START);
-                        write_null_str(&mut buf, key);
-                        buf.push(VDF_MAP_END);
-                    } else {
-                        buf.push(VDF_STR);
-                        write_null_str(&mut buf, key);
-                        write_null_str(&mut buf, s);
-                    }
+                    buf.push(VDF_STR);
+                    write_null_str(&mut buf, key);
+                    write_null_str(&mut buf, s);
                 }
                 VdfValue::U32(v) => {
                     buf.push(VDF_U32);
                     write_null_str(&mut buf, key);
                     buf.extend_from_slice(&v.to_le_bytes());
+                }
+                VdfValue::Map(raw) => {
+                    // Raw content already includes the terminating 0x08.
+                    buf.push(VDF_MAP_START);
+                    write_null_str(&mut buf, key);
+                    buf.extend_from_slice(raw);
                 }
             }
         }
@@ -373,7 +373,8 @@ fn build_shortcut_entry(
             ("DevkitOverrideAppID".to_string(), VdfValue::U32(0)),
             ("LastPlayTime".to_string(), VdfValue::U32(0)),
             ("FlatpakAppID".to_string(), VdfValue::Str(String::new())),
-            ("tags".to_string(), VdfValue::Str("__submap__".to_string())),
+            // Empty sub-map: just the terminating 0x08.
+            ("tags".to_string(), VdfValue::Map(vec![VDF_MAP_END])),
         ],
     }
 }
@@ -536,8 +537,11 @@ pub fn export_game_to_steam(
     fs::create_dir_all(shortcuts_path.parent().unwrap())
         .map_err(|e| format!("Failed to create shortcuts dir: {e}"))?;
     let vdf_data = serialize_shortcuts_vdf(&entries);
-    fs::write(&shortcuts_path, &vdf_data)
-        .map_err(|e| format!("Failed to write shortcuts.vdf: {e}"))?;
+    // Atomic write: never leave Steam's live config half-written.
+    let tmp = shortcuts_path.with_extension("vdf.tmp");
+    fs::write(&tmp, &vdf_data).map_err(|e| format!("Failed to write shortcuts.vdf: {e}"))?;
+    fs::rename(&tmp, &shortcuts_path)
+        .map_err(|e| format!("Failed to replace shortcuts.vdf: {e}"))?;
 
     // Copy artwork to grid
     let artwork_copied = copy_grid_artwork(&grid_dir, app_id, details.artwork_path.as_deref())?;
@@ -729,6 +733,29 @@ mod tests {
             &[VDF_MAP_END, VDF_MAP_END, VDF_MAP_END],
             "VDF must end with three 0x08 terminators: entry, shortcuts, root"
         );
+    }
+
+    #[test]
+    fn vdf_round_trip_preserves_submap_contents() {
+        // An entry whose "tags" sub-map has content (a user collection) must
+        // survive a parse → serialize cycle byte-for-byte.
+        let mut tags_raw = Vec::new();
+        tags_raw.push(VDF_STR);
+        write_null_str(&mut tags_raw, "0");
+        write_null_str(&mut tags_raw, "favorite");
+        tags_raw.push(VDF_MAP_END);
+
+        let entry = ShortcutEntry {
+            index: 0,
+            fields: vec![
+                ("AppName".to_string(), VdfValue::Str("Tagged Game".into())),
+                ("tags".to_string(), VdfValue::Map(tags_raw)),
+            ],
+        };
+        let data = serialize_shortcuts_vdf(&[entry]);
+        let reparsed = parse_shortcuts_vdf(&data).unwrap();
+        let redata = serialize_shortcuts_vdf(&reparsed);
+        assert_eq!(data, redata, "sub-map contents were lost in round-trip");
     }
 
     #[test]

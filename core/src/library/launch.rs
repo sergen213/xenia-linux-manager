@@ -204,11 +204,15 @@ pub fn launch_game(
     std::thread::spawn(move || watch_child_exit(&sink, exited_game_id, pid, child));
 
     let started_at = now_millis();
-    let _ = identity::record_launch_started(
+    // The game is already running; a bookkeeping failure must not turn the
+    // launch into a reported error. Log and continue.
+    if let Err(e) = identity::record_launch_started(
         library_metadata_path,
         game_id,
         &plan.xenia_executable_path,
-    )?;
+    ) {
+        eprintln!("[launch] failed to record launch start for {game_id}: {e}");
+    }
     Ok(LaunchResult {
         game_id: game_id.to_string(),
         started_at,
