@@ -107,8 +107,6 @@ Electron shell finds the sidecar, is in [electron/README.md](electron/README.md)
 
 - [electron/README.md](electron/README.md) — Electron host, dev and packaging notes.
 - [docs/release/appimage-verification-checklist.md](docs/release/appimage-verification-checklist.md) — release checklist for AppImage builds.
-- [docs/specs/2026-06-17-native-titlebar-design.md](docs/specs/2026-06-17-native-titlebar-design.md) — native title bar design.
-- [docs/plans/2026-06-17-native-titlebar.md](docs/plans/2026-06-17-native-titlebar.md) — native title bar implementation plan.
 
 ## Contributing
 
