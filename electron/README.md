@@ -23,7 +23,7 @@ packaged builds resolve it from `<resources>/xlm-core` (see
 npm run dev                # electron-vite dev — window against the Vite renderer dev server
 ```
 
-> Env caveat: on this machine `npm install` does not extract the Electron
+> Env caveat: on some systems `npm install` does not extract the Electron
 > binary. If `electron-vite dev`/`preview` reports `Error: Electron uninstall`,
 > recover with:
 > ```bash
@@ -44,10 +44,10 @@ electron-builder config lives in `package.json` `build`:
 - `xlm-core` is bundled via `extraResources` (outside the asar, so it stays a
   real spawnable file) and lands at `<resources>/xlm-core`.
 - Output AppImage goes to `release/`. The app icon is `build/icon.png` (512×512).
-- `publish` is a GitHub-provider scaffold with a placeholder `owner`; the
-  auto-updater (`electron/main/updater.ts`) is graceful-inert until a real feed
-  exists. electron-builder generates the `latest-linux.yml` update manifest
-  itself — there is no separate manifest script.
+- `publish` uses the GitHub provider (`sergen213/xenia-linux-manager`); the
+  auto-updater (`electron/main/updater.ts`) reads that release feed.
+  electron-builder generates the `latest-linux.yml` update manifest itself —
+  there is no separate manifest script.
 
 Verify a built AppImage with `bash scripts/verify-appimage-release.sh` and the
 release gate at `docs/release/appimage-verification-checklist.md`.
